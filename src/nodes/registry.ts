@@ -17,6 +17,9 @@ import { featuresGridNode } from "./draw/featuresGrid";
 import { feedbackNode } from "./fx/feedback";
 import { blendNode } from "./fx/blend";
 import { colorNode } from "./fx/color";
+import { pixelSortNode } from "./fx/pixelSort";
+import { sliceShiftNode } from "./fx/sliceShift";
+import { blockScatterNode } from "./fx/blockScatter";
 import { outputNode } from "./output/output";
 
 export const NODE_LIST: NodeDefinition<never>[] = [
@@ -38,6 +41,9 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   feedbackNode,
   blendNode,
   colorNode,
+  pixelSortNode,
+  sliceShiftNode,
+  blockScatterNode,
   outputNode,
 ];
 
