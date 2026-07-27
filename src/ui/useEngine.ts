@@ -31,7 +31,12 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const { width, height, nodes, edges } = useGraphStore.getState();
     engine.setResolution(width, height);
     engine.setGraph(
-      nodes.map((node) => ({ id: node.id, type: node.data.defType, params: node.data.params })),
+      nodes.map((node) => ({
+        id: node.id,
+        type: node.data.defType,
+        params: node.data.params,
+        bypass: node.data.bypass === true,
+      })),
       edges.map((edge) => ({
         id: edge.id,
         source: edge.source,
@@ -69,6 +74,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
           id: node.id,
           type: node.data.defType,
           params: node.data.params,
+          bypass: node.data.bypass === true,
         })),
         state.edges.map((edge) => ({
           id: edge.id,

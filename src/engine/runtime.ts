@@ -14,6 +14,25 @@ import type {
   PortValue,
 } from "./types";
 
+const TEXTURE_BYPASS_PREF = new Set(["src", "bg", "base"]);
+
+/** Map each output to a same-typed input (same id → preferred names → first match). */
+function bypassOutputs(
+  definition: NodeDefinition<never>,
+  inputs: Record<string, PortValue>,
+): Record<string, PortValue> {
+  const result: Record<string, PortValue> = {};
+  for (const out of definition.outputs) {
+    const candidates = definition.inputs.filter((port) => port.type === out.type);
+    const pick =
+      candidates.find((port) => port.id === out.id) ??
+      candidates.find((port) => TEXTURE_BYPASS_PREF.has(port.id)) ??
+      candidates[0];
+    result[out.id] = pick ? (inputs[pick.id] ?? null) : null;
+  }
+  return result;
+}
+
 export interface EngineStats {
   fps: number;
   frameMs: number;
@@ -225,13 +244,15 @@ export class Engine {
       }
 
       try {
-        const result = slot.definition.evaluate({
-          ctx,
-          nodeId: id,
-          inputs,
-          params: node.params,
-          runtime: slot.runtime,
-        });
+        const result = node.bypass
+          ? bypassOutputs(slot.definition, inputs)
+          : slot.definition.evaluate({
+              ctx,
+              nodeId: id,
+              inputs,
+              params: node.params,
+              runtime: slot.runtime,
+            });
         this.outputs.set(id, result);
 
         if (slot.definition.category === "output" && isRenderTarget(result.out)) {

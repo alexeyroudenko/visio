@@ -4,6 +4,8 @@ export interface GraphNode {
   id: string;
   type: string;
   params: Record<string, unknown>;
+  /** Skip evaluate and forward matching inputs to outputs. */
+  bypass?: boolean;
 }
 
 export interface GraphEdge {
