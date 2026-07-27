@@ -1,0 +1,101 @@
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  ReactFlow,
+  ReactFlowProvider,
+  type NodeMouseHandler,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PatchNode } from "./ui/PatchNode";
+import { Inspector } from "./ui/Inspector";
+import { Toolbar } from "./ui/Toolbar";
+import { useEngine } from "./ui/useEngine";
+import { useRecorder } from "./ui/useRecorder";
+import { useOutputWindow } from "./ui/useOutputWindow";
+import { NODE_DEFS } from "./nodes/registry";
+import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
+
+const SIDE_WIDTH_KEY = "visio.sideWidth";
+const SIDE_MIN = 260;
+const SIDE_MAX = 900;
+
+export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { error, stats } = useEngine(canvasRef);
+  const { recording, toggle } = useRecorder(() => canvasRef.current);
+  const outputWindow = useOutputWindow(() => canvasRef.current);
+
+  const nodes = useGraphStore((state) => state.nodes);
+  const edges = useGraphStore((state) => state.edges);
+  const onNodesChange = useGraphStore((state) => state.onNodesChange);
+  const onEdgesChange = useGraphStore((state) => state.onEdgesChange);
+  const onConnect = useGraphStore((state) => state.onConnect);
+  const select = useGraphStore((state) => state.select);
+  const width = useGraphStore((state) => state.width);
+  const height = useGraphStore((state) => state.height);
+
+  const nodeTypes = useMemo(() => ({ patch: PatchNode }), []);
+
+  const onNodeClick = useCallback<NodeMouseHandler<PatchNodeType>>(
+    (_event, node) => select(node.id),
+    [select],
+  );
+
+  // Double-clicking an Output node pops out a window for a projector or second screen.
+  const onNodeDoubleClick = useCallback<NodeMouseHandler<PatchNodeType>>(
+    (_event, node) => {
+      if (NODE_DEFS[node.data.defType]?.category === "output") outputWindow.open();
+    },
+    [outputWindow],
+  );
+
+  return (
+    <div className="app">
+      <Toolbar stats={stats} recording={recording} onToggleRecord={toggle} />
+
+      <main className="app__body">
+        <section className="editor">
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              onNodeDoubleClick={onNodeDoubleClick}
+              onPaneClick={() => select(null)}
+              fitView
+              proOptions={{ hideAttribution: false }}
+              defaultEdgeOptions={{ animated: true, style: { stroke: "#6ea8fe", strokeWidth: 2 } }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
+              <Controls />
+            </ReactFlow>
+          </ReactFlowProvider>
+        </section>
+
+        <section className="side">
+          <div className="preview">
+            <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
+              <canvas ref={canvasRef} />
+              {error ? <div className="preview__error">{error}</div> : null}
+            </div>
+            <div className="preview__bar">
+              <span className="preview__caption">
+                выход · {width}×{height}
+              </span>
+              <button type="button" className="button button--small" onClick={outputWindow.open}>
+                Окно вывода
+              </button>
+            </div>
+          </div>
+          <Inspector />
+        </section>
+      </main>
+    </div>
+  );
+}
