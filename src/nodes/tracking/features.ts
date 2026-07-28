@@ -18,15 +18,15 @@ export const featuresNode = defineNode<FeaturesState>({
   type: "tracking.features",
   label: "Corners",
   category: "tracking",
-  description: "Углы Shi–Tomasi по кадру: облако точек, реагирующее на фактуру.",
+  description: "Shi–Tomasi corners on the frame: a point cloud that reacts to texture.",
   inputs: [{ id: "frame", label: "frame", type: "frame" }],
   outputs: [{ id: "out", label: "points", type: "points" }],
   params: [
-    { key: "downscale", label: "Даунскейл", type: "range", min: 2, max: 8, step: 1, default: 4 },
-    { key: "block", label: "Окно", type: "range", min: 3, max: 15, step: 2, default: 7 },
-    { key: "maxCorners", label: "Точек макс.", type: "range", min: 10, max: 600, step: 10, default: 200 },
-    { key: "quality", label: "Качество", type: "range", min: 0.01, max: 0.5, step: 0.01, default: 0.08 },
-    { key: "minDistance", label: "Мин. дистанция", type: "range", min: 2, max: 60, step: 1, default: 12 },
+    { key: "downscale", label: "Downscale", type: "range", min: 2, max: 8, step: 1, default: 4 },
+    { key: "block", label: "Window", type: "range", min: 3, max: 15, step: 2, default: 7 },
+    { key: "maxCorners", label: "Max points", type: "range", min: 10, max: 600, step: 10, default: 200 },
+    { key: "quality", label: "Quality", type: "range", min: 0.01, max: 0.5, step: 0.01, default: 0.08 },
+    { key: "minDistance", label: "Min distance", type: "range", min: 2, max: 60, step: 1, default: 12 },
   ],
   createState() {
     return { frame: new GrayFrame(), lastFrameId: -1, lastResult: EMPTY };
@@ -35,7 +35,7 @@ export const featuresNode = defineNode<FeaturesState>({
     const state = runtime.state;
     const frame = inputs.frame as FrameValue | null;
     if (!frame) {
-      ctx.report(nodeId, "idle", "подключи frame от источника");
+      ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
     }
     if (frame.frameId === state.lastFrameId) return { out: state.lastResult };

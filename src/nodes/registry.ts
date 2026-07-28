@@ -60,11 +60,11 @@ export function defaultParams(type: string): Record<string, unknown> {
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  source: "Источники",
-  tracking: "Трекинг",
-  draw: "Отрисовка",
-  fx: "Эффекты",
-  output: "Вывод",
+  source: "Sources",
+  tracking: "Tracking",
+  draw: "Draw",
+  fx: "FX",
+  output: "Output",
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {

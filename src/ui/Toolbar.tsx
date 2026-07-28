@@ -16,10 +16,14 @@ export function Toolbar({
   stats,
   recording,
   onToggleRecord,
+  paused,
+  onTogglePause,
 }: {
   stats: EngineStats;
   recording: boolean;
   onToggleRecord: () => void;
+  paused: boolean;
+  onTogglePause: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -36,13 +40,13 @@ export function Toolbar({
     <header className="toolbar">
       <div className="toolbar__brand">
         <strong>visio</strong>
-        <span>нодовая среда · трекинг → графика</span>
+        <span>node environment · tracking → graphics</span>
       </div>
 
       <div className="toolbar__actions">
         <div className="menu">
           <button type="button" className="button" onClick={() => setMenuOpen((open) => !open)}>
-            + Нода
+            + Node
           </button>
           {menuOpen ? (
             <div className="menu__panel" onMouseLeave={() => setMenuOpen(false)}>
@@ -92,17 +96,17 @@ export function Toolbar({
           ))}
         </select>
 
-        <button type="button" className="button" onClick={exportPatch} title="Скачать патч JSON">
-          Экспорт
+        <button type="button" className="button" onClick={exportPatch} title="Download patch JSON">
+          Export
         </button>
 
         <button
           type="button"
           className="button"
           onClick={() => fileRef.current?.click()}
-          title="Загрузить патч из файла"
+          title="Load patch from file"
         >
-          Импорт
+          Import
         </button>
         <input
           ref={fileRef}
@@ -122,28 +126,44 @@ export function Toolbar({
           type="button"
           className="button"
           onClick={() => {
-            if (window.confirm("Сбросить патч к стартовому? Текущий будет потерян.")) {
+            if (window.confirm("Reset patch to the starter? Current patch will be lost.")) {
               resetPatch();
             }
           }}
-          title="Вернуть стартовый патч"
+          title="Restore starter patch"
         >
-          Сброс
+          Reset
+        </button>
+
+        <button
+          type="button"
+          className={`button ${paused ? "button--paused" : ""}`}
+          onClick={onTogglePause}
+          title={
+            paused
+              ? "Play — resume the graph and sources"
+              : "Pause — stop rAF, camera, and video"
+          }
+        >
+          {paused ? "► Play" : "❚❚ Pause"}
         </button>
 
         <button
           type="button"
           className={`button ${recording ? "button--recording" : ""}`}
           onClick={onToggleRecord}
+          disabled={paused}
         >
-          {recording ? "■ Стоп" : "● Запись"}
+          {recording ? "■ Stop" : "● Record"}
         </button>
 
         <span className="toolbar__stats">
           {importError ? (
             <em className="toolbar__error">{importError}</em>
+          ) : paused ? (
+            "paused · resources stopped"
           ) : (
-            `${stats.fps} fps · ${stats.frameMs} ms · ${stats.nodeCount} нод`
+            `${stats.fps} fps · ${stats.frameMs} ms · ${stats.nodeCount} nodes`
           )}
         </span>
       </div>

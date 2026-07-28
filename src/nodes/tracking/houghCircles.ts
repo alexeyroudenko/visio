@@ -26,18 +26,18 @@ export const houghCirclesNode = defineNode<CirclesState>({
   type: "tracking.circles",
   label: "Hough Circles",
   category: "tracking",
-  description: "Круги по градиентному Хафу: центры и радиусы округлых форм.",
+  description: "Circles via gradient Hough: centers and radii of round shapes.",
   inputs: [{ id: "frame", label: "frame", type: "frame" }],
   outputs: [{ id: "out", label: "circles", type: "circles" }],
   params: [
-    { key: "downscale", label: "Даунскейл", type: "range", min: 2, max: 8, step: 1, default: 4 },
-    { key: "edgeThreshold", label: "Порог краёв", type: "range", min: 20, max: 300, step: 5, default: 90 },
-    { key: "votes", label: "Порог голосов", type: "range", min: 5, max: 200, step: 1, default: 40 },
-    { key: "minRadius", label: "Радиус мин.", type: "range", min: 4, max: 200, step: 2, default: 16 },
-    { key: "maxRadius", label: "Радиус макс.", type: "range", min: 8, max: 400, step: 2, default: 120 },
-    { key: "minDistance", label: "Мин. дистанция", type: "range", min: 4, max: 300, step: 2, default: 40 },
-    { key: "maxCircles", label: "Кругов макс.", type: "range", min: 1, max: 40, step: 1, default: 10 },
-    { key: "interval", label: "Раз в N кадров", type: "range", min: 1, max: 8, step: 1, default: 2 },
+    { key: "downscale", label: "Downscale", type: "range", min: 2, max: 8, step: 1, default: 4 },
+    { key: "edgeThreshold", label: "Edge threshold", type: "range", min: 20, max: 300, step: 5, default: 90 },
+    { key: "votes", label: "Vote threshold", type: "range", min: 5, max: 200, step: 1, default: 40 },
+    { key: "minRadius", label: "Min radius", type: "range", min: 4, max: 200, step: 2, default: 16 },
+    { key: "maxRadius", label: "Max radius", type: "range", min: 8, max: 400, step: 2, default: 120 },
+    { key: "minDistance", label: "Min distance", type: "range", min: 4, max: 300, step: 2, default: 40 },
+    { key: "maxCircles", label: "Max circles", type: "range", min: 1, max: 40, step: 1, default: 10 },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 2 },
   ],
   createState() {
     return {
@@ -53,7 +53,7 @@ export const houghCirclesNode = defineNode<CirclesState>({
     const state = runtime.state;
     const frame = inputs.frame as FrameValue | null;
     if (!frame) {
-      ctx.report(nodeId, "idle", "подключи frame от источника");
+      ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
     }
 

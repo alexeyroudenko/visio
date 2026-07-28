@@ -31,20 +31,20 @@ export const videoNode = defineNode<VideoState>({
   type: "source.video",
   label: "Video File",
   category: "source",
-  description: "Локальный видеофайл (drag-n-drop). Зацикливается, скорость регулируется.",
+  description: "Local video file (drag-and-drop). Loops; playback speed is adjustable.",
   inputs: [],
   outputs: [
     { id: "out", label: "texture", type: "texture" },
     { id: "frame", label: "frame", type: "frame" },
   ],
   params: [
-    { key: "file", label: "Файл", type: "file", accept: "video/*", default: null },
-    { key: "playing", label: "Играть", type: "toggle", default: true },
-    { key: "speed", label: "Скорость", type: "range", min: 0.1, max: 3, step: 0.1, default: 1 },
-    { key: "mirror", label: "Зеркало", type: "toggle", default: false },
+    { key: "file", label: "File", type: "file", accept: "video/*", default: null },
+    { key: "playing", label: "Play", type: "toggle", default: true },
+    { key: "speed", label: "Speed", type: "range", min: 0.1, max: 3, step: 0.1, default: 1 },
+    { key: "mirror", label: "Mirror", type: "toggle", default: false },
     {
       key: "fit",
-      label: "Вписать",
+      label: "Fit",
       type: "select",
       options: [
         { value: "cover", label: "cover" },
@@ -74,6 +74,14 @@ export const videoNode = defineNode<VideoState>({
     state.video.load();
     state.texture?.dispose();
   },
+  suspend({ runtime }) {
+    runtime.state.video.pause();
+  },
+  resume({ params, runtime }) {
+    if (paramBool(params, "playing", true)) {
+      void runtime.state.video.play().catch(() => undefined);
+    }
+  },
   evaluate({ ctx, nodeId, params, runtime }) {
     const state = runtime.state;
     if (!state.texture) state.texture = new SourceTexture(ctx.gl);
@@ -89,14 +97,14 @@ export const videoNode = defineNode<VideoState>({
         .play()
         .then(() => ctx.report(nodeId, "ready", file.name))
         .catch((error: unknown) => {
-          ctx.report(nodeId, "error", error instanceof Error ? error.message : "не удалось открыть");
+          ctx.report(nodeId, "error", error instanceof Error ? error.message : "failed to open");
         });
     }
 
     const target = ctx.target(nodeId, "out");
     const { video } = state;
     if (!state.loadedUrl) {
-      if (runtime.status === "idle") ctx.report(nodeId, "idle", "перетащи видеофайл");
+      if (runtime.status === "idle") ctx.report(nodeId, "idle", "drop a video file");
       return { out: target, frame: null };
     }
 

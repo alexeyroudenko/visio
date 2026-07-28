@@ -45,15 +45,15 @@ export const sliceShiftNode = defineNode<SliceState>({
   type: "fx.sliceShift",
   label: "Slice Shift",
   category: "fx",
-  description: "Горизонтальные полосы, съезжающие в стороны с заворотом по краям.",
+  description: "Horizontal bands that slide sideways with wrap-around at the edges.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "count", label: "Полос", type: "range", min: 0, max: 120, step: 1, default: 28 },
-    { key: "maxH", label: "Толщина", type: "range", min: 1, max: 80, step: 1, default: 22 },
-    { key: "amount", label: "Сдвиг", type: "range", min: 0, max: 100, step: 1, default: 35 },
-    { key: "animate", label: "Анимация", type: "toggle", default: false },
-    { key: "seed", label: "Сид", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
+    { key: "count", label: "Bands", type: "range", min: 0, max: 120, step: 1, default: 28 },
+    { key: "maxH", label: "Thickness", type: "range", min: 1, max: 80, step: 1, default: 22 },
+    { key: "amount", label: "Shift", type: "range", min: 0, max: 100, step: 1, default: 35 },
+    { key: "animate", label: "Animate", type: "toggle", default: false },
+    { key: "seed", label: "Seed", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
   ],
   createState() {
     return { shifts: new Float32Array(0), lut: null, lutHeight: 0, slices: [] };

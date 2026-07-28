@@ -44,7 +44,7 @@ export const blendNode = defineNode<Record<string, never>>({
   type: "fx.blend",
   label: "Blend",
   category: "fx",
-  description: "Смешивает две текстуры: over / add / multiply / screen / difference.",
+  description: "Blends two textures: over / add / multiply / screen / difference.",
   inputs: [
     { id: "base", label: "base", type: "texture" },
     { id: "top", label: "top", type: "texture" },
@@ -53,7 +53,7 @@ export const blendNode = defineNode<Record<string, never>>({
   params: [
     {
       key: "mode",
-      label: "Режим",
+      label: "Mode",
       type: "select",
       options: [
         { value: "over", label: "over" },
@@ -64,7 +64,7 @@ export const blendNode = defineNode<Record<string, never>>({
       ],
       default: "over",
     },
-    { key: "opacity", label: "Прозрачность top", type: "range", min: 0, max: 1, step: 0.05, default: 1 },
+    { key: "opacity", label: "Top opacity", type: "range", min: 0, max: 1, step: 0.05, default: 1 },
   ],
   createState() {
     return {};

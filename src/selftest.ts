@@ -30,7 +30,7 @@ const testLandmarks = defineNode<Record<string, never>>({
   type: "test.landmarks",
   label: "Test Landmarks",
   category: "tracking",
-  description: "фиксированные точки для проверки координат",
+  description: "fixed points for coordinate checks",
   inputs: [],
   outputs: [{ id: "out", label: "landmarks", type: "landmarks" }],
   params: [],
@@ -54,7 +54,7 @@ const testFill = defineNode<Record<string, never>>({
   type: "test.fill",
   label: "Test Fill",
   category: "source",
-  description: "заливка цветом",
+  description: "solid color fill",
   inputs: [],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [{ key: "level", label: "level", type: "range", min: 0, max: 1, step: 0.01, default: 0.2 }],
@@ -72,7 +72,7 @@ const testCircles = defineNode<Record<string, never>>({
   type: "test.circles",
   label: "Test Circles",
   category: "tracking",
-  description: "фиксированная окружность",
+  description: "fixed circle",
   inputs: [],
   outputs: [{ id: "out", label: "circles", type: "circles" }],
   params: [],
@@ -88,7 +88,7 @@ const testLines = defineNode<Record<string, never>>({
   type: "test.lines",
   label: "Test Lines",
   category: "tracking",
-  description: "фиксированный отрезок",
+  description: "fixed line segment",
   inputs: [],
   outputs: [{ id: "out", label: "lines", type: "lines" }],
   params: [],
@@ -104,7 +104,7 @@ const testFrame = defineNode<{ canvas: HTMLCanvasElement; frameId: number }>({
   type: "test.frame",
   label: "Test Frame",
   category: "source",
-  description: "синтетический кадр для детекторов",
+  description: "synthetic frame for detectors",
   inputs: [],
   outputs: [{ id: "frame", label: "frame", type: "frame" }],
   params: [],
@@ -145,7 +145,7 @@ const testPoints = defineNode<Record<string, never>>({
   type: "test.points",
   label: "Test Points",
   category: "tracking",
-  description: "фиксированные точки",
+  description: "fixed points",
   inputs: [],
   outputs: [{ id: "out", label: "points", type: "points" }],
   params: [],
@@ -171,7 +171,7 @@ const testGradient = defineNode<{
   type: "test.gradient",
   label: "Test Gradient",
   category: "source",
-  description: "горизонтальный градиент",
+  description: "horizontal gradient",
   inputs: [],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [{ key: "reverse", label: "reverse", type: "toggle", default: false }],
@@ -331,7 +331,7 @@ function run(): void {
   check(
     "landmarks value reaches the graph outputs",
     (lmOut?.sets.length ?? 0) === 1,
-    `order=${debug.order.join(">")} sets=${lmOut?.sets.length ?? "нет"}`,
+    `order=${debug.order.join(">")} sets=${lmOut?.sets.length ?? "none"}`,
   );
 
   // Targets store v=0 at the image top, and framebuffer row 0 *is* v=0 — so a
@@ -351,7 +351,7 @@ function run(): void {
   check(
     "background preserved under drawing",
     Math.abs(background[0] - 51) < 6 && background[3] === 255,
-    `rgba=${background.join(",")} (ожидалось ~51)`,
+    `rgba=${background.join(",")} (expected ~51)`,
   );
 
   const emptyArea = readPixel(engine, Math.round(WIDTH / 2), Math.round(HEIGHT * 0.75));
@@ -429,7 +429,7 @@ function run(): void {
   check(
     "feedback decays without input",
     decayed[0] > 90 && decayed[0] < 160,
-    `rgba=${decayed.join(",")} (ожидалось ~128)`,
+    `rgba=${decayed.join(",")} (expected ~128)`,
   );
 
   engine.tick();
@@ -437,7 +437,7 @@ function run(): void {
   check(
     "feedback keeps decaying",
     decayedTwice[0] > 40 && decayedTwice[0] < decayed[0],
-    `rgba=${decayedTwice.join(",")} (ожидалось ~64)`,
+    `rgba=${decayedTwice.join(",")} (expected ~64)`,
   );
 
   // --- 3. blend add --------------------------------------------------------
@@ -459,7 +459,7 @@ function run(): void {
   check(
     "blend add sums both inputs",
     Math.abs(added[0] - 128) < 8,
-    `rgba=${added.join(",")} (ожидалось ~128)`,
+    `rgba=${added.join(",")} (expected ~128)`,
   );
 
   // --- 4. circles and lines ------------------------------------------------
@@ -515,7 +515,7 @@ function run(): void {
   check(
     "circle is a ring, not a disc",
     insideRing[2] < 60,
-    `rgba=${insideRing.join(",")} (внутри должно быть пусто)`,
+    `rgba=${insideRing.join(",")} (inside should be empty)`,
   );
 
   // The test line runs across y = 0.8.
@@ -633,19 +633,19 @@ function run(): void {
   check(
     "grid without effect keeps the gradient",
     plainRight - plainLeft > 50,
-    `left=${plainLeft} right=${plainRight} (должны отличаться)`,
+    `left=${plainLeft} right=${plainRight} (should differ)`,
   );
 
   const [smearLeft, smearRight] = gridWithEffect(1);
   check(
     "effect smears a cell into one column",
     Math.abs(smearRight - smearLeft) < 8,
-    `left=${smearLeft} right=${smearRight} (должны совпасть)`,
+    `left=${smearLeft} right=${smearRight} (should match)`,
   );
   check(
     "smeared column comes from the cell centre",
     Math.abs(smearLeft - 64) < 12,
-    `значение=${smearLeft} (центр ячейки x=80 → ~64)`,
+    `value=${smearLeft} (cell centre x=80 → ~64)`,
   );
 
   // --- 4d. glitch effects ported from glitcher -----------------------------
@@ -687,7 +687,7 @@ function run(): void {
   check(
     "slice shift with 0 bands is a pass-through",
     untouched.every((row) => row.every((v, x) => v === reference[x])),
-    "все строки совпадают с градиентом",
+    "all rows match the gradient",
   );
 
   const shifted = runSlice(1);
@@ -695,7 +695,7 @@ function run(): void {
   check(
     "one band moves between 1 and maxH rows",
     movedRows.length >= 1 && movedRows.length <= 20,
-    `сдвинуто строк: ${movedRows.length} (полоса ≤ 20)`,
+    `rows shifted: ${movedRows.length} (band ≤ 20)`,
   );
 
   // A wrapped shift only rotates a row — the multiset of values must survive.
@@ -704,7 +704,7 @@ function run(): void {
   check(
     "shifted row is a rotation, not a clamp",
     sortedMoved === sortedRef,
-    movedRows.length ? "набор значений строки сохранился" : "нет сдвинутых строк",
+    movedRows.length ? "row value set preserved" : "no shifted rows",
   );
 
   const runBlocks = (count: number) => {
@@ -733,7 +733,7 @@ function run(): void {
   check(
     "block scatter with 0 blocks is a pass-through",
     noBlocks.every((row) => row.every((v, x) => v === reference[x])),
-    "кадр не тронут",
+    "frame untouched",
   );
 
   const scattered = runBlocks(60);
@@ -744,7 +744,7 @@ function run(): void {
   check(
     "block scatter moves pixels",
     changed > 500,
-    `изменено пикселей: ${changed}`,
+    `pixels changed: ${changed}`,
   );
 
   // Blocks land on a copy of the frame, so nothing may be left blank.
@@ -753,7 +753,7 @@ function run(): void {
   check(
     "block scatter leaves no holes",
     holes <= referenceZeros * 1.5 + 200,
-    `нулевых пикселей: ${holes}, в исходнике: ${referenceZeros}`,
+    `zero pixels: ${holes}, in source: ${referenceZeros}`,
   );
 
   // Pixel sort: feed a descending ramp so an ascending sort visibly flips it.
@@ -783,7 +783,7 @@ function run(): void {
   check(
     "pixel sort reorders a span by luminance",
     ascending && sortedRow[10] < sortedRow[200],
-    `x=10 → ${sortedRow[10]}, x=200 → ${sortedRow[200]}, по возрастанию=${ascending}`,
+    `x=10 → ${sortedRow[10]}, x=200 → ${sortedRow[200]}, ascending=${ascending}`,
   );
 
   // --- 5. Hough detectors on a synthetic frame -----------------------------
@@ -829,12 +829,12 @@ function run(): void {
   check(
     "Hough finds the synthetic circle near center",
     best !== undefined && Math.abs(best.x - 0.5) < 0.08 && Math.abs(best.y - 0.5) < 0.08,
-    best ? `x=${best.x.toFixed(2)} y=${best.y.toFixed(2)} r=${best.r.toFixed(3)}` : "ничего не найдено",
+    best ? `x=${best.x.toFixed(2)} y=${best.y.toFixed(2)} r=${best.r.toFixed(3)}` : "nothing found",
   );
   check(
     "…with roughly the right radius",
     best !== undefined && Math.abs(best.r * WIDTH - 40) < 14,
-    best ? `r=${(best.r * WIDTH).toFixed(1)}px (ожидалось ~40)` : "нет круга",
+    best ? `r=${(best.r * WIDTH).toFixed(1)}px (expected ~40)` : "no circle",
   );
 
   const foundLines = (houghDebug.outputs.get("hl")?.out as LinesValue | undefined)?.lines ?? [];
@@ -843,8 +843,8 @@ function run(): void {
     "Hough finds the synthetic horizontal line",
     horizontal !== undefined && Math.abs(horizontal.y1 - 170 / HEIGHT) < 0.06,
     horizontal
-      ? `y=${horizontal.y1.toFixed(2)} (ожидалось ${(170 / HEIGHT).toFixed(2)}), всего=${foundLines.length}`
-      : `не найдено, всего=${foundLines.length}`,
+      ? `y=${horizontal.y1.toFixed(2)} (expected ${(170 / HEIGHT).toFixed(2)}), total=${foundLines.length}`
+      : `not found, total=${foundLines.length}`,
   );
 
   engine.dispose();
@@ -876,7 +876,7 @@ function run(): void {
   check(
     "patch survives a save/load round trip",
     roundTrip?.nodes.length === 1 && roundTrip.width === 1920,
-    `nodes=${roundTrip?.nodes.length ?? 0} width=${roundTrip?.width ?? "нет"}`,
+    `nodes=${roundTrip?.nodes.length ?? 0} width=${roundTrip?.width ?? "none"}`,
   );
 
   check("garbage input is rejected", parsePatch({ hello: 1 }) === null, "parsePatch({hello:1})");
@@ -917,7 +917,7 @@ async function asyncChecks(): Promise<void> {
     check(
       "MediaPipe module loads on demand",
       typeof mp.PoseLandmarker === "function" && typeof mp.FilesetResolver === "function",
-      `динамический импорт за ${Math.round(performance.now() - started)} ms`,
+      `dynamic import in ${Math.round(performance.now() - started)} ms`,
     );
   } catch (error) {
     check(

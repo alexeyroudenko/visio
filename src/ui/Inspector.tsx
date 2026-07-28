@@ -116,7 +116,7 @@ export function Inspector() {
   if (!node) {
     return (
       <aside className="inspector">
-        <p className="inspector__empty">Выбери ноду, чтобы править параметры.</p>
+        <p className="inspector__empty">Select a node to edit its parameters.</p>
       </aside>
     );
   }
@@ -125,7 +125,7 @@ export function Inspector() {
   if (!definition) {
     return (
       <aside className="inspector">
-        <p className="inspector__empty">Нода {node.data.defType} не найдена в реестре.</p>
+        <p className="inspector__empty">Node {node.data.defType} not found in the registry.</p>
       </aside>
     );
   }
@@ -138,7 +138,7 @@ export function Inspector() {
           <span className="inspector__category">{CATEGORY_LABELS[definition.category]}</span>
         </div>
         <button type="button" className="button button--danger" onClick={() => removeNode(node.id)}>
-          Удалить
+          Delete
         </button>
       </header>
 
@@ -157,7 +157,7 @@ export function Inspector() {
           />
         ))}
         {definition.params.length === 0 ? (
-          <p className="inspector__empty">Без параметров.</p>
+          <p className="inspector__empty">No parameters.</p>
         ) : null}
       </div>
     </aside>

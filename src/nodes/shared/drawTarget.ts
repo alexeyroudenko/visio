@@ -23,7 +23,7 @@ export function beginDraw(
 
 export const BLEND_PARAM: ParamSpec = {
   key: "blend",
-  label: "Смешивание",
+  label: "Blend",
   type: "select",
   options: [
     { value: "normal", label: "normal" },

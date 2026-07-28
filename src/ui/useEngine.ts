@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine, type EngineStats } from "../engine/runtime";
 import { NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
@@ -10,6 +10,7 @@ import { useGraphStore } from "../store/graphStore";
 export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
   const engineRef = useRef<Engine | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
   const [stats, setStats] = useState<EngineStats>({ fps: 0, frameMs: 0, nodeCount: 0 });
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     try {
       engine = new Engine(canvas);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "не удалось создать WebGL2-контекст");
+      setError(err instanceof Error ? err.message : "failed to create WebGL2 context");
       return;
     }
 
@@ -46,6 +47,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
       })),
     );
     engine.start();
+    setPaused(false);
 
     // Status updates flow back into the store from the engine itself, so only
     // rebuild when the graph or resolution actually changed.
@@ -96,5 +98,13 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     };
   }, [canvasRef]);
 
-  return { engineRef, error, stats };
+  const togglePause = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const next = !engine.isPaused;
+    engine.setPaused(next);
+    setPaused(next);
+  }, []);
+
+  return { engineRef, error, stats, paused, togglePause };
 }

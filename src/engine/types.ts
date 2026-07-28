@@ -124,6 +124,10 @@ export interface NodeDefinition<S = unknown> {
   delayedInputs?: string[];
   createState: (ctx: EngineContext) => S;
   disposeState?: (state: S, ctx: EngineContext) => void;
+  /** Release live sources (camera tracks, video decode) while the engine is paused. */
+  suspend?: (args: Omit<EvalArgs<S>, "inputs">) => void;
+  /** Re-enable sources after pause. */
+  resume?: (args: Omit<EvalArgs<S>, "inputs">) => void;
   evaluate: (args: EvalArgs<S>) => Record<string, PortValue>;
 }
 

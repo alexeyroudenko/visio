@@ -22,13 +22,13 @@ export const objectsNode = defineNode<ObjectsState>({
   type: "tracking.objects",
   label: "Objects",
   category: "tracking",
-  description: "EfficientDet-Lite0: рамки объектов с подписью и уверенностью.",
+  description: "EfficientDet-Lite0: object boxes with label and confidence.",
   inputs: [{ id: "frame", label: "frame", type: "frame" }],
   outputs: [{ id: "out", label: "boxes", type: "boxes" }],
   params: [
-    { key: "maxResults", label: "Объектов", type: "range", min: 1, max: 20, step: 1, default: 8 },
-    { key: "score", label: "Порог", type: "range", min: 0.1, max: 0.9, step: 0.05, default: 0.4 },
-    { key: "interval", label: "Раз в N кадров", type: "range", min: 1, max: 8, step: 1, default: 2 },
+    { key: "maxResults", label: "Objects", type: "range", min: 1, max: 20, step: 1, default: 8 },
+    { key: "score", label: "Threshold", type: "range", min: 0.1, max: 0.9, step: 0.05, default: 0.4 },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 2 },
   ],
   createState() {
     return {
@@ -49,7 +49,7 @@ export const objectsNode = defineNode<ObjectsState>({
     const state = runtime.state;
     const frame = inputs.frame as FrameValue | null;
     if (!frame) {
-      if (!state.failed) ctx.report(nodeId, "idle", "подключи frame от источника");
+      if (!state.failed) ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
     }
 
@@ -62,7 +62,7 @@ export const objectsNode = defineNode<ObjectsState>({
     if (!state.instance && !state.loading && !state.failed) {
       state.loading = true;
       state.optionsKey = optionsKey;
-      ctx.report(nodeId, "loading", "загружаю модель…");
+      ctx.report(nodeId, "loading", "loading model…");
       void Promise.all([loadVisionFileset(), loadTasksVision()])
         .then(([fileset, mp]) =>
           mp.ObjectDetector.createFromOptions(fileset, {
@@ -79,7 +79,7 @@ export const objectsNode = defineNode<ObjectsState>({
         .catch((error: unknown) => {
           state.loading = false;
           state.failed = true;
-          ctx.report(nodeId, "error", error instanceof Error ? error.message : "ошибка модели");
+          ctx.report(nodeId, "error", error instanceof Error ? error.message : "model error");
         });
     }
 

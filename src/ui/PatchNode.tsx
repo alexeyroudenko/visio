@@ -18,7 +18,7 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
   const bypassed = data.bypass === true;
 
   if (!definition) {
-    return <div className="node node--missing">неизвестная нода: {data.defType}</div>;
+    return <div className="node node--missing">unknown node: {data.defType}</div>;
   }
 
   const accent = CATEGORY_COLORS[definition.category] ?? "#8b8b8b";
@@ -34,7 +34,7 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
         <button
           type="button"
           className={`node__bypass nodrag nopan ${bypassed ? "node__bypass--on" : ""}`}
-          title={bypassed ? "Bypass вкл — клик чтобы включить" : `${statusKey} — клик: bypass`}
+          title={bypassed ? "Bypass on — click to enable" : `${statusKey} — click: bypass`}
           aria-pressed={bypassed}
           style={bypassed ? undefined : { background: STATUS_DOT[statusKey] }}
           onClick={(event) => {

@@ -61,7 +61,7 @@ function useSideResize(
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { error, stats } = useEngine(canvasRef);
+  const { error, stats, paused, togglePause } = useEngine(canvasRef);
   const { recording, toggle } = useRecorder(() => canvasRef.current);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
@@ -95,7 +95,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar stats={stats} recording={recording} onToggleRecord={toggle} />
+      <Toolbar
+        stats={stats}
+        recording={recording}
+        onToggleRecord={toggle}
+        paused={paused}
+        onTogglePause={togglePause}
+      />
 
       <main className="app__body">
         <aside className="side side--left" style={{ width: leftWidth }}>
@@ -108,8 +114,8 @@ export default function App() {
           onDoubleClick={() => setLeftWidth(300)}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Ширина параметров"
-          title="Тяни · двойной клик — сбросить"
+          aria-label="Inspector width"
+          title="Drag · double-click to reset"
         />
 
         <section className="editor">
@@ -140,8 +146,8 @@ export default function App() {
           onDoubleClick={() => setRightWidth(380)}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Ширина вывода"
-          title="Тяни · двойной клик — сбросить"
+          aria-label="Output width"
+          title="Drag · double-click to reset"
         />
 
         <section className="side side--right" style={{ width: rightWidth }}>
@@ -149,13 +155,14 @@ export default function App() {
             <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
               <canvas ref={canvasRef} />
               {error ? <div className="preview__error">{error}</div> : null}
+              {paused ? <div className="preview__paused">❚❚ paused</div> : null}
             </div>
             <div className="preview__bar">
               <span className="preview__caption">
-                выход · {width}×{height}
+                output · {width}×{height}
               </span>
               <button type="button" className="button button--small" onClick={outputWindow.open}>
-                Окно вывода
+                Output window
               </button>
             </div>
           </div>

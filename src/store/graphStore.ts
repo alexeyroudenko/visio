@@ -221,11 +221,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   async importPatch(file) {
     try {
       const parsed = parsePatch(JSON.parse(await file.text()));
-      if (!parsed) return "файл не похож на патч visio";
+      if (!parsed) return "file does not look like a visio patch";
       get().loadPatch(parsed);
       return null;
     } catch (error) {
-      return error instanceof Error ? error.message : "не удалось прочитать файл";
+      return error instanceof Error ? error.message : "failed to read file";
     }
   },
   resetPatch() {

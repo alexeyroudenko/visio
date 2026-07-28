@@ -94,6 +94,16 @@ body {
   color: #ff5c7a;
 }
 
+.button--paused {
+  border-color: #ffd166;
+  color: #ffd166;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .toolbar__error {
   color: #ff5c7a;
   font-style: normal;
@@ -242,6 +252,19 @@ body.is-resizing {
   padding: 16px;
   color: #ff5c7a;
   text-align: center;
+}
+
+.preview__paused {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 45%);
+  color: #ffd166;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .preview__bar {

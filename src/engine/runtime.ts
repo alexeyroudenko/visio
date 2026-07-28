@@ -82,6 +82,7 @@ export class Engine {
   stats: EngineStats = { fps: 0, frameMs: 0, nodeCount: 0 };
   /** Texture the Output node produced last frame, for preview and recording. */
   displayTarget: RenderTarget | null = null;
+  private paused = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -142,7 +143,7 @@ export class Engine {
     this.stats.nodeCount = nodes.length;
 
     for (const id of sorted.cyclic) {
-      this.report(id, "error", "цикл в графе — разорви связь или используй Feedback");
+      this.report(id, "error", "cycle in graph — break a link or use Feedback");
     }
   }
 
@@ -199,7 +200,7 @@ export class Engine {
   }
 
   start(): void {
-    if (this.rafHandle !== null) return;
+    if (this.paused || this.rafHandle !== null) return;
     this.startTime = performance.now();
     this.lastFrameTime = this.startTime;
     const tick = () => {
@@ -214,7 +215,43 @@ export class Engine {
     this.rafHandle = null;
   }
 
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
+   * Freeze the graph: no rAF ticks (no GL/MediaPipe work) and suspend live
+   * sources so the camera/video stop consuming CPU.
+   */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) {
+      this.stop();
+      this.forEachLiveHook("suspend");
+    } else {
+      this.forEachLiveHook("resume");
+      this.start();
+    }
+  }
+
+  private forEachLiveHook(hook: "suspend" | "resume"): void {
+    const ctx = this.context(performance.now() - (this.startTime || performance.now()), 0);
+    for (const node of this.nodes) {
+      const slot = this.slots.get(node.id);
+      const fn = slot?.definition[hook];
+      if (!slot || !fn) continue;
+      fn({
+        ctx,
+        nodeId: node.id,
+        params: node.params,
+        runtime: slot.runtime,
+      });
+    }
+  }
+
   dispose(): void {
+    this.paused = false;
     this.stop();
     for (const id of [...this.slots.keys()]) this.disposeSlot(id);
   }

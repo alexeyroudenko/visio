@@ -55,7 +55,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
       ...config.params,
       {
         key: "interval",
-        label: "Раз в N кадров",
+        label: "Every N frames",
         type: "range",
         min: 1,
         max: 6,
@@ -84,7 +84,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
       const frame = inputs.frame as FrameValue | null;
 
       if (!frame) {
-        if (!state.failed) ctx.report(nodeId, "idle", "подключи frame от источника");
+        if (!state.failed) ctx.report(nodeId, "idle", "connect a frame from a source");
         return { out: EMPTY };
       }
 
@@ -101,7 +101,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
       if (!state.instance && !state.loading && !state.failed) {
         state.loading = true;
         state.optionsKey = JSON.stringify(config.toOptions(params));
-        ctx.report(nodeId, "loading", "загружаю модель…");
+        ctx.report(nodeId, "loading", "loading model…");
         void loadVisionFileset()
           .then((fileset) => config.create(fileset, params))
           .then((instance) => {
@@ -113,7 +113,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
           .catch((error: unknown) => {
             state.loading = false;
             state.failed = true;
-            ctx.report(nodeId, "error", error instanceof Error ? error.message : "ошибка модели");
+            ctx.report(nodeId, "error", error instanceof Error ? error.message : "model error");
           });
       }
 

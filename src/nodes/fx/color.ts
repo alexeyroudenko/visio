@@ -37,14 +37,14 @@ export const colorNode = defineNode<Record<string, never>>({
   type: "fx.color",
   label: "Color",
   category: "fx",
-  description: "Яркость, контраст, насыщенность и сдвиг оттенка.",
+  description: "Brightness, contrast, saturation, and hue shift.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "brightness", label: "Яркость", type: "range", min: -0.5, max: 0.5, step: 0.01, default: 0 },
-    { key: "contrast", label: "Контраст", type: "range", min: 0, max: 3, step: 0.05, default: 1 },
-    { key: "saturation", label: "Насыщенность", type: "range", min: 0, max: 3, step: 0.05, default: 1 },
-    { key: "hue", label: "Оттенок °", type: "range", min: -180, max: 180, step: 1, default: 0 },
+    { key: "brightness", label: "Brightness", type: "range", min: -0.5, max: 0.5, step: 0.01, default: 0 },
+    { key: "contrast", label: "Contrast", type: "range", min: 0, max: 3, step: 0.05, default: 1 },
+    { key: "saturation", label: "Saturation", type: "range", min: 0, max: 3, step: 0.05, default: 1 },
+    { key: "hue", label: "Hue °", type: "range", min: -180, max: 180, step: 1, default: 0 },
   ],
   createState() {
     return {};

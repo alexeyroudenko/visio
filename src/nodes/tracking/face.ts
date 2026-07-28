@@ -13,25 +13,25 @@ let tesselation: ReadonlyArray<readonly [number, number]> = [];
 export const faceNode = createLandmarkerNode({
   type: "tracking.face",
   label: "Face Mesh",
-  description: "478 точек лица: контуры или полная сетка.",
+  description: "478 face points: contours or full mesh.",
   connections: (params) =>
     paramString(params, "mesh", "contours") === "tesselation" ? tesselation : contours,
   modelKey: () => "face_landmarker",
   params: [
     {
       key: "mesh",
-      label: "Сетка",
+      label: "Mesh",
       type: "select",
       options: [
-        { value: "contours", label: "контуры" },
-        { value: "tesselation", label: "полная" },
+        { value: "contours", label: "contours" },
+        { value: "tesselation", label: "full" },
       ],
       default: "contours",
     },
-    { key: "numFaces", label: "Лиц", type: "range", min: 1, max: 4, step: 1, default: 1 },
+    { key: "numFaces", label: "Faces", type: "range", min: 1, max: 4, step: 1, default: 1 },
     {
       key: "confidence",
-      label: "Порог",
+      label: "Threshold",
       type: "range",
       min: 0.1,
       max: 0.9,

@@ -83,13 +83,13 @@ export const pixelSortNode = defineNode<PixelSortState>({
   label: "Pixel Sort",
   category: "fx",
   description:
-    "Сортировка пикселей по яркости в непрерывных спанах. Считается на CPU — тяжёлая.",
+    "Sorts pixels by luminance in contiguous spans. Runs on CPU — expensive.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "thresh", label: "Порог", type: "range", min: 0, max: 255, step: 1, default: 110 },
-    { key: "vert", label: "Вертикаль", type: "toggle", default: false },
-    { key: "interval", label: "Раз в N кадров", type: "range", min: 1, max: 8, step: 1, default: 1 },
+    { key: "thresh", label: "Threshold", type: "range", min: 0, max: 255, step: 1, default: 110 },
+    { key: "vert", label: "Vertical", type: "toggle", default: false },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 1 },
   ],
   createState() {
     return { buffer: new PixelBuffer(), lastFrame: -1 };

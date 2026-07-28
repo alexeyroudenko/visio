@@ -12,14 +12,14 @@ let connections: ReadonlyArray<readonly [number, number]> = [];
 export const handsNode = createLandmarkerNode({
   type: "tracking.hands",
   label: "Hands",
-  description: "21 точка на кисть, до 4 рук в кадре.",
+  description: "21 points per hand, up to 4 hands in frame.",
   connections: () => connections,
   modelKey: () => "hand_landmarker",
   params: [
-    { key: "numHands", label: "Рук", type: "range", min: 1, max: 4, step: 1, default: 2 },
+    { key: "numHands", label: "Hands", type: "range", min: 1, max: 4, step: 1, default: 2 },
     {
       key: "confidence",
-      label: "Порог",
+      label: "Threshold",
       type: "range",
       min: 0.1,
       max: 0.9,

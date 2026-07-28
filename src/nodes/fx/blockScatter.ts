@@ -36,16 +36,16 @@ export const blockScatterNode = defineNode<BlockScatterState>({
   type: "fx.blockScatter",
   label: "Block Scatter",
   category: "fx",
-  description: "Разлёт прямоугольных блоков с опциональным цветным tint.",
+  description: "Scatters rectangular blocks with an optional color tint.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "count", label: "Блоков", type: "range", min: 0, max: 400, step: 1, default: 90 },
-    { key: "size", label: "Размер", type: "range", min: 2, max: 120, step: 1, default: 34 },
-    { key: "spread", label: "Разлёт", type: "range", min: 0, max: 100, step: 1, default: 30 },
-    { key: "tint", label: "Цвет", type: "range", min: 0, max: 100, step: 1, default: 25 },
-    { key: "seed", label: "Сид", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
-    { key: "drift", label: "Дрожание", type: "range", min: 0, max: 30, step: 1, default: 0 },
+    { key: "count", label: "Blocks", type: "range", min: 0, max: 400, step: 1, default: 90 },
+    { key: "size", label: "Size", type: "range", min: 2, max: 120, step: 1, default: 34 },
+    { key: "spread", label: "Spread", type: "range", min: 0, max: 100, step: 1, default: 30 },
+    { key: "tint", label: "Color", type: "range", min: 0, max: 100, step: 1, default: 25 },
+    { key: "seed", label: "Seed", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
+    { key: "drift", label: "Jitter", type: "range", min: 0, max: 30, step: 1, default: 0 },
   ],
   createState() {
     return { batch: new BlockBatch() };

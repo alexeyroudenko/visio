@@ -16,13 +16,13 @@ let connections: ReadonlyArray<readonly [number, number]> = [];
 export const poseNode = createLandmarkerNode({
   type: "tracking.pose",
   label: "Pose",
-  description: "BlazePose: 33 точки скелета на человека.",
+  description: "BlazePose: 33 skeleton points per person.",
   connections: () => connections,
   modelKey: (params) => paramString(params, "model", "lite"),
   params: [
     {
       key: "model",
-      label: "Модель",
+      label: "Model",
       type: "select",
       options: [
         { value: "lite", label: "lite" },
@@ -31,10 +31,10 @@ export const poseNode = createLandmarkerNode({
       ],
       default: "lite",
     },
-    { key: "numPoses", label: "Людей", type: "range", min: 1, max: 4, step: 1, default: 1 },
+    { key: "numPoses", label: "People", type: "range", min: 1, max: 4, step: 1, default: 1 },
     {
       key: "confidence",
-      label: "Порог",
+      label: "Threshold",
       type: "range",
       min: 0.1,
       max: 0.9,

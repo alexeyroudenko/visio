@@ -32,12 +32,12 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
 
     const popup = window.open("", WINDOW_NAME, "width=1280,height=720");
     if (!popup) {
-      window.alert("Браузер заблокировал окно вывода — разреши всплывающие окна для этого сайта.");
+      window.alert("Browser blocked the output window — allow pop-ups for this site.");
       return;
     }
 
     popup.document.write(`<!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>visio — output</title>
@@ -54,7 +54,7 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
   </head>
   <body>
     <video id="out" autoplay playsinline muted></video>
-    <div id="hint">двойной клик — полный экран</div>
+    <div id="hint">double-click for fullscreen</div>
   </body>
 </html>`);
     popup.document.close();

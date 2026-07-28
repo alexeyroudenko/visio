@@ -21,10 +21,10 @@ export const outputNode = defineNode<Record<string, never>>({
   type: "output.screen",
   label: "Output",
   category: "output",
-  description: "Финальный кадр: то, что видно в превью и попадает в запись.",
+  description: "Final frame: what you see in the preview and what gets recorded.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
-  params: [{ key: "background", label: "Фон", type: "color", default: "#000000" }],
+  params: [{ key: "background", label: "Background", type: "color", default: "#000000" }],
   createState() {
     return {};
   },

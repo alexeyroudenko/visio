@@ -20,18 +20,18 @@ export const houghLinesNode = defineNode<LinesState>({
   type: "tracking.lines",
   label: "Hough Lines",
   category: "tracking",
-  description: "Отрезки по вероятностному Хафу: рёбра, стены, грани предметов.",
+  description: "Segments via probabilistic Hough: edges, walls, object boundaries.",
   inputs: [{ id: "frame", label: "frame", type: "frame" }],
   outputs: [{ id: "out", label: "lines", type: "lines" }],
   params: [
-    { key: "downscale", label: "Даунскейл", type: "range", min: 2, max: 8, step: 1, default: 4 },
-    { key: "edgeThreshold", label: "Порог краёв", type: "range", min: 20, max: 300, step: 5, default: 80 },
-    { key: "votes", label: "Порог голосов", type: "range", min: 10, max: 200, step: 1, default: 40 },
-    { key: "thetaStep", label: "Шаг угла °", type: "range", min: 0.5, max: 5, step: 0.5, default: 1 },
-    { key: "minLength", label: "Длина мин.", type: "range", min: 10, max: 500, step: 5, default: 60 },
-    { key: "maxGap", label: "Разрыв макс.", type: "range", min: 1, max: 60, step: 1, default: 12 },
-    { key: "maxLines", label: "Линий макс.", type: "range", min: 1, max: 60, step: 1, default: 16 },
-    { key: "interval", label: "Раз в N кадров", type: "range", min: 1, max: 8, step: 1, default: 2 },
+    { key: "downscale", label: "Downscale", type: "range", min: 2, max: 8, step: 1, default: 4 },
+    { key: "edgeThreshold", label: "Edge threshold", type: "range", min: 20, max: 300, step: 5, default: 80 },
+    { key: "votes", label: "Vote threshold", type: "range", min: 10, max: 200, step: 1, default: 40 },
+    { key: "thetaStep", label: "Angle step °", type: "range", min: 0.5, max: 5, step: 0.5, default: 1 },
+    { key: "minLength", label: "Min length", type: "range", min: 10, max: 500, step: 5, default: 60 },
+    { key: "maxGap", label: "Max gap", type: "range", min: 1, max: 60, step: 1, default: 12 },
+    { key: "maxLines", label: "Max lines", type: "range", min: 1, max: 60, step: 1, default: 16 },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 2 },
   ],
   createState() {
     return {
@@ -48,7 +48,7 @@ export const houghLinesNode = defineNode<LinesState>({
     const state = runtime.state;
     const frame = inputs.frame as FrameValue | null;
     if (!frame) {
-      ctx.report(nodeId, "idle", "подключи frame от источника");
+      ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
     }
 

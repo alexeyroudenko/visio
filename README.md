@@ -1,139 +1,138 @@
 # visio
 
-Нодовая среда в браузере: **камера или видео → трекинг → WebGL-графика с feedback**.
-Упрощённый cables.gl под одну задачу — визуализация данных трекинга в реальном времени.
+Node environment in the browser: **camera or video → tracking → WebGL graphics with feedback**.
+A simplified cables.gl for one job — visualizing tracking data in real time.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Self-тест рендер-ядра: <http://localhost:5173/selftest.html> (37 проверок — координаты
-отрисовки, кольца, стиль detection, сетка и её эффект, глитч-эффекты, затухание
-feedback, блендинг, детекторы Хафа на синтетическом кадре, сериализация патча,
-ленивый импорт MediaPipe). Страница только для дева: в `dist` она не собирается.
+Render-core self-test: <http://localhost:5173/selftest.html> (37 checks — draw
+coordinates, rings, detection style, grid and its effect, glitch effects, feedback
+decay, blending, Hough detectors on a synthetic frame, patch serialization,
+lazy MediaPipe import). Dev-only page: it is not built into `dist`.
 
-> Тестовые градиенты рисуются по столбцам, а не через `createLinearGradient`:
-> Chrome дизерит градиенты, из-за чего одинаковые строки перестают совпадать
-> побайтово и точные сравнения ложно падают.
+> Test gradients are drawn column-by-column, not via `createLinearGradient`:
+> Chrome dithers gradients, so identical rows stop matching byte-for-byte and
+> exact comparisons fail falsely.
 
-## Как устроено
+## How it works
 
 ```
 src/
-  engine/          движок: не знает про React
-    types.ts       типы портов и контракт ноды
-    graph.ts       топосорт (delayedInputs разрывают циклы)
-    runtime.ts     WebGL2-контекст, один проход графа на кадр
-    gl/            RT (текстура+FBO), шейдер-кэш, фуллскрин-пассы,
-                   инстансированный векторный рендерер (точки/сегменты)
-  nodes/           определения нод по категориям
-  ui/              React Flow-редактор, инспектор, превью, запись
-  store/           zustand: граф, параметры, статусы
+  engine/          engine: knows nothing about React
+    types.ts       port types and node contract
+    graph.ts       topo-sort (delayedInputs break cycles)
+    runtime.ts     WebGL2 context, one graph pass per frame
+    gl/            RT (texture+FBO), shader cache, fullscreen passes,
+                   instanced vector renderer (points/segments)
+  nodes/           node definitions by category
+  ui/              React Flow editor, inspector, preview, recording
+  store/           zustand: graph, params, statuses
 ```
 
-Движок императивный и полностью отделён от UI: React отдаёт ему описание графа,
-он раз в кадр топологически обходит ноды и пишет результат в текстуры.
+The engine is imperative and fully separate from the UI: React hands it a graph
+description; once per frame it walks nodes in topological order and writes
+results into textures.
 
-### Конвенции, на которых всё держится
+### Conventions everything rests on
 
-- **Ориентация.** У всех render target `v=0` — верх кадра (как в canvas).
-  Векторный шейдер пишет y без флипа; флип делается один раз при выводе на экран.
-- **Нормализованные координаты.** Источник рисует кадр на «stage canvas» уже
-  с fit и зеркалом, и трекер получает **его же**. Поэтому landmarks в `[0..1]`
-  ложатся на выходную текстуру один к одному — draw-ноды ничего не пересчитывают.
-- **Premultiplied alpha.** Draw-ноды пишут premultiplied, поэтому `over` — это
-  просто `src + dst*(1-src.a)`.
-- **Состояние живёт в ноде.** Модели, камеры, аккумуляторы переживают правку
-  графа: `setGraph` диффит по id и типу и пересоздаёт только изменённое.
-- **MediaPipe грузится по требованию.** `@mediapipe/tasks-vision` — отдельный
-  чанк (137 kB / 41 kB gzip), который подтягивается динамическим импортом при
-  первом создании таска. Патч из одних CPU-детекторов его не трогает вовсе.
-  Из-за этого таблицы связей (`POSE_CONNECTIONS` и прочие) заполняются лениво,
-  внутри `create()`, — раньше они читались на верхнем уровне модуля и тянули
-  весь пакет в главный бандл.
+- **Orientation.** On every render target `v=0` is the top of the frame (as in canvas).
+  The vector shader writes y without flipping; the flip happens once when presenting to the screen.
+- **Normalized coordinates.** The source draws the frame onto a “stage canvas” already
+  with fit and mirror, and the tracker gets **the same canvas**. So landmarks in `[0..1]`
+  land on the output texture one-to-one — draw nodes do no remapping.
+- **Premultiplied alpha.** Draw nodes write premultiplied, so `over` is simply
+  `src + dst*(1-src.a)`.
+- **State lives in the node.** Models, cameras, and accumulators survive graph edits:
+  `setGraph` diffs by id and type and only recreates what changed.
+- **MediaPipe loads on demand.** `@mediapipe/tasks-vision` is a separate chunk
+  (137 kB / 41 kB gzip), pulled in via dynamic import on first task creation.
+  A patch of CPU-only detectors never touches it. That is why connection tables
+  (`POSE_CONNECTIONS` and the rest) are filled lazily inside `create()` — they used
+  to be read at module top level and dragged the whole package into the main bundle.
 
-## Ноды
+## Nodes
 
-| Категория | Ноды |
+| Category | Nodes |
 |---|---|
-| Источники | Camera, Video File |
-| Трекинг | Pose (33 точки), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Hough Circles**, **Hough Lines** |
-| Отрисовка | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, **Features Grid** |
-| Эффекты | Feedback, Blend, Color, **Slice Shift**, **Block Scatter**, **Pixel Sort** |
-| Вывод | Output |
+| Sources | Camera, Video File |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Hough Circles**, **Hough Lines** |
+| Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, **Features Grid** |
+| FX | Feedback, Blend, Color, **Slice Shift**, **Block Scatter**, **Pixel Sort** |
+| Output | Output |
 
-Порты типизированы (`frame`, `texture`, `landmarks`, `points`, `boxes`, `circles`,
-`lines`) — редактор не даст соединить несовместимое.
+Ports are typed (`frame`, `texture`, `landmarks`, `points`, `boxes`, `circles`,
+`lines`) — the editor will not connect incompatible ones.
 
-CPU-детекторы (Corners, Hough) делят один `GrayFrame`: даунскейл, грейскейл и
-Sobel считаются один раз на ноду, без аллокаций в кадре. У каждой есть
-«раз в N кадров» — Хаф дорогой, на 2–3 кадрах он почти не заметен.
+CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
+Sobel run once per node, with no allocations per frame. Each has an
+“every N frames” throttle — Hough is expensive; every 2–3 frames it is barely noticeable.
 
-**Draw Points** умеет три стиля, как слои трекинга в cv-reels:
-`точка` · `кружок (detection)` — кольцо радиусом по score между min/max плюс точка
-в центре · `перекрестье`. Плюс «паутина» связей между близкими точками.
+**Draw Points** supports three styles, like tracking layers in cv-reels:
+`point` · `ring (detection)` — a ring with radius from score between min/max plus a
+center dot · `cross`. Plus a “web” of links between nearby points.
 
-**Features Grid** — мондриан-сетка из cv-reels: кадр рекурсивно режется пополам
-по медианной точке (гильотинный k-d split), листья обводятся и подписываются.
-Рамки и подписи собираются на canvas 2D и грузятся текстурой (premultiplied,
-блендится поверх) — у текста нет дешёвого аналога в WebGL. Остальное на GPU.
+**Features Grid** — Mondrian grid from cv-reels: the frame is recursively split in half
+at the median point (guillotine k-d split); leaves are outlined and labeled.
+Frames and labels are built on a 2D canvas and uploaded as a texture (premultiplied,
+blended on top) — text has no cheap WebGL equivalent. Everything else is GPU.
 
-`Доля ячеек с эффектом` + `Seed эффекта` включают смазывание из оригинала: у
-выбранных сеяным LCG ячеек берётся колонка шириной 1 px из центра и растягивается
-на всю ячейку. Каждая такая ячейка — отдельный проход с `gl.viewport` по её
-прямоугольнику, так что шейдер не перебирает ячейки на каждом пикселе.
+`Effect cell fraction` + `Effect seed` enable smear from the original: for cells
+picked by a seeded LCG, a 1 px-wide column from the center is stretched across the
+whole cell. Each such cell is a separate pass with `gl.viewport` set to its
+rectangle, so the shader does not iterate cells per pixel.
 
-### Глитч-эффекты (порт из [glitcher](../glitcher))
+### Glitch effects (port from [glitcher](../glitcher))
 
-Оригинал работает с `ImageData` на CPU. Два из трёх эффектов ложатся на GPU без
-потери точности, и только один остаётся на процессоре — по существу задачи:
+The original works with `ImageData` on the CPU. Two of three effects map to the GPU
+without losing precision; only one stays on the CPU — by the nature of the problem:
 
-- **Slice Shift** — шейдер + таблица сдвигов по строкам (`R32F`, h×1). Оригинал
-  применяет полосы по очереди к нетронутой копии, поэтому строку под двумя
-  полосами определяет последняя — значит «один сдвиг на строку» это не
-  упрощение, а точная модель. Сдвиг округляется до целых пикселей: дробный
-  заставил бы линейный сэмплер смешивать соседей вместо честного поворота строки.
-- **Block Scatter** — инстансированные текстурированные квады. Блоки в оригинале
-  копируются из нетронутого снимка кадра, что ровно соответствует выборке из
-  входной текстуры. Tint (`overlay` + alpha) считается в шейдере.
-- **Pixel Sort** — единственный на CPU: поиск спанов и сортировка по яркости
-  последовательны по своей природе. Стоит полного `readPixels` кадра, поэтому у
-  ноды есть «раз в N кадров» — на пропущенных кадрах таргет просто сохраняет
-  прошлый результат.
+- **Slice Shift** — shader + per-row shift table (`R32F`, h×1). The original applies
+  bands in sequence to an untouched copy, so a row under two bands keeps the last
+  one’s shift — “one shift per row” is an exact model, not a simplification. Shifts
+  are rounded to whole pixels: a fractional shift would make the linear sampler blend
+  neighbors instead of rotating the row cleanly.
+- **Block Scatter** — instanced textured quads. In the original, blocks are copied from
+  an untouched frame snapshot, which matches sampling the input texture. Tint
+  (`overlay` + alpha) is computed in the shader.
+- **Pixel Sort** — the only CPU one: span finding and luminance sort are sequential by
+  nature. It costs a full-frame `readPixels`, so the node has “every N frames” —
+  on skipped frames the target simply keeps the previous result.
 
-Сиды совпадают с glitcher (mulberry32 с тем же смещением), так что один и тот же
-сид даёт ту же раскладку. У Block Scatter добавлен `Дрожание` — при нуле разлёт
-статичен, как в оригинале, выше — сид переигрывается со временем.
+Seeds match glitcher (mulberry32 with the same offset), so the same seed yields the
+same layout. Block Scatter adds `Jitter` — at zero the scatter is static like the
+original; above zero the seed is re-rolled over time.
 
-**Feedback** держит накопитель внутри себя (ping-pong двух FBO), поэтому трейлы
-не требуют цикла в графе. Для настоящих циклов у ноды есть `delayedInputs` —
-такие рёбра исключаются из топосорта.
+**Feedback** keeps its accumulator inside (ping-pong of two FBOs), so trails do not
+need a cycle in the graph. For real cycles a node can declare `delayedInputs` —
+those edges are excluded from topo-sort.
 
-## Патчи и вывод
+## Patches and output
 
-- **Автосохранение** в localStorage при каждой правке (дебаунс 400 мс).
-  Экспорт/импорт JSON — кнопками в тулбаре, «Сброс» возвращает стартовый патч.
-  Видеофайлы не сохраняются: их `blob:` URL умирает вместе со вкладкой, поэтому
-  патч грузится со всеми связями, но файл нужно выбрать заново.
-- **Окно вывода** — двойной клик по ноде Output (или кнопка под превью).
-  Открывается отдельное окно с картинкой: перетащи на проектор или второй экран,
-  двойной клик внутри — полный экран. Работает через `captureStream()`, так что
-  WebGL-контекст остаётся в основном окне и ничего не рендерится дважды.
-- **Запись** в webm — кнопкой в тулбаре, пишет ровно то, что на выходе.
-- **Ширина правой панели** тянется за разделитель между графом и превью,
-  двойной клик по нему сбрасывает на 340 px. Ширина живёт в localStorage
-  отдельно от патча — это настройка рабочего места, а не часть документа.
+- **Autosave** to localStorage on every edit (400 ms debounce).
+  Export/import JSON via toolbar buttons; “Reset” restores the starter patch.
+  Video files are not saved: their `blob:` URLs die with the tab, so the patch
+  loads with all connections, but you must pick the file again.
+- **Output window** — double-click the Output node (or the button under the preview).
+  Opens a separate window with the image: drag it to a projector or second screen;
+  double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
+  stays in the main window and nothing is rendered twice.
+- **Recording** to webm — toolbar button; writes exactly what is on the output.
+- **Right panel width** is dragged via the splitter between graph and preview;
+  double-click resets it to 340 px. Width lives in localStorage separately from the
+  patch — a workspace setting, not part of the document.
 
-## Деплой
+## Deploy
 
 ```bash
 ../deploy.sh visio ./dist --build "cd visio && npm run build"
 ```
 
-## Что дальше
+## What’s next
 
-- Шейдерная нода с пользовательским GLSL
-- Particles, управляемые landmarks
-- Модуляторы: LFO/audio → любой числовой параметр
-- Хаф в воркере, чтобы тяжёлые кадры не роняли fps основного цикла
+- Shader node with custom GLSL
+- Particles driven by landmarks
+- Modulators: LFO/audio → any numeric parameter
+- Hough in a worker so heavy frames do not drop the main loop’s fps

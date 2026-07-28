@@ -13,23 +13,25 @@ interface CameraState {
   failed: boolean;
   frameId: number;
   lastTime: number;
+  /** True while the engine is paused — ignore late getUserMedia play(). */
+  suspended: boolean;
 }
 
 export const cameraNode = defineNode<CameraState>({
   type: "source.camera",
   label: "Camera",
   category: "source",
-  description: "Веб-камера через getUserMedia. Даёт кадр для трекинга и текстуру.",
+  description: "Webcam via getUserMedia. Provides a frame for tracking and a texture.",
   inputs: [],
   outputs: [
     { id: "out", label: "texture", type: "texture" },
     { id: "frame", label: "frame", type: "frame" },
   ],
   params: [
-    { key: "mirror", label: "Зеркало", type: "toggle", default: true },
+    { key: "mirror", label: "Mirror", type: "toggle", default: true },
     {
       key: "fit",
-      label: "Вписать",
+      label: "Fit",
       type: "select",
       options: [
         { value: "cover", label: "cover" },
@@ -53,6 +55,7 @@ export const cameraNode = defineNode<CameraState>({
       failed: false,
       frameId: 0,
       lastTime: -1,
+      suspended: false,
     };
   },
   disposeState(state) {
@@ -60,24 +63,46 @@ export const cameraNode = defineNode<CameraState>({
     state.texture?.dispose();
     state.video.srcObject = null;
   },
+  suspend({ runtime }) {
+    const state = runtime.state;
+    state.suspended = true;
+    state.stream?.getTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    state.video.pause();
+  },
+  resume({ runtime }) {
+    const state = runtime.state;
+    state.suspended = false;
+    state.stream?.getTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    if (state.stream) void state.video.play().catch(() => undefined);
+  },
   evaluate({ ctx, nodeId, params, runtime }) {
     const state = runtime.state;
     if (!state.texture) state.texture = new SourceTexture(ctx.gl);
 
     if (!state.requested && !state.failed) {
       state.requested = true;
-      ctx.report(nodeId, "loading", "запрашиваю доступ к камере…");
+      ctx.report(nodeId, "loading", "requesting camera access…");
       navigator.mediaDevices
         .getUserMedia({ video: { width: 1280, height: 720 }, audio: false })
         .then((stream) => {
           state.stream = stream;
           state.video.srcObject = stream;
+          if (state.suspended) {
+            stream.getTracks().forEach((track) => {
+              track.enabled = false;
+            });
+            return;
+          }
           return state.video.play();
         })
         .then(() => ctx.report(nodeId, "ready", null))
         .catch((error: unknown) => {
           state.failed = true;
-          ctx.report(nodeId, "error", error instanceof Error ? error.message : "камера недоступна");
+          ctx.report(nodeId, "error", error instanceof Error ? error.message : "camera unavailable");
         });
     }
 

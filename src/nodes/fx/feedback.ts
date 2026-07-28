@@ -46,18 +46,18 @@ export const feedbackNode = defineNode<FeedbackState>({
   type: "fx.feedback",
   label: "Feedback",
   category: "fx",
-  description: "Накопитель кадров с затуханием, зумом и поворотом — трейлы как в TD.",
+  description: "Frame accumulator with decay, zoom, and rotation — trails like in TD.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "decay", label: "Затухание", type: "range", min: 0.5, max: 1, step: 0.005, default: 0.94 },
-    { key: "zoom", label: "Зум", type: "range", min: 0.9, max: 1.1, step: 0.001, default: 1.01 },
-    { key: "rotate", label: "Поворот °/кадр", type: "range", min: -3, max: 3, step: 0.05, default: 0 },
-    { key: "offsetX", label: "Сдвиг X", type: "range", min: -0.02, max: 0.02, step: 0.0005, default: 0 },
-    { key: "offsetY", label: "Сдвиг Y", type: "range", min: -0.02, max: 0.02, step: 0.0005, default: 0 },
+    { key: "decay", label: "Decay", type: "range", min: 0.5, max: 1, step: 0.005, default: 0.94 },
+    { key: "zoom", label: "Zoom", type: "range", min: 0.9, max: 1.1, step: 0.001, default: 1.01 },
+    { key: "rotate", label: "Rotate °/frame", type: "range", min: -3, max: 3, step: 0.05, default: 0 },
+    { key: "offsetX", label: "Offset X", type: "range", min: -0.02, max: 0.02, step: 0.0005, default: 0 },
+    { key: "offsetY", label: "Offset Y", type: "range", min: -0.02, max: 0.02, step: 0.0005, default: 0 },
     {
       key: "mode",
-      label: "Режим",
+      label: "Mode",
       type: "select",
       options: [
         { value: "over", label: "over" },
@@ -66,7 +66,7 @@ export const feedbackNode = defineNode<FeedbackState>({
       ],
       default: "over",
     },
-    { key: "clear", label: "Сброс", type: "toggle", default: false },
+    { key: "clear", label: "Clear", type: "toggle", default: false },
   ],
   createState() {
     return { flip: false, primed: false };
