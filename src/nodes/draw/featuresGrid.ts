@@ -5,6 +5,7 @@ import type { EngineContext, PointsValue } from "../../engine/types";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { CanvasOverlay } from "../shared/canvasOverlay";
 import { beginDraw } from "../shared/drawTarget";
+import { createLcg } from "../shared/rng";
 
 /**
  * Samples one column of the source and stretches it across the cell — the
@@ -22,15 +23,6 @@ void main() {
   float v = gl_FragCoord.y / uResolution.y;
   fragColor = texture(uTex, vec2(uColumnX, v));
 }`;
-
-/** Seeded LCG, same sequence as the cv-reels generator. */
-function createRng(seed: number): () => number {
-  let state = Math.abs(Math.round(seed)) || 1;
-  return () => {
-    state = (state * 16807) % 2147483647;
-    return (state - 1) / 2147483646;
-  };
-}
 
 function smearCell(
   ctx: EngineContext,
@@ -184,7 +176,7 @@ export const featuresGridNode = defineNode<GridState>({
     const effectChance = Math.max(0, Math.min(1, paramNumber(params, "effectChance", 0)));
     const background = inputs.bg;
     if (effectChance > 0 && isRenderTarget(background)) {
-      const rng = createRng(paramNumber(params, "effectSeed", 42));
+      const rng = createLcg(paramNumber(params, "effectSeed", 42));
       for (const cell of cells) {
         if (rng() < effectChance) smearCell(ctx, background, target, cell);
       }

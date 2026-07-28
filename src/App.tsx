@@ -17,14 +17,46 @@ import { useOutputWindow } from "./ui/useOutputWindow";
 import { NODE_DEFS } from "./nodes/registry";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
-const SIDE_WIDTH_KEY = "visio.sideWidth";
-const SIDE_MIN = 260;
-const SIDE_MAX = 900;
+const LEFT_WIDTH_KEY = "visio.leftWidth";
+const RIGHT_WIDTH_KEY = "visio.rightWidth";
+const SIDE_MIN = 240;
+const SIDE_MAX = 720;
 
-function initialSideWidth(): number {
-  const saved = Number(localStorage.getItem(SIDE_WIDTH_KEY));
-  if (!Number.isFinite(saved) || saved <= 0) return 340;
+function loadWidth(key: string, fallback: number): number {
+  const saved = Number(localStorage.getItem(key));
+  if (!Number.isFinite(saved) || saved <= 0) return fallback;
   return Math.min(SIDE_MAX, Math.max(SIDE_MIN, saved));
+}
+
+function useSideResize(
+  key: string,
+  side: "left" | "right",
+  width: number,
+  setWidth: (n: number) => void,
+) {
+  useEffect(() => {
+    localStorage.setItem(key, String(Math.round(width)));
+  }, [key, width]);
+
+  return useCallback(
+    (event: React.PointerEvent) => {
+      event.preventDefault();
+      const onMove = (moveEvent: PointerEvent) => {
+        const next =
+          side === "left" ? moveEvent.clientX : window.innerWidth - moveEvent.clientX;
+        setWidth(Math.min(SIDE_MAX, Math.max(SIDE_MIN, next)));
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        document.body.classList.remove("is-resizing");
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      document.body.classList.add("is-resizing");
+    },
+    [setWidth, side],
+  );
 }
 
 export default function App() {
@@ -44,37 +76,16 @@ export default function App() {
 
   const nodeTypes = useMemo(() => ({ patch: PatchNode }), []);
 
-  const [sideWidth, setSideWidth] = useState(initialSideWidth);
-
-  useEffect(() => {
-    localStorage.setItem(SIDE_WIDTH_KEY, String(Math.round(sideWidth)));
-  }, [sideWidth]);
-
-  // Drag the splitter to resize the panel. Listeners live on the window so the
-  // drag survives the cursor leaving the 6px handle.
-  const startResize = useCallback((event: React.PointerEvent) => {
-    event.preventDefault();
-    const onMove = (moveEvent: PointerEvent) => {
-      setSideWidth(
-        Math.min(SIDE_MAX, Math.max(SIDE_MIN, window.innerWidth - moveEvent.clientX)),
-      );
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      document.body.classList.remove("is-resizing");
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    document.body.classList.add("is-resizing");
-  }, []);
+  const [leftWidth, setLeftWidth] = useState(() => loadWidth(LEFT_WIDTH_KEY, 300));
+  const [rightWidth, setRightWidth] = useState(() => loadWidth(RIGHT_WIDTH_KEY, 380));
+  const startLeftResize = useSideResize(LEFT_WIDTH_KEY, "left", leftWidth, setLeftWidth);
+  const startRightResize = useSideResize(RIGHT_WIDTH_KEY, "right", rightWidth, setRightWidth);
 
   const onNodeClick = useCallback<NodeMouseHandler<PatchNodeType>>(
     (_event, node) => select(node.id),
     [select],
   );
 
-  // Double-clicking an Output node pops out a window for a projector or second screen.
   const onNodeDoubleClick = useCallback<NodeMouseHandler<PatchNodeType>>(
     (_event, node) => {
       if (NODE_DEFS[node.data.defType]?.category === "output") outputWindow.open();
@@ -87,6 +98,20 @@ export default function App() {
       <Toolbar stats={stats} recording={recording} onToggleRecord={toggle} />
 
       <main className="app__body">
+        <aside className="side side--left" style={{ width: leftWidth }}>
+          <Inspector />
+        </aside>
+
+        <div
+          className="splitter"
+          onPointerDown={startLeftResize}
+          onDoubleClick={() => setLeftWidth(300)}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Ширина параметров"
+          title="Тяни · двойной клик — сбросить"
+        />
+
         <section className="editor">
           <ReactFlowProvider>
             <ReactFlow
@@ -111,16 +136,16 @@ export default function App() {
 
         <div
           className="splitter"
-          onPointerDown={startResize}
-          onDoubleClick={() => setSideWidth(340)}
+          onPointerDown={startRightResize}
+          onDoubleClick={() => setRightWidth(380)}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Ширина панели"
-          title="Тяни, чтобы изменить ширину · двойной клик — сбросить"
+          aria-label="Ширина вывода"
+          title="Тяни · двойной клик — сбросить"
         />
 
-        <section className="side" style={{ width: sideWidth }}>
-          <div className="preview">
+        <section className="side side--right" style={{ width: rightWidth }}>
+          <div className="preview preview--fill">
             <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
               <canvas ref={canvasRef} />
               {error ? <div className="preview__error">{error}</div> : null}
@@ -134,7 +159,6 @@ export default function App() {
               </button>
             </div>
           </div>
-          <Inspector />
         </section>
       </main>
     </div>

@@ -4,6 +4,8 @@ import { PixelBuffer } from "../shared/pixelBuffer";
 
 interface PixelSortState {
   buffer: PixelBuffer;
+  /** Frame index of the last sort, so throttling can reuse the target. */
+  lastFrame: number;
 }
 
 function applySorted(
@@ -80,15 +82,17 @@ export const pixelSortNode = defineNode<PixelSortState>({
   type: "fx.pixelSort",
   label: "Pixel Sort",
   category: "fx",
-  description: "Сортировка пикселей по яркости в непрерывных спанах (glitcher).",
+  description:
+    "Сортировка пикселей по яркости в непрерывных спанах. Считается на CPU — тяжёлая.",
   inputs: [{ id: "src", label: "texture", type: "texture" }],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
     { key: "thresh", label: "Порог", type: "range", min: 0, max: 255, step: 1, default: 110 },
     { key: "vert", label: "Вертикаль", type: "toggle", default: false },
+    { key: "interval", label: "Раз в N кадров", type: "range", min: 1, max: 8, step: 1, default: 1 },
   ],
   createState() {
-    return { buffer: new PixelBuffer() };
+    return { buffer: new PixelBuffer(), lastFrame: -1 };
   },
   disposeState(state) {
     state.buffer.dispose();
@@ -101,6 +105,14 @@ export const pixelSortNode = defineNode<PixelSortState>({
       clearTarget(gl, target, 0, 0, 0, 0);
       return { out: target };
     }
+
+    // A full readback plus sort is expensive; on skipped frames the target
+    // still holds the previous result, so leaving it alone is the throttle.
+    const interval = Math.max(1, Math.round(paramNumber(params, "interval", 1)));
+    if (runtime.state.lastFrame >= 0 && ctx.frameCount % interval !== 0) {
+      return { out: target };
+    }
+    runtime.state.lastFrame = ctx.frameCount;
 
     const image = runtime.state.buffer.read(gl, source);
     pixelSort(

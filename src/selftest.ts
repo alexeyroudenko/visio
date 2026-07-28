@@ -163,34 +163,48 @@ const testPoints = defineNode<Record<string, never>>({
 });
 
 /** Horizontal black→red ramp, so any x-smear is obvious in the red channel. */
-const testGradient = defineNode<{ canvas: HTMLCanvasElement; texture: SourceTexture | null }>({
+const testGradient = defineNode<{
+  canvas: HTMLCanvasElement;
+  texture: SourceTexture | null;
+  drawn: string;
+}>({
   type: "test.gradient",
   label: "Test Gradient",
   category: "source",
   description: "горизонтальный градиент",
   inputs: [],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
-  params: [],
+  params: [{ key: "reverse", label: "reverse", type: "toggle", default: false }],
   createState() {
     const canvas = document.createElement("canvas");
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-    const ctx2d = canvas.getContext("2d")!;
-    const ramp = ctx2d.createLinearGradient(0, 0, WIDTH, 0);
-    ramp.addColorStop(0, "#000000");
-    ramp.addColorStop(1, "#ff0000");
-    ctx2d.fillStyle = ramp;
-    ctx2d.fillRect(0, 0, WIDTH, HEIGHT);
-    return { canvas, texture: null };
+    return { canvas, texture: null, drawn: "" };
   },
   disposeState(state) {
     state.texture?.dispose();
   },
-  evaluate({ ctx, nodeId, runtime }) {
-    if (!runtime.state.texture) runtime.state.texture = new SourceTexture(ctx.gl);
-    runtime.state.texture.upload(runtime.state.canvas, 1);
+  evaluate({ ctx, nodeId, params, runtime }) {
+    const state = runtime.state;
+    const key = params.reverse === true ? "rev" : "fwd";
+    if (state.drawn !== key) {
+      // Painted column by column: canvas gradients are dithered, which would
+      // make otherwise identical rows differ and break exact comparisons.
+      const ctx2d = state.canvas.getContext("2d")!;
+      for (let x = 0; x < WIDTH; x += 1) {
+        const t = x / (WIDTH - 1);
+        const value = Math.round(255 * (key === "rev" ? 1 - t : t));
+        ctx2d.fillStyle = `rgb(${value},0,0)`;
+        ctx2d.fillRect(x, 0, 1, HEIGHT);
+      }
+      state.drawn = key;
+      state.texture?.dispose();
+      state.texture = null;
+    }
+    if (!state.texture) state.texture = new SourceTexture(ctx.gl);
+    state.texture.upload(state.canvas, 1);
     const target = ctx.target(nodeId, "out");
-    copyTexture(ctx.gl, runtime.state.texture.texture, target);
+    copyTexture(ctx.gl, state.texture.texture, target);
     return { out: target };
   },
 });
@@ -632,6 +646,144 @@ function run(): void {
     "smeared column comes from the cell centre",
     Math.abs(smearLeft - 64) < 12,
     `значение=${smearLeft} (центр ячейки x=80 → ~64)`,
+  );
+
+  // --- 4d. glitch effects ported from glitcher -----------------------------
+  const readRow = (y: number): number[] => {
+    const gl = engine.gl;
+    const rt = engine.displayTarget!;
+    const row = new Uint8Array(WIDTH * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer);
+    gl.readPixels(0, y, WIDTH, 1, gl.RGBA, gl.UNSIGNED_BYTE, row);
+    const out: number[] = [];
+    for (let x = 0; x < WIDTH; x += 1) out.push(row[x * 4]);
+    return out;
+  };
+
+  const runSlice = (count: number) => {
+    engine.setGraph(
+      [
+        { id: "grad", type: "test.gradient", params: { reverse: false } },
+        {
+          id: "fx",
+          type: "fx.sliceShift",
+          params: { ...defaultParams("fx.sliceShift"), count, maxH: 20, amount: 40, seed: 7 },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "grad", sourceHandle: "out", target: "fx", targetHandle: "src" },
+        { id: "b", source: "fx", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+    engine.tick();
+    const rows: number[][] = [];
+    for (let y = 0; y < HEIGHT; y += 1) rows.push(readRow(y));
+    return rows;
+  };
+
+  const untouched = runSlice(0);
+  const reference = untouched[0];
+  check(
+    "slice shift with 0 bands is a pass-through",
+    untouched.every((row) => row.every((v, x) => v === reference[x])),
+    "все строки совпадают с градиентом",
+  );
+
+  const shifted = runSlice(1);
+  const movedRows = shifted.filter((row) => row.some((v, x) => v !== reference[x]));
+  check(
+    "one band moves between 1 and maxH rows",
+    movedRows.length >= 1 && movedRows.length <= 20,
+    `сдвинуто строк: ${movedRows.length} (полоса ≤ 20)`,
+  );
+
+  // A wrapped shift only rotates a row — the multiset of values must survive.
+  const sortedRef = [...reference].sort((a, b) => a - b).join(",");
+  const sortedMoved = [...movedRows[0]].sort((a, b) => a - b).join(",");
+  check(
+    "shifted row is a rotation, not a clamp",
+    sortedMoved === sortedRef,
+    movedRows.length ? "набор значений строки сохранился" : "нет сдвинутых строк",
+  );
+
+  const runBlocks = (count: number) => {
+    engine.setGraph(
+      [
+        { id: "grad", type: "test.gradient", params: { reverse: false } },
+        {
+          id: "fx",
+          type: "fx.blockScatter",
+          params: { ...defaultParams("fx.blockScatter"), count, spread: 40, tint: 0, seed: 3 },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "grad", sourceHandle: "out", target: "fx", targetHandle: "src" },
+        { id: "b", source: "fx", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+    engine.tick();
+    const rows: number[][] = [];
+    for (let y = 0; y < HEIGHT; y += 1) rows.push(readRow(y));
+    return rows;
+  };
+
+  const noBlocks = runBlocks(0);
+  check(
+    "block scatter with 0 blocks is a pass-through",
+    noBlocks.every((row) => row.every((v, x) => v === reference[x])),
+    "кадр не тронут",
+  );
+
+  const scattered = runBlocks(60);
+  const changed = scattered.reduce(
+    (sum, row) => sum + row.filter((v, x) => v !== reference[x]).length,
+    0,
+  );
+  check(
+    "block scatter moves pixels",
+    changed > 500,
+    `изменено пикселей: ${changed}`,
+  );
+
+  // Blocks land on a copy of the frame, so nothing may be left blank.
+  const holes = scattered.reduce((sum, row) => sum + row.filter((v) => v === 0).length, 0);
+  const referenceZeros = reference.filter((v) => v === 0).length * HEIGHT;
+  check(
+    "block scatter leaves no holes",
+    holes <= referenceZeros * 1.5 + 200,
+    `нулевых пикселей: ${holes}, в исходнике: ${referenceZeros}`,
+  );
+
+  // Pixel sort: feed a descending ramp so an ascending sort visibly flips it.
+  engine.setGraph(
+    [
+      { id: "grad", type: "test.gradient", params: { reverse: true } },
+      {
+        id: "fx",
+        type: "fx.pixelSort",
+        params: { ...defaultParams("fx.pixelSort"), thresh: 20, vert: false, interval: 1 },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "grad", sourceHandle: "out", target: "fx", targetHandle: "src" },
+      { id: "b", source: "fx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  const sortedRow = readRow(Math.round(HEIGHT / 2));
+  // Luminance of (r,0,0) is 0.299r, so a threshold of 20 spans x where r > ~67 —
+  // the left ~74% of a descending ramp. That span comes back ascending.
+  let ascending = true;
+  for (let x = 2; x < 220; x += 1) {
+    if (sortedRow[x] > sortedRow[x + 1] + 1) ascending = false;
+  }
+  check(
+    "pixel sort reorders a span by luminance",
+    ascending && sortedRow[10] < sortedRow[200],
+    `x=10 → ${sortedRow[10]}, x=200 → ${sortedRow[200]}, по возрастанию=${ascending}`,
   );
 
   // --- 5. Hough detectors on a synthetic frame -----------------------------

@@ -175,6 +175,11 @@ body {
   min-height: 0;
 }
 
+.side--left,
+.side--right {
+  overflow: hidden;
+}
+
 .splitter {
   flex: 0 0 6px;
   cursor: col-resize;
@@ -198,6 +203,20 @@ body.is-resizing {
 .preview {
   padding: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.preview--fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-bottom: none;
+  overflow: auto;
+}
+
+.preview--fill .preview__frame {
+  width: 100%;
+  flex: 0 0 auto;
 }
 
 .preview__frame {
@@ -249,6 +268,7 @@ body.is-resizing {
   flex: 1 1 auto;
   overflow-y: auto;
   padding: 12px;
+  min-height: 0;
 }
 
 .inspector__header {
