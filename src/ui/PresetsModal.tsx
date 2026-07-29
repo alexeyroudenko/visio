@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   addUserPreset,
   DEFAULT_PRESET_ID,
+  downloadUserPresets,
   getPreset,
   listPresets,
   removeUserPreset,
@@ -22,6 +23,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
   onCloseRef.current = onClose;
 
   const refresh = () => setPresets(listPresets());
+  const savedCount = presets.filter((preset) => preset.builtin !== true).length;
 
   useEffect(() => {
     if (!open) return;
@@ -155,6 +157,19 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
             }}
           >
             Add current
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={savedCount === 0}
+            title="Download all saved (non-builtin) presets as JSON"
+            onClick={() => {
+              const count = downloadUserPresets();
+              setStatus(`Exported ${count} saved preset${count === 1 ? "" : "s"}`);
+              appLog("ok", "preset", `exported ${count} saved presets`);
+            }}
+          >
+            Export saved
           </button>
           <div className="modal__footer-spacer" />
           <button type="button" className="button" onClick={onClose}>

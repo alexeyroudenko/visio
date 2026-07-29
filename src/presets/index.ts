@@ -567,3 +567,29 @@ export function removeUserPreset(id: string): boolean {
   writeStored(next);
   return true;
 }
+
+/** Snapshot of every saved (non-builtin) preset for download / backup. */
+export function exportUserPresets(): {
+  format: "visio.userPresets.v1";
+  exportedAt: string;
+  presets: StoredUserPreset[];
+} {
+  return {
+    format: "visio.userPresets.v1",
+    exportedAt: new Date().toISOString(),
+    presets: readStored().map((entry) => structuredClone(entry)),
+  };
+}
+
+export function downloadUserPresets(): number {
+  const bundle = exportUserPresets();
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  link.href = url;
+  link.download = `visio-user-presets-${stamp}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  return bundle.presets.length;
+}

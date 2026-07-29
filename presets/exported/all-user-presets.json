@@ -1,0 +1,1330 @@
+{
+  "format": "visio.userPresets.v1",
+  "exportedAt": "2026-07-29T05:31:55.214Z",
+  "presets": [
+    {
+      "description": "Saved 7/29/2026, 5:50:36 AM",
+      "id": "user-ms5hm7s4",
+      "label": "Patch 7/29/2026, 5:50:36 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-frame",
+            "source": "image-1",
+            "sourceHandle": "frame",
+            "target": "features-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-bg",
+            "source": "image-1",
+            "sourceHandle": "out",
+            "target": "points-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-data",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "points-1",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9d54e952-b7b4-429d-b6ac-3ffdbfa8a197",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-5",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9d3caccf-850b-46a6-aa52-fed861bea1ae",
+            "source": "featuresGrid-5",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-5be80872-fb5e-4cfc-8278-b5a4acc60e62",
+            "source": "points-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-5",
+            "targetHandle": "bg"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "id": "image-1",
+            "params": {
+              "file": {
+                "name": "default-frame.png",
+                "url": "/default-frame.png"
+              },
+              "fit": "cover",
+              "mirror": false
+            },
+            "position": {
+              "x": 0,
+              "y": 140
+            },
+            "type": "source.image"
+          },
+          {
+            "id": "features-1",
+            "params": {
+              "block": 7,
+              "downscale": 4,
+              "maxCorners": 410,
+              "minDistance": 20,
+              "quality": 0.19
+            },
+            "position": {
+              "x": 320,
+              "y": 40
+            },
+            "type": "tracking.features"
+          },
+          {
+            "id": "points-1",
+            "params": {
+              "blend": "normal",
+              "centerDot": true,
+              "color": "#ffd166",
+              "linkRadius": 0,
+              "linkWidth": 1,
+              "maxRadius": 34,
+              "minRadius": 8,
+              "opacity": 0.9,
+              "size": 4,
+              "sizeByScore": 1,
+              "stroke": 1.5,
+              "style": "point"
+            },
+            "position": {
+              "x": 640,
+              "y": 140
+            },
+            "type": "draw.points"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1124.7851771500368,
+              "y": 141.8294222420819
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "featuresGrid-5",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 0.1,
+              "effectSeed": 42,
+              "labelSize": 13,
+              "labelText": "Element",
+              "labels": true,
+              "maxDepth": 8,
+              "minSize": 16,
+              "opacity": 1,
+              "stroke": 1
+            },
+            "position": {
+              "x": 843.3244175357959,
+              "y": 24.70742411814596
+            },
+            "type": "draw.featuresGrid"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 5:54:58 AM",
+      "id": "user-ms5hru9m",
+      "label": "Patch 7/29/2026, 5:54:58 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-data",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "points-1",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9d54e952-b7b4-429d-b6ac-3ffdbfa8a197",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-5",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9d3caccf-850b-46a6-aa52-fed861bea1ae",
+            "source": "featuresGrid-5",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-5be80872-fb5e-4cfc-8278-b5a4acc60e62",
+            "source": "points-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-5",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-cb3a2334-d094-4352-be9f-36c59938137e",
+            "source": "video-1",
+            "sourceHandle": "out",
+            "target": "points-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-b1b44f57-1cef-4795-b783-c941effeb324",
+            "source": "video-1",
+            "sourceHandle": "frame",
+            "target": "features-1",
+            "targetHandle": "frame"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "id": "features-1",
+            "params": {
+              "block": 7,
+              "downscale": 4,
+              "maxCorners": 410,
+              "minDistance": 60,
+              "quality": 0.19
+            },
+            "position": {
+              "x": 320,
+              "y": 40
+            },
+            "type": "tracking.features"
+          },
+          {
+            "id": "points-1",
+            "params": {
+              "blend": "normal",
+              "centerDot": true,
+              "color": "#ffd166",
+              "linkRadius": 0,
+              "linkWidth": 1,
+              "maxRadius": 34,
+              "minRadius": 8,
+              "opacity": 0.9,
+              "size": 4,
+              "sizeByScore": 1,
+              "stroke": 1.5,
+              "style": "point"
+            },
+            "position": {
+              "x": 630.2079183538931,
+              "y": 152.2401020576336
+            },
+            "type": "draw.points"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1244.738177314846,
+              "y": 25.54845269456272
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "featuresGrid-5",
+            "params": {
+              "color": "#ffffff",
+              "effectChance": 0,
+              "effectSeed": 1,
+              "labelSize": 15,
+              "labelText": "Element",
+              "labels": true,
+              "maxDepth": 7,
+              "minSize": 68,
+              "opacity": 1,
+              "stroke": 0.5
+            },
+            "position": {
+              "x": 843.3244175357959,
+              "y": 24.70742411814596
+            },
+            "type": "draw.featuresGrid"
+          },
+          {
+            "id": "video-1",
+            "params": {
+              "fit": "cover",
+              "mirror": false,
+              "playing": true,
+              "speed": 1
+            },
+            "position": {
+              "x": 10.04554048587434,
+              "y": 149.3240964894365
+            },
+            "type": "source.video"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 6:03:07 AM",
+      "id": "user-ms5i2b34",
+      "label": "Patch 7/29/2026, 6:03:07 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-frame",
+            "source": "camera-1",
+            "sourceHandle": "frame",
+            "target": "pose-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-bg",
+            "source": "camera-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-data",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-d1f7a47a-ad3f-4484-b299-0a8f39269ddd",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarksToPoints-5",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-c9a01db8-3b98-4b51-905c-f5ca14343c8e",
+            "source": "landmarksToPoints-5",
+            "sourceHandle": "points",
+            "target": "featuresGrid-6",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9944b8c0-bbe6-4f23-82da-c1892a4c2c94",
+            "source": "featuresGrid-6",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-9aafca3b-5bd4-44a3-8868-109a82d195ea",
+            "source": "landmarks-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "bg"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "id": "camera-1",
+            "params": {
+              "fit": "cover",
+              "mirror": true
+            },
+            "position": {
+              "x": 0,
+              "y": 140
+            },
+            "type": "source.camera"
+          },
+          {
+            "id": "pose-1",
+            "params": {
+              "confidence": 0.5,
+              "interval": 1,
+              "model": "lite",
+              "numPoses": 1
+            },
+            "position": {
+              "x": 317.011752433936,
+              "y": -9.950486787204454
+            },
+            "type": "tracking.pose"
+          },
+          {
+            "id": "landmarks-1",
+            "params": {
+              "blend": "normal",
+              "boneColor": "#7fe3c0",
+              "boneWidth": 3,
+              "opacity": 1,
+              "pointColor": "#f5f0e6",
+              "pointSize": 5,
+              "scoreFade": true
+            },
+            "position": {
+              "x": 640,
+              "y": 140
+            },
+            "type": "draw.landmarks"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1135.05876216968,
+              "y": 78.58664812239223
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "landmarksToPoints-5",
+            "params": {
+              "minScore": 0.2,
+              "subject": -1
+            },
+            "position": {
+              "x": 630.6466509613829,
+              "y": -52.30978287415584
+            },
+            "type": "convert.landmarksToPoints"
+          },
+          {
+            "id": "featuresGrid-6",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 0.3,
+              "effectSeed": 734,
+              "labelSize": 13,
+              "labelText": "Element",
+              "labels": true,
+              "maxDepth": 5,
+              "minSize": 64,
+              "opacity": 1,
+              "stroke": 1
+            },
+            "position": {
+              "x": 877.8847520493568,
+              "y": 56.620422304641195
+            },
+            "type": "draw.featuresGrid"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 6:13:47 AM",
+      "id": "user-ms5ig12g",
+      "label": "Patch 7/29/2026, 6:13:47 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-frame",
+            "source": "camera-1",
+            "sourceHandle": "frame",
+            "target": "pose-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-bg",
+            "source": "camera-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-data",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-d1f7a47a-ad3f-4484-b299-0a8f39269ddd",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarksToPoints-5",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-c9a01db8-3b98-4b51-905c-f5ca14343c8e",
+            "source": "landmarksToPoints-5",
+            "sourceHandle": "points",
+            "target": "featuresGrid-6",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9944b8c0-bbe6-4f23-82da-c1892a4c2c94",
+            "source": "featuresGrid-6",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-9aafca3b-5bd4-44a3-8868-109a82d195ea",
+            "source": "landmarks-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "bg"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "id": "camera-1",
+            "params": {
+              "fit": "cover",
+              "mirror": false,
+              "mode": "video",
+              "playing": true,
+              "speed": 1
+            },
+            "position": {
+              "x": 0,
+              "y": 140
+            },
+            "type": "source.media"
+          },
+          {
+            "id": "pose-1",
+            "params": {
+              "confidence": 0.5,
+              "interval": 1,
+              "model": "lite",
+              "numPoses": 1
+            },
+            "position": {
+              "x": 317.011752433936,
+              "y": -9.950486787204454
+            },
+            "type": "tracking.pose"
+          },
+          {
+            "id": "landmarks-1",
+            "params": {
+              "blend": "normal",
+              "boneColor": "#7fe3c0",
+              "boneWidth": 1,
+              "opacity": 0.2,
+              "pointColor": "#f5f0e6",
+              "pointSize": 0,
+              "scoreFade": true
+            },
+            "position": {
+              "x": 640,
+              "y": 140
+            },
+            "type": "draw.landmarks"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1147.089560134638,
+              "y": 77.66120212508774
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "landmarksToPoints-5",
+            "params": {
+              "minScore": 0.2,
+              "subject": -1
+            },
+            "position": {
+              "x": 630.6466509613829,
+              "y": -52.30978287415584
+            },
+            "type": "convert.landmarksToPoints"
+          },
+          {
+            "id": "featuresGrid-6",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 0.15,
+              "effectSeed": 497,
+              "labelSize": 9,
+              "labelText": "Element",
+              "labels": true,
+              "maxDepth": 8,
+              "minSize": 40,
+              "opacity": 1,
+              "stroke": 1
+            },
+            "position": {
+              "x": 877.8847520493568,
+              "y": 56.620422304641195
+            },
+            "type": "draw.featuresGrid"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 6:44:09 AM",
+      "id": "user-ms5jj31m",
+      "label": "Pose + Features Grid",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-frame",
+            "source": "camera-1",
+            "sourceHandle": "frame",
+            "target": "pose-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-bg",
+            "source": "camera-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-data",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-d1f7a47a-ad3f-4484-b299-0a8f39269ddd",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarksToPoints-5",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-c9a01db8-3b98-4b51-905c-f5ca14343c8e",
+            "source": "landmarksToPoints-5",
+            "sourceHandle": "points",
+            "target": "featuresGrid-6",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-9944b8c0-bbe6-4f23-82da-c1892a4c2c94",
+            "source": "featuresGrid-6",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-9aafca3b-5bd4-44a3-8868-109a82d195ea",
+            "source": "landmarks-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "bg"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "id": "camera-1",
+            "params": {
+              "fit": "cover",
+              "mirror": false,
+              "mode": "video",
+              "playing": true,
+              "speed": 1
+            },
+            "position": {
+              "x": 1.1198428290766174,
+              "y": 140
+            },
+            "type": "source.media"
+          },
+          {
+            "id": "pose-1",
+            "params": {
+              "confidence": 0.5,
+              "interval": 1,
+              "model": "lite",
+              "numPoses": 1
+            },
+            "position": {
+              "x": 317.011752433936,
+              "y": -9.950486787204454
+            },
+            "type": "tracking.pose"
+          },
+          {
+            "id": "landmarks-1",
+            "params": {
+              "blend": "normal",
+              "boneColor": "#7fe3c0",
+              "boneWidth": 1,
+              "opacity": 0.2,
+              "pointColor": "#f5f0e6",
+              "pointSize": 0,
+              "scoreFade": true
+            },
+            "position": {
+              "x": 640,
+              "y": 140
+            },
+            "type": "draw.landmarks"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1147.089560134638,
+              "y": 77.66120212508774
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "landmarksToPoints-5",
+            "params": {
+              "minScore": 0.2,
+              "subject": -1
+            },
+            "position": {
+              "x": 630.6466509613829,
+              "y": -20.059860643689028
+            },
+            "type": "convert.landmarksToPoints"
+          },
+          {
+            "id": "featuresGrid-6",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 1,
+              "effectMaxArea": 0.15,
+              "effectMinArea": 0,
+              "effectSeed": 0,
+              "labelSize": 11,
+              "labelText": "Element",
+              "labels": false,
+              "maxDepth": 8,
+              "minSize": 52,
+              "opacity": 1,
+              "stroke": 1
+            },
+            "position": {
+              "x": 877.8847520493568,
+              "y": 56.620422304641195
+            },
+            "type": "draw.featuresGrid"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 8:05:23 AM",
+      "id": "user-ms5mfjx9",
+      "label": "Patch 7/29/2026, 8:05:23 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-data",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-l2p",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarksToPoints-5",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-grid-bg",
+            "source": "landmarks-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-e725edcd-aedf-4214-8eef-d785be31d15d",
+            "source": "featuresGrid-6",
+            "sourceHandle": "out",
+            "target": "blend-4",
+            "targetHandle": "top"
+          },
+          {
+            "id": "e-47085e85-0844-4cfd-b918-b6f112887e0f",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "pose-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-26d0d094-b372-469e-95e9-e424f912ad58",
+            "source": "media-5",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-18cf2746-7208-4253-afe0-a9b6dcd3cbef",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "features-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-2507a15b-5d8d-42b2-bbab-621d6c289e17",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-193b031b-fc28-49a7-a5fc-9e48e578893e",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "points-2",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-cbba46fe-4b44-46b9-83d6-b5ccaea7450a",
+            "source": "points-2",
+            "sourceHandle": "out",
+            "target": "blend-4",
+            "targetHandle": "base"
+          },
+          {
+            "id": "e-97b069a9-507d-4282-936f-01807b3bad47",
+            "source": "blend-4",
+            "sourceHandle": "out",
+            "target": "quadtree-3",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-24db4201-d116-4268-a52b-b250e4838d91",
+            "source": "quadtree-3",
+            "sourceHandle": "out",
+            "target": "pixelSort-2",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-002fc1d4-11a0-4f69-83d0-e31c4ddc771f",
+            "source": "pixelSort-2",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-42a85daf-94ba-42af-8841-fb68d2874139",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "featuresGrid-6",
+            "targetHandle": "frame"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "bypass": true,
+            "id": "pose-1",
+            "params": {
+              "confidence": 0.5,
+              "interval": 1,
+              "model": "lite",
+              "numPoses": 1
+            },
+            "position": {
+              "x": 292.3272874788587,
+              "y": 33.216549123092214
+            },
+            "type": "tracking.pose"
+          },
+          {
+            "bypass": true,
+            "id": "landmarks-1",
+            "params": {
+              "blend": "normal",
+              "boneColor": "#7fe3c0",
+              "boneWidth": 1,
+              "opacity": 0.2,
+              "pointColor": "#f5f0e6",
+              "pointSize": 0,
+              "scoreFade": true
+            },
+            "position": {
+              "x": 530.7472215771003,
+              "y": 23.69807965757434
+            },
+            "type": "draw.landmarks"
+          },
+          {
+            "bypass": true,
+            "id": "landmarksToPoints-5",
+            "params": {
+              "minScore": 0.2,
+              "subject": -1
+            },
+            "position": {
+              "x": 588.0843576987135,
+              "y": -75.25783111731212
+            },
+            "type": "convert.landmarksToPoints"
+          },
+          {
+            "id": "featuresGrid-6",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 1,
+              "effectMaxArea": 0.14,
+              "effectMinArea": 0,
+              "effectSeed": 0,
+              "labelSize": 13,
+              "labelText": "Element",
+              "labels": false,
+              "maxDepth": 8,
+              "minSize": 48,
+              "opacity": 1,
+              "stroke": 0.5,
+              "useContentEdge": true
+            },
+            "position": {
+              "x": 881.9294895471899,
+              "y": 122.49149245316498
+            },
+            "type": "draw.featuresGrid"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1336.2646648009074,
+              "y": 466.6120422418454
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "points-2",
+            "params": {
+              "blend": "normal",
+              "centerDot": true,
+              "color": "#ffffff",
+              "linkRadius": 0,
+              "linkWidth": 2.5,
+              "maxRadius": 34,
+              "minRadius": 8,
+              "opacity": 0,
+              "size": 1.5,
+              "sizeByScore": 1,
+              "stroke": 1.5,
+              "style": "point"
+            },
+            "position": {
+              "x": 884.4576156265551,
+              "y": -66.58331446424468
+            },
+            "type": "draw.points"
+          },
+          {
+            "id": "blend-4",
+            "params": {
+              "mode": "add",
+              "opacity": 1
+            },
+            "position": {
+              "x": 1284.0930741027444,
+              "y": 46.0601622656779
+            },
+            "type": "fx.blend"
+          },
+          {
+            "id": "media-5",
+            "params": {
+              "fit": "cover",
+              "mirror": false,
+              "mode": "video",
+              "muted": true,
+              "playing": true,
+              "speed": 1,
+              "syncTimeline": false,
+              "volume": 1,
+              "zoom": 1
+            },
+            "position": {
+              "x": -85.81905885749912,
+              "y": 227.1870182808744
+            },
+            "type": "source.media"
+          },
+          {
+            "id": "features-1",
+            "params": {
+              "block": 5,
+              "downscale": 5,
+              "maxCorners": 600,
+              "minDistance": 7,
+              "quality": 0.19
+            },
+            "position": {
+              "x": 579.2992996972714,
+              "y": 235.74313855828888
+            },
+            "type": "tracking.features"
+          },
+          {
+            "id": "pixelSort-2",
+            "params": {
+              "interval": 1,
+              "thresh": 91,
+              "vert": true
+            },
+            "position": {
+              "x": 1248.4054445363968,
+              "y": 392.4583734965505
+            },
+            "type": "fx.pixelSort"
+          },
+          {
+            "bypass": true,
+            "id": "quadtree-3",
+            "params": {
+              "bgColor": "#0a0a0a",
+              "color": "#f5f0e6",
+              "gap": 0.5,
+              "maxDepth": 11,
+              "minSize": 2,
+              "opacity": 1,
+              "outline": false,
+              "replace": true,
+              "shape": "square",
+              "threshold": 51,
+              "useImageColor": true
+            },
+            "position": {
+              "x": 1205.8738947066054,
+              "y": 326.0646010846031
+            },
+            "type": "draw.quadtree"
+          }
+        ],
+        "width": 1080
+      }
+    },
+    {
+      "description": "Saved 7/29/2026, 8:26:21 AM",
+      "id": "user-ms5n6iav",
+      "label": "Patch 7/29/2026, 8:26:21 AM",
+      "patch": {
+        "edges": [
+          {
+            "id": "e-data",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-l2p",
+            "source": "pose-1",
+            "sourceHandle": "out",
+            "target": "landmarksToPoints-5",
+            "targetHandle": "landmarks"
+          },
+          {
+            "id": "e-grid-bg",
+            "source": "landmarks-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-e725edcd-aedf-4214-8eef-d785be31d15d",
+            "source": "featuresGrid-6",
+            "sourceHandle": "out",
+            "target": "blend-4",
+            "targetHandle": "top"
+          },
+          {
+            "id": "e-47085e85-0844-4cfd-b918-b6f112887e0f",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "pose-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-26d0d094-b372-469e-95e9-e424f912ad58",
+            "source": "media-5",
+            "sourceHandle": "out",
+            "target": "landmarks-1",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-18cf2746-7208-4253-afe0-a9b6dcd3cbef",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "features-1",
+            "targetHandle": "frame"
+          },
+          {
+            "id": "e-2507a15b-5d8d-42b2-bbab-621d6c289e17",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "featuresGrid-6",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-193b031b-fc28-49a7-a5fc-9e48e578893e",
+            "source": "features-1",
+            "sourceHandle": "out",
+            "target": "points-2",
+            "targetHandle": "points"
+          },
+          {
+            "id": "e-cbba46fe-4b44-46b9-83d6-b5ccaea7450a",
+            "source": "points-2",
+            "sourceHandle": "out",
+            "target": "blend-4",
+            "targetHandle": "base"
+          },
+          {
+            "id": "e-97b069a9-507d-4282-936f-01807b3bad47",
+            "source": "blend-4",
+            "sourceHandle": "out",
+            "target": "quadtree-3",
+            "targetHandle": "bg"
+          },
+          {
+            "id": "e-24db4201-d116-4268-a52b-b250e4838d91",
+            "source": "quadtree-3",
+            "sourceHandle": "out",
+            "target": "pixelSort-2",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-002fc1d4-11a0-4f69-83d0-e31c4ddc771f",
+            "source": "pixelSort-2",
+            "sourceHandle": "out",
+            "target": "screen-1",
+            "targetHandle": "src"
+          },
+          {
+            "id": "e-42a85daf-94ba-42af-8841-fb68d2874139",
+            "source": "media-5",
+            "sourceHandle": "frame",
+            "target": "featuresGrid-6",
+            "targetHandle": "frame"
+          }
+        ],
+        "format": 1,
+        "height": 1920,
+        "nodes": [
+          {
+            "bypass": true,
+            "id": "pose-1",
+            "params": {
+              "confidence": 0.5,
+              "interval": 1,
+              "model": "lite",
+              "numPoses": 1
+            },
+            "position": {
+              "x": 292.3272874788587,
+              "y": 33.216549123092214
+            },
+            "type": "tracking.pose"
+          },
+          {
+            "bypass": true,
+            "id": "landmarks-1",
+            "params": {
+              "blend": "normal",
+              "boneColor": "#7fe3c0",
+              "boneWidth": 1,
+              "opacity": 0.2,
+              "pointColor": "#f5f0e6",
+              "pointSize": 0,
+              "scoreFade": true
+            },
+            "position": {
+              "x": 530.7472215771003,
+              "y": 23.69807965757434
+            },
+            "type": "draw.landmarks"
+          },
+          {
+            "bypass": true,
+            "id": "landmarksToPoints-5",
+            "params": {
+              "minScore": 0.2,
+              "subject": -1
+            },
+            "position": {
+              "x": 588.0843576987135,
+              "y": -75.25783111731212
+            },
+            "type": "convert.landmarksToPoints"
+          },
+          {
+            "id": "featuresGrid-6",
+            "params": {
+              "color": "#f5f0e6",
+              "effectChance": 1,
+              "effectMaxArea": 0.14,
+              "effectMinArea": 0,
+              "effectSeed": 0,
+              "labelSize": 13,
+              "labelText": "Element",
+              "labels": false,
+              "maxDepth": 8,
+              "minSize": 48,
+              "opacity": 1,
+              "stroke": 0.5,
+              "useContentEdge": true
+            },
+            "position": {
+              "x": 881.9294895471899,
+              "y": 122.49149245316498
+            },
+            "type": "draw.featuresGrid"
+          },
+          {
+            "id": "screen-1",
+            "params": {
+              "background": "#000000"
+            },
+            "position": {
+              "x": 1336.2646648009074,
+              "y": 466.6120422418454
+            },
+            "type": "output.screen"
+          },
+          {
+            "id": "points-2",
+            "params": {
+              "blend": "normal",
+              "centerDot": true,
+              "color": "#ffffff",
+              "linkRadius": 0,
+              "linkWidth": 2.5,
+              "maxRadius": 34,
+              "minRadius": 8,
+              "opacity": 0,
+              "size": 1.5,
+              "sizeByScore": 1,
+              "stroke": 1.5,
+              "style": "point"
+            },
+            "position": {
+              "x": 891.4966478043162,
+              "y": -31.388153575439617
+            },
+            "type": "draw.points"
+          },
+          {
+            "id": "blend-4",
+            "params": {
+              "mode": "add",
+              "opacity": 1
+            },
+            "position": {
+              "x": 1259.717658330453,
+              "y": 26.90804987316315
+            },
+            "type": "fx.blend"
+          },
+          {
+            "id": "media-5",
+            "params": {
+              "fit": "cover",
+              "mirror": false,
+              "mode": "video",
+              "muted": true,
+              "playing": true,
+              "speed": 1,
+              "syncTimeline": false,
+              "volume": 1,
+              "zoom": 1
+            },
+            "position": {
+              "x": -85.81905885749912,
+              "y": 227.1870182808744
+            },
+            "type": "source.media"
+          },
+          {
+            "id": "features-1",
+            "params": {
+              "block": 5,
+              "downscale": 5,
+              "maxCorners": 600,
+              "minDistance": 7,
+              "quality": 0.19
+            },
+            "position": {
+              "x": 579.2992996972714,
+              "y": 235.74313855828888
+            },
+            "type": "tracking.features"
+          },
+          {
+            "bypass": true,
+            "id": "pixelSort-2",
+            "params": {
+              "interval": 1,
+              "thresh": 91,
+              "vert": true
+            },
+            "position": {
+              "x": 1248.4054445363968,
+              "y": 392.4583734965505
+            },
+            "type": "fx.pixelSort"
+          },
+          {
+            "bypass": true,
+            "id": "quadtree-3",
+            "params": {
+              "bgColor": "#0a0a0a",
+              "color": "#f5f0e6",
+              "gap": 0.5,
+              "maxDepth": 11,
+              "minSize": 2,
+              "opacity": 1,
+              "outline": false,
+              "replace": true,
+              "shape": "square",
+              "threshold": 51,
+              "useImageColor": true
+            },
+            "position": {
+              "x": 1205.8738947066054,
+              "y": 326.0646010846031
+            },
+            "type": "draw.quadtree"
+          }
+        ],
+        "width": 1080
+      }
+    }
+  ]
+}
