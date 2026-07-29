@@ -1,7 +1,9 @@
 import type { ParamSpec } from "../engine/types";
+import { getValueAtFrame, paramPath } from "../lib/keyframes";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
+import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
 
 /** Resolve `<input accept>` tokens against a File (MIME and/or extension). */
@@ -156,6 +158,29 @@ function ParamControl({
   }
 }
 
+/** ◆ toggles a key at the playhead; it is filled while one sits exactly there. */
+function KeyToggle({ animated, onFrame, onClick }: {
+  animated: boolean;
+  onFrame: boolean;
+  onClick: () => void;
+}) {
+  const title = onFrame
+    ? "Remove the keyframe at the playhead"
+    : animated
+      ? "Key this value at the playhead"
+      : "Animate: key this value at the playhead";
+  return (
+    <button
+      type="button"
+      className={`param-key${animated ? " param-key--animated" : ""}${onFrame ? " param-key--on" : ""}`}
+      title={title}
+      onClick={onClick}
+    >
+      ◆
+    </button>
+  );
+}
+
 export function Inspector() {
   const selectedId = useGraphStore((state) => state.selectedId);
   const node = useGraphStore((state) => state.nodes.find((n) => n.id === state.selectedId));
@@ -165,6 +190,14 @@ export function Inspector() {
   );
   const setParam = useGraphStore((state) => state.setParam);
   const removeNode = useGraphStore((state) => state.removeNode);
+
+  // The engine renders params resolved at the playhead, so the controls have to
+  // show the same thing — otherwise an animated slider sits at its base value
+  // while the output moves.
+  const currentFrame = useTimelineStore((state) => state.currentFrame);
+  const paramKeyframes = useTimelineStore((state) => state.paramKeyframes);
+  const recordParam = useTimelineStore((state) => state.recordParam);
+  const removeParamKeyframe = useTimelineStore((state) => state.removeParamKeyframe);
 
   if (!node) {
     return (
@@ -208,14 +241,37 @@ export function Inspector() {
             isMedia && spec.type === "file" && spec.key === "file"
               ? mediaFileAccept(node.data.params.mode)
               : undefined;
+
+          const base = node.data.params[spec.key];
+          const path = paramPath(node.id, spec.key);
+          const keys = paramKeyframes[path];
+          const frame = Math.round(currentFrame);
+          const animated = !!keys?.length;
+          const value = animated ? getValueAtFrame(frame, base, keys) : base;
+          // File params keep blob URLs that cannot be persisted, so they stay live-only.
+          const keyable = spec.type !== "file";
+
           return (
             <div key={spec.key} className="param-block">
               <ParamControl
                 spec={spec}
-                value={node.data.params[spec.key]}
+                value={value}
                 acceptOverride={acceptOverride}
                 onChange={(next) => setParam(node.id, spec.key, next)}
               />
+              {keyable ? (
+                <KeyToggle
+                  animated={animated}
+                  onFrame={!!keys?.some((key) => key.frame === frame)}
+                  onClick={() => {
+                    if (keys?.some((key) => key.frame === frame)) {
+                      removeParamKeyframe(path, frame);
+                    } else {
+                      recordParam(node.id, spec.key, value);
+                    }
+                  }}
+                />
+              ) : null}
             </div>
           );
         })}

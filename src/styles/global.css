@@ -873,6 +873,33 @@ body.is-resizing {
 .param-block {
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Sits over the top-right of the control, clear of the label and its value. */
+.param-key {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--line);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.param-key:hover {
+  color: var(--muted);
+}
+
+.param-key--animated {
+  color: var(--accent);
+}
+
+.param-key--on {
+  color: #ffd166;
 }
 
 .media-info {

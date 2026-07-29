@@ -1,10 +1,28 @@
 import type { Edge } from "@xyflow/react";
+import {
+  DEFAULT_DURATION_FRAMES,
+  DEFAULT_FPS,
+  parseParamPath,
+  type ParamKeyframe,
+  type ParamKeyframes,
+} from "../lib/keyframes";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
 
 const STORAGE_KEY = "visio.patch.v4";
 const FORMAT = 1;
+
+/**
+ * Timeline is optional and additive rather than a format bump: a patch saved
+ * before keyframes existed still loads, and a build that predates them ignores
+ * the field instead of rejecting the whole document.
+ */
+export interface SerializedTimeline {
+  fps: number;
+  durationInFrames: number;
+  keyframes: ParamKeyframes;
+}
 
 export interface SerializedPatch {
   format: number;
@@ -24,6 +42,7 @@ export interface SerializedPatch {
     target: string;
     targetHandle: string;
   }[];
+  timeline?: SerializedTimeline;
 }
 
 /**
@@ -52,11 +71,36 @@ function serializableParams(defType: string, params: Record<string, unknown>): R
   return clean;
 }
 
+/**
+ * Keyframes on a file param would save a `blob:` URL that dies with the tab —
+ * the same reason `serializableParams` drops the params themselves. Tracks for
+ * nodes that no longer exist go too, so deleting a node takes its keys with it.
+ */
+function serializableKeyframes(
+  nodes: PatchNode[],
+  keyframes: ParamKeyframes,
+): ParamKeyframes {
+  const defTypeById = new Map(nodes.map((node) => [node.id, node.data.defType]));
+  const clean: ParamKeyframes = {};
+  for (const [path, keys] of Object.entries(keyframes)) {
+    if (!keys?.length) continue;
+    const parsed = parseParamPath(path);
+    if (!parsed) continue;
+    const defType = defTypeById.get(parsed.nodeId);
+    if (!defType) continue;
+    const spec = NODE_DEFS[defType]?.params.find((p) => p.key === parsed.key);
+    if (!spec || spec.type === "file") continue;
+    clean[path] = keys;
+  }
+  return clean;
+}
+
 export function serializePatch(
   nodes: PatchNode[],
   edges: Edge[],
   width: number,
   height: number,
+  timeline?: SerializedTimeline,
 ): SerializedPatch {
   return {
     format: FORMAT,
@@ -76,6 +120,15 @@ export function serializePatch(
       target: edge.target,
       targetHandle: edge.targetHandle ?? "in",
     })),
+    ...(timeline
+      ? {
+          timeline: {
+            fps: timeline.fps,
+            durationInFrames: timeline.durationInFrames,
+            keyframes: serializableKeyframes(nodes, timeline.keyframes),
+          },
+        }
+      : {}),
   };
 }
 
@@ -84,6 +137,41 @@ export interface ParsedPatch {
   edges: Edge[];
   width: number;
   height: number;
+  /** Absent when the patch predates keyframes — the timeline is then left as is. */
+  timeline: SerializedTimeline | null;
+}
+
+/** Drops anything malformed rather than letting one bad key break a load. */
+function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline | null {
+  if (!raw || typeof raw !== "object") return null;
+  const timeline = raw as Partial<SerializedTimeline>;
+
+  const keyframes: ParamKeyframes = {};
+  if (timeline.keyframes && typeof timeline.keyframes === "object") {
+    for (const [path, keys] of Object.entries(timeline.keyframes)) {
+      const parsed = parseParamPath(path);
+      if (!parsed || !nodeIds.has(parsed.nodeId) || !Array.isArray(keys)) continue;
+      const clean: ParamKeyframe[] = keys
+        .filter(
+          (key): key is ParamKeyframe =>
+            !!key && typeof key === "object" && Number.isFinite((key as ParamKeyframe).frame),
+        )
+        .map((key) => ({ frame: Math.max(0, Math.round(key.frame)), value: key.value }))
+        .sort((a, b) => a.frame - b.frame);
+      if (clean.length) keyframes[path] = clean;
+    }
+  }
+
+  const fps = Number(timeline.fps);
+  const duration = Number(timeline.durationInFrames);
+  return {
+    fps: Number.isFinite(fps) && fps >= 1 ? fps : DEFAULT_FPS,
+    durationInFrames:
+      Number.isFinite(duration) && duration >= 1
+        ? Math.round(duration)
+        : DEFAULT_DURATION_FRAMES,
+    keyframes,
+  };
 }
 
 /** Returns null for anything that isn't a patch we can safely load. */
@@ -139,6 +227,7 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
     edges,
     width: Number(patch.width) || 1080,
     height: Number(patch.height) || 1920,
+    timeline: parseTimeline(patch.timeline, ids),
   };
 }
 

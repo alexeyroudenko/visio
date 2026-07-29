@@ -35,6 +35,13 @@ interface TimelineState {
 
   /** Write / update a key at the current frame (used while recording). */
   recordParam: (nodeId: string, key: string, value: unknown) => void;
+  /** Adopt the timeline stored in a patch. */
+  loadTimeline: (timeline: {
+    fps: number;
+    durationInFrames: number;
+    keyframes: ParamKeyframes;
+  }) => void;
+  hasKeyframes: (path: ParamPath) => boolean;
   removeParamKeyframe: (path: ParamPath, frame: number) => void;
   selectKeyframe: (frame: number | null) => void;
   moveSelectedKeyframe: (toFrame: number) => void;
@@ -100,6 +107,25 @@ function createTimelineStore() {
           value,
         ),
       });
+    },
+
+    loadTimeline({ fps, durationInFrames, keyframes }) {
+      const duration = Math.max(MIN_DURATION, Math.round(durationInFrames));
+      set({
+        fps: Math.max(1, fps),
+        durationInFrames: duration,
+        paramKeyframes: clampKeyframesToDuration(keyframes, duration),
+        currentFrame: 0,
+        isPlaying: false,
+        selectedKeyframeFrame: null,
+      });
+      const tracks = Object.keys(keyframes).length;
+      if (tracks > 0) appLog("ok", "timeline", `restored ${tracks} keyframed params`);
+    },
+
+    hasKeyframes(path) {
+      const keys = get().paramKeyframes[path];
+      return !!keys && keys.length > 0;
     },
 
     removeParamKeyframe(path, frame) {

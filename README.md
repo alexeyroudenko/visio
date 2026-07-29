@@ -126,6 +126,20 @@ those edges are excluded from topo-sort.
   Export/import JSON via toolbar buttons; “Reset” restores the starter patch.
   Video files are not saved: their `blob:` URLs die with the tab, so the patch
   loads with all connections, but you must pick the file again.
+- **Keyframes, fps and duration are part of the patch** — they save, export and
+  reload with everything else. The playhead is not: it is where you are looking,
+  not what the document says, and saving it would rewrite the patch every frame
+  during playback. The `timeline` field is optional rather than a format bump, so
+  patches written before keyframes existed still load. Keys on file params are
+  dropped for the same reason the params are, and a deleted node takes its tracks
+  with it.
+- **Inspector follows the playhead.** An animated parameter shows its value at the
+  current frame, because that is what the engine renders — a slider parked at its
+  base value while the output moves is just a lie. The ◆ next to each control
+  keys the current value (filled when a key sits exactly on the playhead, and
+  clicking it again removes that key). Dragging a parameter that already has keys
+  writes one whether or not ● Record is armed: its base value is overridden by the
+  curve, so editing it any other way would appear to do nothing.
 - **Output window** — double-click the Output node (or the button under the preview).
   Opens a separate window with the image: drag it to a projector or second screen;
   double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context

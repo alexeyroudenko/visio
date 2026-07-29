@@ -10,6 +10,7 @@ import {
 } from "@xyflow/react";
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
+import { paramPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
@@ -22,6 +23,7 @@ import {
   saveToStorage,
   serializePatch,
   type ParsedPatch,
+  type SerializedTimeline,
 } from "./persistence";
 import { useTimelineStore } from "./timelineStore";
 
@@ -100,6 +102,12 @@ function nextId(defType: string, taken: Set<string>): string {
   return id;
 }
 
+/** The parts of the timeline that belong to the document, not the session. */
+function currentTimeline(): SerializedTimeline {
+  const { fps, durationInFrames, paramKeyframes } = useTimelineStore.getState();
+  return { fps, durationInFrames, keyframes: paramKeyframes };
+}
+
 function patchFromPreset(id: string): ParsedPatch | null {
   const preset = getPreset(id) ?? getPreset(DEFAULT_PRESET_ID);
   if (!preset) return null;
@@ -120,6 +128,9 @@ function createGraphStore() {
   const initial = restored ?? patchFromPreset(DEFAULT_PRESET_ID)!;
   const initialPresetId = restored ? readActivePresetId() : DEFAULT_PRESET_ID;
   if (!restored) writeActivePresetId(DEFAULT_PRESET_ID);
+  // Startup seeds the store directly instead of going through loadPatch, so the
+  // timeline has to be adopted here too or a reload drops every key.
+  if (initial.timeline) useTimelineStore.getState().loadTimeline(initial.timeline);
 
   const store = create<GraphState>((set, get) => ({
     nodes: initial.nodes,
@@ -205,9 +216,11 @@ function createGraphStore() {
             : node,
         ),
       });
-      // Record-keys mode (cv-reels): every Inspector change lands a key at the playhead.
+      // Record-keys mode (cv-reels): every Inspector change lands a key at the
+      // playhead. An already-animated param does so regardless — its base value
+      // is overridden by the curve, so editing it would look like nothing happened.
       const timeline = useTimelineStore.getState();
-      if (timeline.isRecording) {
+      if (timeline.isRecording || timeline.hasKeyframes(paramPath(id, key))) {
         timeline.recordParam(id, key, value);
       }
       if (key === "file") {
@@ -261,6 +274,9 @@ function createGraphStore() {
         selectedId: null,
         statuses: {},
       });
+      // Patches from before keyframes carry no timeline; leave the current one
+      // alone rather than silently wiping keys the user is still working on.
+      if (patch.timeline) useTimelineStore.getState().loadTimeline(patch.timeline);
       appLog(
         "ok",
         "patch",
@@ -282,7 +298,7 @@ function createGraphStore() {
     },
     exportPatch() {
       const { nodes, edges, width, height } = get();
-      downloadPatch(serializePatch(nodes, edges, width, height));
+      downloadPatch(serializePatch(nodes, edges, width, height, currentTimeline()));
       appLog("ok", "patch", "exported JSON");
     },
     async importPatch(file) {
@@ -306,6 +322,7 @@ function createGraphStore() {
       clearStorage();
       const fresh = patchFromPreset(DEFAULT_PRESET_ID);
       if (!fresh) return;
+      useTimelineStore.getState().clearKeyframes();
       get().loadPatch(fresh, "reset to default preset");
       writeActivePresetId(DEFAULT_PRESET_ID);
       set({ activePresetId: DEFAULT_PRESET_ID });
@@ -319,16 +336,41 @@ function createGraphStore() {
   // Autosave: coalesce bursts (node dragging fires a change per mouse move) and
   // ignore status-only updates, which the engine pushes several times a second.
   let saveTimer: number | undefined;
+  const scheduleSave = () => {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => {
+      const { nodes, edges, width, height } = store.getState();
+      saveToStorage(serializePatch(nodes, edges, width, height, currentTimeline()));
+    }, 400);
+  };
+
   let savedNodes = initial.nodes;
   let savedEdges = initial.edges;
   store.subscribe((state) => {
     if (state.nodes === savedNodes && state.edges === savedEdges) return;
     savedNodes = state.nodes;
     savedEdges = state.edges;
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-      saveToStorage(serializePatch(state.nodes, state.edges, state.width, state.height));
-    }, 400);
+    scheduleSave();
+  });
+
+  // Keys and duration belong to the document too. The playhead does not — it
+  // moves every frame during playback and would turn autosave into a per-frame
+  // JSON stringify of the whole patch.
+  let savedKeys = useTimelineStore.getState().paramKeyframes;
+  let savedDuration = useTimelineStore.getState().durationInFrames;
+  let savedFps = useTimelineStore.getState().fps;
+  useTimelineStore.subscribe((state) => {
+    if (
+      state.paramKeyframes === savedKeys &&
+      state.durationInFrames === savedDuration &&
+      state.fps === savedFps
+    ) {
+      return;
+    }
+    savedKeys = state.paramKeyframes;
+    savedDuration = state.durationInFrames;
+    savedFps = state.fps;
+    scheduleSave();
   });
 
   return store;

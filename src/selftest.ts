@@ -881,6 +881,57 @@ function run(): void {
 
   check("garbage input is rejected", parsePatch({ hello: 1 }) === null, "parsePatch({hello:1})");
 
+  // Keyframes ride along in the patch, minus the ones that cannot survive a
+  // reload: file params hold blob URLs, and tracks for deleted nodes are dead.
+  const keyed = serializePatch(
+    [
+      {
+        id: "cam-1",
+        type: "patch",
+        position: { x: 0, y: 0 },
+        data: { defType: "source.media", params: defaultParams("source.media") },
+      },
+    ],
+    [],
+    1920,
+    1080,
+    {
+      fps: 25,
+      durationInFrames: 300,
+      keyframes: {
+        "cam-1:zoom": [
+          { frame: 0, value: 1 },
+          { frame: 100, value: 2 },
+        ],
+        "cam-1:file": [{ frame: 0, value: { name: "x.mp4", url: "blob:zzz" } }],
+        "ghost-1:zoom": [{ frame: 0, value: 1 }],
+      },
+    },
+  );
+  const keyedTracks = Object.keys(keyed.timeline?.keyframes ?? {});
+  check(
+    "keyframes are saved, minus file params and dead nodes",
+    keyedTracks.length === 1 && keyedTracks[0] === "cam-1:zoom",
+    `tracks=${keyedTracks.join(",") || "none"}`,
+  );
+
+  const keyedRound = parsePatch(JSON.parse(JSON.stringify(keyed)));
+  const restored = keyedRound?.timeline?.keyframes["cam-1:zoom"];
+  check(
+    "keyframes survive a save/load round trip",
+    keyedRound?.timeline?.fps === 25 &&
+      keyedRound.timeline.durationInFrames === 300 &&
+      restored?.length === 2 &&
+      restored[1]!.value === 2,
+    `fps=${keyedRound?.timeline?.fps ?? "none"} duration=${keyedRound?.timeline?.durationInFrames ?? "none"} keys=${restored?.length ?? 0}`,
+  );
+
+  check(
+    "a patch without a timeline still loads",
+    parsePatch(JSON.parse(JSON.stringify(patch)))?.timeline === null,
+    "timeline field absent → null",
+  );
+
   render();
 }
 
