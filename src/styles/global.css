@@ -1034,6 +1034,25 @@ body.is-resizing {
   width: 100%;
 }
 
+.shader-presets {
+  margin-bottom: var(--control-gap);
+}
+
+.shader-presets__label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shader-presets__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .param__code {
   width: 100%;
   padding: 6px 8px;

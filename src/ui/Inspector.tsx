@@ -5,6 +5,7 @@ import {
   MODULATOR_SHAPES,
   type Modulator,
 } from "../lib/modulators";
+import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
@@ -179,6 +180,31 @@ function ParamControl({
   }
 }
 
+/**
+ * Starting points for the Shader node. These write into the `source` param like
+ * any edit would, so a preset is a place to start from, not a mode to be in.
+ */
+function ShaderPresetPicker({ onPick }: { onPick: (source: string) => void }) {
+  return (
+    <div className="shader-presets">
+      <span className="shader-presets__label">Start from</span>
+      <div className="shader-presets__row">
+        {SHADER_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className="button button--small"
+            title={`${preset.description} — replaces the source below`}
+            onClick={() => onPick(preset.source)}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The knobs of a bound modulator, laid out with the same controls as any param. */
 function ModulatorPanel({
   modulator,
@@ -291,6 +317,7 @@ export function Inspector() {
   }
 
   const isMedia = node.data.defType === "source.media";
+  const isShader = node.data.defType === "fx.shader";
 
   return (
     <aside className="inspector">
@@ -310,6 +337,9 @@ export function Inspector() {
       ) : null}
 
       <div className="inspector__params">
+        {isShader ? (
+          <ShaderPresetPicker onPick={(source) => setParam(node.id, "source", source)} />
+        ) : null}
         {definition.params.map((spec) => {
           const acceptOverride =
             isMedia && spec.type === "file" && spec.key === "file"

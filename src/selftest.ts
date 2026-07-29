@@ -25,6 +25,7 @@ import {
   waveAt,
 } from "./lib/modulators";
 import { defineNode } from "./nodes/defineNode";
+import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
@@ -833,6 +834,50 @@ async function run(): Promise<void> {
     "broken shader passes input through and reports",
     broken[0] > 150 && brokenStatus?.status === "error" && !!brokenStatus.message,
     `rgba=${broken.join(",")} status=${brokenStatus?.status} msg=${(brokenStatus?.message ?? "none").slice(0, 60)}`,
+  );
+
+  // Every shipped preset must build. A driver rejects GLSL the type checker
+  // never sees, so this is the only thing that actually proves they work.
+  const presetErrors: string[] = [];
+  for (const preset of SHADER_PRESETS) {
+    runShader(preset.source);
+    const status = engine.statusOf("sh");
+    if (status?.status === "error") {
+      presetErrors.push(`${preset.label}: ${(status.message ?? "").slice(0, 80)}`);
+    }
+  }
+  check(
+    "every shader preset compiles",
+    presetErrors.length === 0,
+    presetErrors.join(" | ") || `${SHADER_PRESETS.length} presets`,
+  );
+
+  // Pixelate at full strength must flatten detail the gradient otherwise has:
+  // two nearby columns inside one block have to come back identical.
+  const pixelate = SHADER_PRESETS.find((p) => p.id === "pixelate")!;
+  engine.setGraph(
+    [
+      { id: "grad", type: "test.gradient", params: { reverse: false } },
+      {
+        id: "sh",
+        type: "fx.shader",
+        params: { ...defaultParams("fx.shader"), source: pixelate.source, k1: 1, k2: 0 },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "grad", sourceHandle: "out", target: "sh", targetHandle: "src" },
+      { id: "b", source: "sh", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  const blockA = readPixel(engine, 150, HEIGHT / 2)[0];
+  const blockB = readPixel(engine, 154, HEIGHT / 2)[0];
+  const blockFar = readPixel(engine, 300, HEIGHT / 2)[0];
+  check(
+    "pixelate flattens within a block but not across the frame",
+    blockA === blockB && Math.abs(blockFar - blockA) > 40,
+    `x150=${blockA} x154=${blockB} x300=${blockFar}`,
   );
 
   // --- 4e. particles --------------------------------------------------------

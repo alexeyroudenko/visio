@@ -126,7 +126,26 @@ reported line numbers match what you are looking at.
 
 Available: `uTex`, `uResolution`, `uTime` (seconds), `uFrame`, `uColor`, and four
 knobs `uK1`–`uK4` wired to range params — which means they keyframe and animate
-like any other parameter. Compilation happens only when the text changes, so a
+like any other parameter.
+
+Six presets sit above the editor as starting points, not modes: clicking one
+writes its source into the param, and it stays yours to edit. **Pixelate**
+(blocks + posterise), **Pixel Sort (GPU)**, **RGB Shift**, **Dither** (ordered
+4×4 Bayer), **Edges** (Sobel in `uColor`), **Kaleidoscope**. Each names its knobs
+in its first line, since `K1`–`K4` mean something different in each. A selftest
+compiles all six — GLSL a driver rejects is invisible to the type checker.
+
+> **Pixel Sort (GPU) is an approximation, not a port of the node.** Sorting a
+> span is sequential: knowing which pixel lands at a position needs every
+> candidate's rank, which one fragment pass cannot gather, and a real GPU sort
+> takes many bitonic passes. The preset instead marches out to find each
+> above-threshold run and its luminance range, works out which luminance would
+> sit at this position if the run were sorted, and fetches the nearest run pixel
+> — two bounded marches, ~2.5 ms at 1080×1920 against 1.3 ms for a pass-through.
+> Because the marches stop at `K2` steps the ordering is *local*: texture inside
+> a run turns into ramps, but a long smooth gradient is already locally sorted
+> and comes back nearly untouched. The CPU node sees the whole span and is the
+> one that can actually reverse it. Compilation happens only when the text changes, so a
 shader that does not build is not recompiled every frame; it reports the compiler
 log to the node status and **passes its input through**, rather than blacking out
 everything downstream while you are mid-edit.
