@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
 import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
+import { useTimelineStore } from "../store/timelineStore";
 import { PresetsModal } from "./PresetsModal";
 
 const RESOLUTIONS = [
@@ -16,11 +17,17 @@ const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "output"];
 export function Toolbar({
   recording,
   onToggleRecord,
+  rendering,
+  renderProgress,
+  onToggleRender,
   paused,
   onTogglePause,
 }: {
   recording: boolean;
   onToggleRecord: () => void;
+  rendering: boolean;
+  renderProgress: number;
+  onToggleRender: () => void;
   paused: boolean;
   onTogglePause: () => void;
 }) {
@@ -31,6 +38,7 @@ export function Toolbar({
   const fps = useEngineStatsStore((state) => state.fps);
   const frameMs = useEngineStatsStore((state) => state.frameMs);
   const nodeCount = useEngineStatsStore((state) => state.nodeCount);
+  const timelineFrame = useTimelineStore((state) => Math.round(state.currentFrame));
   const addNode = useGraphStore((state) => state.addNode);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
@@ -152,6 +160,7 @@ export function Toolbar({
           type="button"
           className={`button ${paused ? "button--paused" : ""}`}
           onClick={onTogglePause}
+          disabled={rendering}
           title={
             paused
               ? "Play — resume the graph and sources"
@@ -165,14 +174,27 @@ export function Toolbar({
           type="button"
           className={`button ${recording ? "button--recording" : ""}`}
           onClick={onToggleRecord}
-          disabled={paused}
+          disabled={paused || rendering}
+          title="Realtime capture of the output canvas"
         >
           {recording ? "■ Stop" : "● Record"}
+        </button>
+
+        <button
+          type="button"
+          className={`button ${rendering ? "button--recording" : ""}`}
+          onClick={onToggleRender}
+          disabled={recording}
+          title="Offline frame-by-frame timeline export (not realtime)"
+        >
+          {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render"}
         </button>
 
         <span className="toolbar__stats">
           {importError ? (
             <em className="toolbar__error">{importError}</em>
+          ) : rendering ? (
+            `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
           ) : paused ? (
             "paused · resources stopped"
           ) : (

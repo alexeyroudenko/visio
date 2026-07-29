@@ -20,6 +20,7 @@ import { Toolbar } from "./ui/Toolbar";
 import { AppConsole } from "./ui/AppConsole";
 import { useEngine } from "./ui/useEngine";
 import { useRecorder } from "./ui/useRecorder";
+import { useOfflineRender } from "./ui/useOfflineRender";
 import { useOutputWindow } from "./ui/useOutputWindow";
 import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
@@ -67,12 +68,14 @@ function useSideResize(
   );
 }
 
-function mediaKind(file: File): "image" | "video" | null {
+function mediaKind(file: File): "image" | "video" | "audio" | null {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
   const lower = file.name.toLowerCase();
   if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "image";
   if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "video";
+  if (/\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/.test(lower)) return "audio";
   return null;
 }
 
@@ -124,7 +127,7 @@ function GraphCanvas({
           { x: origin.x + offset, y: origin.y + offset },
           {
             mode: kind,
-            file: { name: file.name, url: URL.createObjectURL(file) },
+            file: { name: file.name, url: URL.createObjectURL(file), mime: file.type || undefined },
             mirror: false,
           },
         );
@@ -160,8 +163,9 @@ function GraphCanvas({
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { error, paused, togglePause } = useEngine(canvasRef);
+  const { engineRef, error, paused, togglePause } = useEngine(canvasRef);
   const { recording, toggle } = useRecorder(() => canvasRef.current);
+  const { rendering, progress: renderProgress, toggle: toggleRender } = useOfflineRender(engineRef);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
   const nodes = useGraphStore((state) => state.nodes);
@@ -211,6 +215,9 @@ export default function App() {
       <Toolbar
         recording={recording}
         onToggleRecord={toggle}
+        rendering={rendering}
+        renderProgress={renderProgress}
+        onToggleRender={toggleRender}
         paused={paused}
         onTogglePause={togglePause}
       />

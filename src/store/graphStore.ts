@@ -13,6 +13,7 @@ import type { NodeRuntime } from "../engine/types";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
+import { publishMediaInfo } from "./mediaInfoStore";
 import {
   clearStorage,
   downloadPatch,
@@ -194,6 +195,7 @@ function createGraphStore() {
         selectedId: get().selectedId === id ? null : get().selectedId,
       });
       appLog("info", "graph", `removed ${node?.data.defType ?? "node"} (${id})`);
+      publishMediaInfo(id, null);
     },
     setParam(id, key, value) {
       set({

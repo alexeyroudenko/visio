@@ -13,6 +13,7 @@
     "@xyflow/react": "^12.8.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "webm-muxer": "^5.1.4",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

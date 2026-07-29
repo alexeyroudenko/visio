@@ -14,6 +14,38 @@ import type {
   PortValue,
 } from "./types";
 
+function waitForVideoSeek(video: HTMLVideoElement, time: number): Promise<void> {
+  const target = Math.max(0, time);
+  if (Math.abs(video.currentTime - target) < 1 / 60 && video.readyState >= 2) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      resolve();
+    };
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+    };
+
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onError);
+    try {
+      video.pause();
+      video.currentTime = target;
+    } catch {
+      cleanup();
+      resolve();
+    }
+  });
+}
+
 const TEXTURE_BYPASS_PREF = new Set(["src", "bg", "base"]);
 
 /** Map each output to a same-typed input (same id → preferred names → first match). */
@@ -88,6 +120,7 @@ export class Engine {
   private timelineFrame = 0;
   private timelineFps = 30;
   private timelinePlaying = false;
+  private timelineForceSync = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -120,6 +153,111 @@ export class Engine {
     this.timelineFrame = frame;
     this.timelineFps = Math.max(1, fps);
     this.timelinePlaying = playing;
+  }
+
+  /** Offline Render drives video sources to the playhead even without Sync. */
+  setTimelineForceSync(force: boolean): void {
+    this.timelineForceSync = force;
+  }
+
+  /**
+   * Seek every file-video Media node to the current timeline playhead and wait
+   * until the decoder has the frame. Used by offline Render.
+   */
+  async seekVideosToPlayhead(): Promise<void> {
+    const frame = this.timelineFrame;
+    const fps = this.timelineFps;
+    const waits: Promise<void>[] = [];
+
+    for (const node of this.nodes) {
+      if (node.type !== "source.media") continue;
+      const slot = this.slots.get(node.id);
+      const state = slot?.runtime.state as
+        | { mode?: string; video?: HTMLVideoElement }
+        | undefined;
+      const video = state?.video;
+      if (!state || (state.mode !== "video" && state.mode !== "audio") || !video) continue;
+      if (!Number.isFinite(video.duration) || video.duration <= 0) continue;
+
+      const speed =
+        typeof node.params.speed === "number" && Number.isFinite(node.params.speed)
+          ? Math.max(0.001, node.params.speed)
+          : 1;
+      let t = (frame / fps) * speed;
+      t = ((t % video.duration) + video.duration) % video.duration;
+      waits.push(waitForVideoSeek(video, t));
+    }
+
+    await Promise.all(waits);
+  }
+
+  /**
+   * Audio-bearing Media sources for offline Render (video/audio file URLs).
+   * Skips muted nodes and camera streams.
+   */
+  collectRenderAudioSources(): {
+    url: string;
+    speed: number;
+    volume: number;
+  }[] {
+    const out: { url: string; speed: number; volume: number }[] = [];
+    for (const node of this.nodes) {
+      if (node.type !== "source.media") continue;
+      const mode = node.params.mode;
+      if (mode !== "video" && mode !== "audio") continue;
+      if (node.params.muted === true) continue;
+      const file = node.params.file;
+      const url =
+        file && typeof file === "object" && typeof (file as { url?: unknown }).url === "string"
+          ? (file as { url: string }).url
+          : null;
+      if (!url) continue;
+      const speed =
+        typeof node.params.speed === "number" && Number.isFinite(node.params.speed)
+          ? Math.max(0.001, node.params.speed)
+          : 1;
+      const volume =
+        typeof node.params.volume === "number" && Number.isFinite(node.params.volume)
+          ? Math.max(0, Math.min(1, node.params.volume))
+          : 1;
+      if (volume <= 0) continue;
+      out.push({ url, speed, volume });
+    }
+    return out;
+  }
+
+  /**
+   * Best-effort fps of the first ready file-video Media source (for Render).
+   * Falls back to null when the browser does not expose frameRate.
+   */
+  detectSourceVideoFps(): number | null {
+    for (const node of this.nodes) {
+      if (node.type !== "source.media") continue;
+      const slot = this.slots.get(node.id);
+      const state = slot?.runtime.state as
+        | { mode?: string; video?: HTMLVideoElement }
+        | undefined;
+      const video = state?.video;
+      if (!state || state.mode !== "video" || !video) continue;
+      if (video.readyState < 2 || video.videoWidth === 0) continue;
+
+      try {
+        const capture = (
+          video as HTMLVideoElement & { captureStream?: () => MediaStream }
+        ).captureStream;
+        if (typeof capture !== "function") continue;
+        const stream = capture.call(video);
+        const track = stream.getVideoTracks()[0];
+        const rate = track?.getSettings().frameRate;
+        stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+        if (typeof rate === "number" && Number.isFinite(rate) && rate >= 1 && rate <= 240) {
+          return Math.round(rate * 1000) / 1000;
+        }
+      } catch {
+        // captureStream can throw if the element has no frame yet.
+      }
+    }
+    return null;
   }
 
   /**
@@ -229,6 +367,7 @@ export class Engine {
       timelineFrame: this.timelineFrame,
       timelineFps: this.timelineFps,
       timelinePlaying: this.timelinePlaying,
+      timelineForceSync: this.timelineForceSync,
       target: this.target,
       report: this.report,
     };

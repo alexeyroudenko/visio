@@ -142,11 +142,16 @@ export interface EngineContext {
   /** Seconds since previous frame. */
   deltaSec: number;
   frameCount: number;
-  /** Timeline playhead (for video sync when timelinePlaying). */
+  /** Timeline playhead (video seeks when Media «Sync with timeline» is on). */
   timelineFrame: number;
   timelineFps: number;
-  /** When true, video sources seek to the playhead instead of free-running. */
+  /** Timeline is playing — Media may scrub video if syncTimeline is enabled. */
   timelinePlaying: boolean;
+  /**
+   * Offline Render: force every video Media source to the playhead regardless
+   * of the Sync with timeline toggle.
+   */
+  timelineForceSync: boolean;
   /** Persistent render target owned by (nodeId, slot), resized on demand. */
   target: (nodeId: string, slot: string, width?: number, height?: number) => RenderTarget;
   /** Marks a node's status for the UI. */

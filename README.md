@@ -119,7 +119,8 @@ those edges are excluded from topo-sort.
   Opens a separate window with the image: drag it to a projector or second screen;
   double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
   stays in the main window and nothing is rendered twice.
-- **Recording** to webm — toolbar button; writes exactly what is on the output.
+- **Recording** to webm — toolbar ● Record (realtime canvas capture).
+- **Render** — toolbar Render: offline frame-by-frame timeline export (not realtime).
 - **Right panel width** is dragged via the splitter between graph and preview;
   double-click resets it to 340 px. Width lives in localStorage separately from the
   patch — a workspace setting, not part of the document.
