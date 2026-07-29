@@ -6,6 +6,7 @@ import {
 } from "../lib/keyframes";
 import { resamplePeaks } from "../lib/peaks";
 import { fileParam } from "../nodes/shared/fileParam";
+import { grainsFor } from "../store/grainStore";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useTimelineStore } from "../store/timelineStore";
@@ -82,6 +83,62 @@ function ClipWaveform({ url, label, width, height }: {
 
   if (!entry?.peaks) return null;
   return <canvas ref={canvasRef} className="timeline__wave" style={{ width, height }} />;
+}
+
+/**
+ * Live grains over the clip — same marks as granular-video's WaveformTimeline:
+ * a vertical stroke at each voice's read position, coloured by pitch and scaled
+ * by its envelope.
+ *
+ * Runs its own rAF against a plain store rather than React state — the marks
+ * change every frame, and re-rendering the timeline that often for a few
+ * strokes would be absurd.
+ */
+function GrainOverlay({ url, width, height }: { url: string; width: number; height: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(width * dpr));
+    canvas.height = Math.max(1, Math.floor(height * dpr));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    let handle = 0;
+    let wasEmpty = false;
+    const mid = height / 2;
+    const draw = () => {
+      handle = requestAnimationFrame(draw);
+      const marks = grainsFor(url);
+      // Nothing playing and nothing left over: skip the clear entirely.
+      if (marks.length === 0 && wasEmpty) return;
+      wasEmpty = marks.length === 0;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.lineWidth = 1;
+      for (const mark of marks) {
+        const level = Math.max(0, Math.min(1, mark.level));
+        if (level <= 0) continue;
+        const x = mark.pos * width;
+        // Lower pitch reads warmer, higher cooler — granular-video's mapping.
+        const hue = 200 - Math.max(-24, Math.min(24, mark.pitch)) * 5;
+        ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${(0.15 + level * 0.6).toFixed(3)})`;
+        const half = level * height * 0.42;
+        ctx.beginPath();
+        ctx.moveTo(x, mid - half);
+        ctx.lineTo(x, mid + half);
+        ctx.stroke();
+      }
+    };
+
+    draw();
+    return () => cancelAnimationFrame(handle);
+  }, [url, width, height]);
+
+  return <canvas ref={canvasRef} className="timeline__grains" style={{ width, height }} />;
 }
 
 function collectMediaClips(
@@ -396,7 +453,10 @@ function MediaTrack({
             title={`${clip.label}${clip.sync ? " · sync" : ""} · ${clip.durationFrames}f`}
           >
             {clip.url ? (
-              <ClipWaveform url={clip.url} label={clip.label} width={width} height={height} />
+              <>
+                <ClipWaveform url={clip.url} label={clip.label} width={width} height={height} />
+                <GrainOverlay url={clip.url} width={width} height={height} />
+              </>
             ) : null}
             <span className="timeline__clip-label">{clip.label}</span>
           </div>

@@ -1406,6 +1406,15 @@ body.is-resizing {
   pointer-events: none;
 }
 
+/* Sits over the waveform: the grains are read out of what it draws. */
+.timeline__grains {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .timeline__clip-label {
   position: relative;
   z-index: 1;

@@ -1,6 +1,7 @@
 import type { AudioValue, BoxesValue } from "../../engine/types";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
 import { audioContext } from "../../lib/audioEngine";
+import { publishGrains, type GrainMark } from "../../store/grainStore";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 
 /**
@@ -18,6 +19,10 @@ interface Voice {
   gain: GainNode;
   panner: StereoPannerNode;
   level: number;
+  /** Where in the source the loop reads from — for the timeline overlay. */
+  offsetSec: number;
+  /** Semitones off the source pitch; the overlay colours by it. */
+  pitch: number;
   /** Context time the release ramp ends, or null while the rect is alive. */
   endAt: number | null;
 }
@@ -375,7 +380,16 @@ export const granularNode = defineNode<GranularState>({
       source.connect(filter).connect(gain).connect(panner).connect(master);
       source.start(now);
 
-      state.voices.set(id, { source, filter, gain, panner, level: voiceLevel, endAt: null });
+      state.voices.set(id, {
+        source,
+        filter,
+        gain,
+        panner,
+        level: voiceLevel,
+        offsetSec: offset,
+        pitch: semitones,
+        endAt: null,
+      });
     }
 
     for (const [id, voice] of state.voices) {
@@ -391,6 +405,19 @@ export const granularNode = defineNode<GranularState>({
         state.voices.delete(id);
       }
     }
+
+    // Feed the timeline overlay: where each loop reads from, and how loud it is
+    // right now. Published every frame — the store is deliberately outside React.
+    const marks: GrainMark[] = [];
+    for (const [id, voice] of state.voices) {
+      marks.push({
+        id,
+        pos: trackSec > 0 ? voice.offsetSec / trackSec : 0,
+        level: voice.level > 0 ? Math.min(1, voice.gain.gain.value / voice.level) : 0,
+        pitch: voice.pitch,
+      });
+    }
+    publishGrains(audio.url, marks);
 
     engine.report(
       nodeId,
