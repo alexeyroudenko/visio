@@ -27,6 +27,7 @@ import {
 import { defineNode } from "./nodes/defineNode";
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
+import { BUILTIN_PRESETS } from "./presets";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
 
@@ -1122,6 +1123,63 @@ async function run(): Promise<void> {
     "a patch without a timeline still loads",
     parsePatch(JSON.parse(JSON.stringify(patch)))?.timeline === null,
     "timeline field absent → null",
+  );
+
+  // --- 6b. every builtin preset is wired to real, type-matching handles -----
+  // A handle name that does not exist fails silently: the edge survives, the
+  // input just never arrives. tsc cannot see any of this.
+  const presetProblems: string[] = [];
+  for (const preset of BUILTIN_PRESETS) {
+    const built = preset.build();
+    const typeById = new Map(built.nodes.map((node) => [node.id, node.type]));
+
+    for (const node of built.nodes) {
+      if (!NODE_DEFS[node.type]) presetProblems.push(`${preset.id}: unknown node ${node.type}`);
+    }
+
+    for (const edge of built.edges) {
+      const sourceDef = NODE_DEFS[typeById.get(edge.source) ?? ""];
+      const targetDef = NODE_DEFS[typeById.get(edge.target) ?? ""];
+      if (!sourceDef || !targetDef) {
+        presetProblems.push(`${preset.id}: edge ${edge.id} references a missing node`);
+        continue;
+      }
+      const outPort = sourceDef.outputs.find((port) => port.id === edge.sourceHandle);
+      const inPort = targetDef.inputs.find((port) => port.id === edge.targetHandle);
+      if (!outPort) {
+        presetProblems.push(`${preset.id}: ${edge.source} has no output "${edge.sourceHandle}"`);
+      } else if (!inPort) {
+        presetProblems.push(`${preset.id}: ${edge.target} has no input "${edge.targetHandle}"`);
+      } else if (outPort.type !== inPort.type) {
+        presetProblems.push(
+          `${preset.id}: ${edge.sourceHandle}(${outPort.type}) → ${edge.targetHandle}(${inPort.type})`,
+        );
+      }
+    }
+
+    if (!built.nodes.some((node) => NODE_DEFS[node.type]?.category === "output")) {
+      presetProblems.push(`${preset.id}: no output node`);
+    }
+    if (!parsePatch(JSON.parse(JSON.stringify(built)))) {
+      presetProblems.push(`${preset.id}: does not survive parsePatch`);
+    }
+  }
+  check(
+    "every builtin preset is wired correctly",
+    presetProblems.length === 0,
+    presetProblems.slice(0, 3).join(" | ") || `${BUILTIN_PRESETS.length} presets`,
+  );
+
+  // The presets that exist to demonstrate keyframes and modulators must
+  // actually carry them, or they demonstrate nothing.
+  const keyframeDemo = BUILTIN_PRESETS.find((p) => p.id === "keyframed-zoom")?.build();
+  const modulatorDemo = BUILTIN_PRESETS.find((p) => p.id === "modulated-slice")?.build();
+  const demoKeys = Object.keys(keyframeDemo?.timeline?.keyframes ?? {}).length;
+  const demoMods = Object.keys(modulatorDemo?.modulators ?? {}).length;
+  check(
+    "demo presets carry their timeline and modulators",
+    demoKeys > 0 && demoMods > 0,
+    `keys=${demoKeys} modulators=${demoMods}`,
   );
 
   // --- 7. modulators --------------------------------------------------------

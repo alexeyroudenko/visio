@@ -1,3 +1,4 @@
+import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
 import { DEFAULT_IMAGE_FILE } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 
@@ -356,6 +357,129 @@ function poseFeaturesGrid(): SerializedPatch {
   };
 }
 
+const IMAGE_SOURCE = {
+  id: "image-1",
+  type: "source.media",
+  position: { x: 0, y: 140 },
+  params: { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover", zoom: 1 },
+};
+
+const SCREEN = {
+  id: "screen-1",
+  type: "output.screen",
+  position: { x: 960, y: 160 },
+  params: { background: "#000000" },
+};
+
+/**
+ * Image → a straight run of texture nodes → output. Covers every effect whose
+ * only input is the frame before it, which is most of them.
+ */
+function imageChain(
+  stages: {
+    id: string;
+    type: string;
+    params: Record<string, unknown>;
+    /** Texture input name — fx nodes call it `src`, draw nodes call it `bg`. */
+    input?: string;
+  }[],
+  extra?: Partial<SerializedPatch>,
+): SerializedPatch {
+  const nodes = [
+    IMAGE_SOURCE,
+    ...stages.map((stage, i) => ({
+      id: stage.id,
+      type: stage.type,
+      position: { x: 320 + i * 300, y: 140 },
+      params: stage.params,
+    })),
+    { ...SCREEN, position: { x: 320 + stages.length * 300, y: 160 } },
+  ];
+
+  const chain = ["image-1", ...stages.map((s) => s.id), "screen-1"];
+  const inputOf = new Map(stages.map((s) => [s.id, s.input ?? "src"]));
+  const edges = chain.slice(0, -1).map((source, i) => {
+    const target = chain[i + 1]!;
+    return {
+      id: `e${i}`,
+      source,
+      sourceHandle: "out",
+      target,
+      targetHandle: inputOf.get(target) ?? "src",
+    };
+  });
+
+  return { format: 1, width: W, height: H, nodes, edges, ...extra };
+}
+
+/** Image → Corners → a draw node that eats points. */
+function pointsChain(
+  drawId: string,
+  drawType: string,
+  drawParams: Record<string, unknown>,
+): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      IMAGE_SOURCE,
+      {
+        id: "features-1",
+        type: "tracking.features",
+        position: { x: 320, y: 20 },
+        params: {},
+      },
+      { id: drawId, type: drawType, position: { x: 640, y: 140 }, params: drawParams },
+      SCREEN,
+    ],
+    edges: [
+      { id: "e-frame", source: "image-1", sourceHandle: "frame", target: "features-1", targetHandle: "frame" },
+      { id: "e-bg", source: "image-1", sourceHandle: "out", target: drawId, targetHandle: "bg" },
+      { id: "e-pts", source: "features-1", sourceHandle: "out", target: drawId, targetHandle: "points" },
+      { id: "e-out", source: drawId, sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
+/** One image down two paths, recombined — the only shape that exercises Blend. */
+function blendSplit(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      IMAGE_SOURCE,
+      {
+        id: "color-1",
+        type: "fx.color",
+        position: { x: 320, y: 20 },
+        params: { brightness: -0.1, contrast: 1.4, saturation: 0, hue: 0 },
+      },
+      {
+        id: "blockScatter-1",
+        type: "fx.blockScatter",
+        position: { x: 320, y: 280 },
+        params: { count: 140, size: 220, spread: 40, tint: 60, seed: 1234, drift: 4 },
+      },
+      {
+        id: "blend-1",
+        type: "fx.blend",
+        position: { x: 640, y: 150 },
+        params: { mode: "screen", opacity: 0.85 },
+      },
+      SCREEN,
+    ],
+    edges: [
+      { id: "e-a", source: "image-1", sourceHandle: "out", target: "color-1", targetHandle: "src" },
+      { id: "e-b", source: "image-1", sourceHandle: "out", target: "blockScatter-1", targetHandle: "src" },
+      { id: "e-base", source: "color-1", sourceHandle: "out", target: "blend-1", targetHandle: "base" },
+      { id: "e-top", source: "blockScatter-1", sourceHandle: "out", target: "blend-1", targetHandle: "top" },
+      { id: "e-out", source: "blend-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
 export const DEFAULT_PRESET_ID = "image-slice-shift";
 
 export const BUILTIN_PRESETS: PatchPreset[] = [
@@ -500,6 +624,202 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawId: "drawLines-1",
         drawHandle: "lines",
       }),
+  },
+  {
+    id: "image-pixel-sort",
+    label: "Pixel Sort",
+    description: "Image → Pixel Sort at half scale → output",
+    builtin: true,
+    build: () =>
+      imageChain([
+        {
+          id: "pixelSort-1",
+          type: "fx.pixelSort",
+          // Half scale keeps it live at 1080×1920 instead of freezing between runs.
+          params: { thresh: 110, vert: false, scale: 0.5, interval: 1, asyncRead: false },
+        },
+      ]),
+  },
+  {
+    id: "image-block-scatter",
+    label: "Block Scatter",
+    description: "Image → drifting scattered blocks → output",
+    builtin: true,
+    build: () =>
+      imageChain([
+        {
+          id: "blockScatter-1",
+          type: "fx.blockScatter",
+          params: { count: 120, size: 260, spread: 45, tint: 35, seed: 1234, drift: 6 },
+        },
+      ]),
+  },
+  {
+    id: "image-shader",
+    label: "Shader (Kaleidoscope)",
+    description: "Image → custom GLSL → output; edit the source in the Inspector",
+    builtin: true,
+    build: () =>
+      imageChain([
+        {
+          id: "shader-1",
+          type: "fx.shader",
+          params: {
+            source:
+              SHADER_PRESETS.find((preset) => preset.id === "kaleidoscope")?.source ?? "",
+            k1: 0.45,
+            k2: 0.5,
+            k3: 0.15,
+            k4: 0,
+            color: "#6b8afd",
+          },
+        },
+      ]),
+  },
+  {
+    id: "image-quadtree",
+    label: "Quadtree",
+    description: "Image → detail-adaptive subdivision → output",
+    builtin: true,
+    build: () =>
+      imageChain([
+        {
+          id: "quadtree-1",
+          type: "draw.quadtree",
+          input: "bg",
+          params: {
+            shape: "square",
+            threshold: 22,
+            maxDepth: 9,
+            minSize: 10,
+            gap: 1,
+            outline: false,
+            useImageColor: true,
+            color: "#f5f0e6",
+            bgColor: "#0a0a0a",
+            replace: true,
+            opacity: 1,
+            interval: 2,
+          },
+        },
+      ]),
+  },
+  {
+    id: "image-color-zoom",
+    label: "Zoom + Color",
+    description: "Image → punch-in zoom → colour grade → output",
+    builtin: true,
+    build: () =>
+      imageChain([
+        { id: "zoom-1", type: "fx.zoom", params: { amount: 1.6, centerX: 0.5, centerY: 0.42 } },
+        {
+          id: "color-1",
+          type: "fx.color",
+          params: { brightness: 0.05, contrast: 1.25, saturation: 1.4, hue: -12 },
+        },
+      ]),
+  },
+  {
+    id: "features-connectors",
+    label: "Corners + Connectors",
+    description: "Image → corner points → link web → output",
+    builtin: true,
+    build: () =>
+      pointsChain("connectors-1", "draw.connectors", {
+        color: "#7fe3c0",
+        maxDist: 260,
+        width: 2,
+        opacity: 0.85,
+        fade: true,
+      }),
+  },
+  {
+    id: "features-particles",
+    label: "Corners + Particles",
+    description: "Image → corner points → particles pulled toward them → output",
+    builtin: true,
+    build: () =>
+      // Tuned for 1080×1920: at size 2 a full 1200 particles cover under a
+      // percent of the frame and the effect is invisible at a glance.
+      pointsChain("particles-1", "draw.particles", {
+        count: 4000,
+        rate: 2000,
+        life: 2.5,
+        speed: 140,
+        gravity: 0,
+        drag: 0.7,
+        attract: 160,
+        size: 7,
+        trail: 0.7,
+        color: "#7ee0b8",
+        opacity: 1,
+        seed: 7,
+        blend: "add",
+      }),
+  },
+  {
+    id: "blend-split",
+    label: "Blend (two paths)",
+    description: "One image down two chains, recombined with screen blend",
+    builtin: true,
+    build: blendSplit,
+  },
+  {
+    id: "keyframed-zoom",
+    label: "Keyframes: Zoom",
+    description: "Zoom animated on the timeline — press play, or scrub",
+    builtin: true,
+    build: () =>
+      imageChain(
+        [{ id: "zoom-1", type: "fx.zoom", params: { amount: 1, centerX: 0.5, centerY: 0.5 } }],
+        {
+          timeline: {
+            fps: 30,
+            durationInFrames: 300,
+            keyframes: {
+              "zoom-1:amount": [
+                { frame: 0, value: 1 },
+                { frame: 150, value: 2.6 },
+                { frame: 300, value: 1 },
+              ],
+            },
+          },
+        },
+      ),
+  },
+  {
+    id: "modulated-slice",
+    label: "Modulator: Slice Shift",
+    description: "Slice count driven by an LFO — follows the playhead, so press play",
+    builtin: true,
+    build: () =>
+      imageChain(
+        [
+          {
+            id: "sliceShift-1",
+            type: "fx.sliceShift",
+            params: { count: 60, maxH: 90, amount: 14, animate: true, seed: 0 },
+          },
+        ],
+        {
+          modulators: {
+            "sliceShift-1:count": {
+              shape: "sine",
+              rateHz: 0.25,
+              depth: 0.8,
+              bias: 0,
+              phase: 0,
+            },
+            "sliceShift-1:amount": {
+              shape: "triangle",
+              rateHz: 0.4,
+              depth: 0.5,
+              bias: 0,
+              phase: 0.25,
+            },
+          },
+        },
+      ),
   },
 ];
 

@@ -198,6 +198,10 @@ those edges are excluded from topo-sort.
 
 - **Autosave** to localStorage on every edit (400 ms debounce).
   Export/import JSON via toolbar buttons; “Reset” restores the starter patch.
+  The preset list covers every node at least once, including two that exist to
+  demonstrate the timeline itself — one keyframed, one modulated. A selftest walks
+  every preset and checks each edge names a real handle of a matching type: a
+  wrong handle name is not an error anywhere, the input simply never arrives.
   Video files are not saved: their `blob:` URLs die with the tab, so the patch
   loads with all connections, but you must pick the file again.
 - **Keyframes, fps and duration are part of the patch** — they save, export and
