@@ -1134,7 +1134,20 @@ async function run(): Promise<void> {
     const typeById = new Map(built.nodes.map((node) => [node.id, node.type]));
 
     for (const node of built.nodes) {
-      if (!NODE_DEFS[node.type]) presetProblems.push(`${preset.id}: unknown node ${node.type}`);
+      const def = NODE_DEFS[node.type];
+      if (!def) {
+        presetProblems.push(`${preset.id}: unknown node ${node.type}`);
+        continue;
+      }
+      // A param key that does not exist is silent too: defaults fill in and the
+      // value sits there doing nothing, so the preset quietly does not do what
+      // it says. `mode` is the one legitimate extra — Media carries it.
+      for (const key of Object.keys(node.params)) {
+        if (key === "mode") continue;
+        if (!def.params.some((spec) => spec.key === key)) {
+          presetProblems.push(`${preset.id}: ${node.id} has no param "${key}"`);
+        }
+      }
     }
 
     for (const edge of built.edges) {

@@ -442,6 +442,58 @@ function pointsChain(
   };
 }
 
+/**
+ * Corners → Features Grid, tuned rather than left on defaults: the grid splits
+ * on the corner cloud, small cells get the smear, and the frame is wired in so
+ * `Use content edge` has a mask to trim against.
+ */
+function cornersFeaturesGrid(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      IMAGE_SOURCE,
+      {
+        id: "features-1",
+        type: "tracking.features",
+        position: { x: 320, y: 20 },
+        params: { downscale: 3, block: 7, maxCorners: 180, quality: 0.03, minDistance: 18 },
+      },
+      {
+        id: "featuresGrid-1",
+        type: "draw.featuresGrid",
+        position: { x: 660, y: 140 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 7,
+          minSize: 56,
+          stroke: 1,
+          opacity: 1,
+          labels: false,
+          labelSize: 11,
+          labelText: "Element",
+          effectChance: 1,
+          effectMinArea: 0,
+          effectMaxArea: 0.18,
+          effectSeed: 3,
+          useContentEdge: true,
+          edgeInterval: 3,
+        },
+      },
+      { ...SCREEN, position: { x: 1000, y: 160 } },
+    ],
+    edges: [
+      { id: "e-frame", source: "image-1", sourceHandle: "frame", target: "features-1", targetHandle: "frame" },
+      { id: "e-bg", source: "image-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "bg" },
+      { id: "e-pts", source: "features-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "points" },
+      // The mask path: without a frame the content edge falls back to a readback.
+      { id: "e-mask", source: "image-1", sourceHandle: "frame", target: "featuresGrid-1", targetHandle: "frame" },
+      { id: "e-out", source: "featuresGrid-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
 /** One image down two paths, recombined — the only shape that exercises Blend. */
 function blendSplit(): SerializedPatch {
   return {
@@ -756,6 +808,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         seed: 7,
         blend: "add",
       }),
+  },
+  {
+    id: "corners-features-grid",
+    label: "Corners + Features Grid",
+    description: "Image → corner points → Features Grid with smear and content edge",
+    builtin: true,
+    build: cornersFeaturesGrid,
   },
   {
     id: "blend-split",
