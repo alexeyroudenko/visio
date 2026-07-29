@@ -44,118 +44,120 @@ export function Toolbar({
   const closePresets = useCallback(() => setPresetsOpen(false), []);
 
   return (
-    <header className="toolbar">
-      <div className="toolbar__brand">
-        <strong>visio</strong>
-        <span>node environment · tracking → graphics</span>
-      </div>
-
-      <div className="toolbar__actions">
-        <div className="menu">
-          <button type="button" className="button" onClick={() => setMenuOpen((open) => !open)}>
-            + Node
-          </button>
-          {menuOpen ? (
-            <div className="menu__panel" onMouseLeave={() => setMenuOpen(false)}>
-              {CATEGORY_ORDER.map((category) => (
-                <section key={category}>
-                  <h4>{CATEGORY_LABELS[category]}</h4>
-                  {NODE_LIST.filter((definition) => definition.category === category).map(
-                    (definition) => (
-                      <button
-                        key={definition.type}
-                        type="button"
-                        className="menu__item"
-                        onClick={() => {
-                          // Drop new nodes in a loose diagonal so they never stack exactly.
-                          addNode(definition.type, {
-                            x: 120 + Math.random() * 320,
-                            y: 80 + Math.random() * 320,
-                          });
-                          setMenuOpen(false);
-                        }}
-                      >
-                        <span>{definition.label}</span>
-                        <em>{definition.description}</em>
-                      </button>
-                    ),
-                  )}
-                </section>
-              ))}
-            </div>
-          ) : null}
+    <>
+      <header className="toolbar">
+        <div className="toolbar__brand">
+          <strong>visio</strong>
+          <span>node environment · tracking → graphics</span>
         </div>
 
-        <button
-          type="button"
-          className="button"
-          onClick={() => setPresetsOpen(true)}
-          title="Load a preset patch · export / import / reset"
-        >
-          Presets
-        </button>
+        <div className="toolbar__actions">
+          <div className="menu">
+            <button type="button" className="button" onClick={() => setMenuOpen((open) => !open)}>
+              + Node
+            </button>
+            {menuOpen ? (
+              <div className="menu__panel" onMouseLeave={() => setMenuOpen(false)}>
+                {CATEGORY_ORDER.map((category) => (
+                  <section key={category}>
+                    <h4>{CATEGORY_LABELS[category]}</h4>
+                    {NODE_LIST.filter((definition) => definition.category === category).map(
+                      (definition) => (
+                        <button
+                          key={definition.type}
+                          type="button"
+                          className="menu__item"
+                          onClick={() => {
+                            // Drop new nodes in a loose diagonal so they never stack exactly.
+                            addNode(definition.type, {
+                              x: 120 + Math.random() * 320,
+                              y: 80 + Math.random() * 320,
+                            });
+                            setMenuOpen(false);
+                          }}
+                        >
+                          <span>{definition.label}</span>
+                          <em>{definition.description}</em>
+                        </button>
+                      ),
+                    )}
+                  </section>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
-        <select
-          className="select"
-          value={`${width}x${height}`}
-          onChange={(event) => {
-            const preset = RESOLUTIONS.find(
-              (item) => `${item.width}x${item.height}` === event.target.value,
-            );
-            if (preset) setResolution(preset.width, preset.height);
-          }}
-        >
-          {RESOLUTIONS.map((preset) => (
-            <option key={preset.label} value={`${preset.width}x${preset.height}`}>
-              {preset.label}
-            </option>
-          ))}
-        </select>
+          <button
+            type="button"
+            className="button"
+            onClick={() => setPresetsOpen(true)}
+            title="Load a preset patch · export / import / reset"
+          >
+            Presets
+          </button>
 
-        <button
-          type="button"
-          className={`button ${paused ? "button--paused" : ""}`}
-          onClick={onTogglePause}
-          disabled={rendering}
-          title={
-            paused
-              ? "Play — resume the graph and sources"
-              : "Pause — stop rAF, camera, and video"
-          }
-        >
-          {paused ? "► Play" : "❚❚ Pause"}
-        </button>
+          <select
+            className="select"
+            value={`${width}x${height}`}
+            onChange={(event) => {
+              const preset = RESOLUTIONS.find(
+                (item) => `${item.width}x${item.height}` === event.target.value,
+              );
+              if (preset) setResolution(preset.width, preset.height);
+            }}
+          >
+            {RESOLUTIONS.map((preset) => (
+              <option key={preset.label} value={`${preset.width}x${preset.height}`}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
 
-        <button
-          type="button"
-          className={`button ${recording ? "button--recording" : ""}`}
-          onClick={onToggleRecord}
-          disabled={paused || rendering}
-          title="Realtime capture of the output canvas"
-        >
-          {recording ? "■ Stop" : "● Record"}
-        </button>
+          <button
+            type="button"
+            className={`button ${paused ? "button--paused" : ""}`}
+            onClick={onTogglePause}
+            disabled={rendering}
+            title={
+              paused
+                ? "Play — resume the graph and sources"
+                : "Pause — stop rAF, camera, and video"
+            }
+          >
+            {paused ? "► Play" : "❚❚ Pause"}
+          </button>
 
-        <button
-          type="button"
-          className={`button ${rendering ? "button--recording" : ""}`}
-          onClick={onToggleRender}
-          disabled={recording}
-          title="Offline frame-by-frame timeline export (not realtime)"
-        >
-          {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render"}
-        </button>
+          <button
+            type="button"
+            className={`button ${recording ? "button--recording" : ""}`}
+            onClick={onToggleRecord}
+            disabled={paused || rendering}
+            title="Realtime capture of the output canvas"
+          >
+            {recording ? "■ Stop" : "● Record"}
+          </button>
 
-        <span className="toolbar__stats">
-          {rendering
-            ? `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
-            : paused
-              ? "paused · resources stopped"
-              : `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`}
-        </span>
+          <button
+            type="button"
+            className={`button ${rendering ? "button--recording" : ""}`}
+            onClick={onToggleRender}
+            disabled={recording}
+            title="Offline frame-by-frame timeline export (not realtime)"
+          >
+            {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render"}
+          </button>
+        </div>
+
+        <PresetsModal open={presetsOpen} onClose={closePresets} />
+      </header>
+
+      <div className="toolbar__stats" aria-live="polite">
+        {rendering
+          ? `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
+          : paused
+            ? "paused · resources stopped"
+            : `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`}
       </div>
-
-      <PresetsModal open={presetsOpen} onClose={closePresets} />
-    </header>
+    </>
   );
 }

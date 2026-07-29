@@ -13,6 +13,7 @@ import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
+import { Knob } from "./Knob";
 import { useEffect, useRef } from "react";
 
 /** Resolve `<input accept>` tokens against a File (MIME and/or extension). */
@@ -137,20 +138,14 @@ function ParamControl({
     case "range": {
       const current = typeof value === "number" ? value : spec.default;
       return (
-        <label className="param">
-          <span className="param__label">
-            {spec.label}
-            <em>{current}</em>
-          </span>
-          <input
-            type="range"
-            min={spec.min}
-            max={spec.max}
-            step={spec.step}
-            value={current}
-            onChange={(event) => onChange(Number(event.target.value))}
-          />
-        </label>
+        <Knob
+          label={spec.label}
+          min={spec.min}
+          max={spec.max}
+          step={spec.step}
+          value={current}
+          onChange={(next) => onChange(next)}
+        />
       );
     }
     case "toggle": {
@@ -281,27 +276,28 @@ function ModulatorPanel({
         value={modulator.shape}
         onChange={(next) => onChange({ shape: next as Modulator["shape"] })}
       />
-      <ParamControl
-        spec={{ key: "rateHz", label: "Rate Hz", type: "range", min: 0, max: 8, step: 0.05, default: 0.5 }}
-        value={modulator.rateHz}
-        onChange={(next) => onChange({ rateHz: next as number })}
-      />
-      <ParamControl
-        spec={{ key: "depth", label: "Depth", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 }}
-        value={modulator.depth}
-        onChange={(next) => onChange({ depth: next as number })}
-      />
-      <ParamControl
-        spec={{ key: "bias", label: "Bias", type: "range", min: -1, max: 1, step: 0.01, default: 0 }}
-        value={modulator.bias}
-        onChange={(next) => onChange({ bias: next as number })}
-      />
-      <ParamControl
-        spec={{ key: "phase", label: "Phase", type: "range", min: 0, max: 1, step: 0.01, default: 0 }}
-        value={modulator.phase}
-        onChange={(next) => onChange({ phase: next as number })}
-      />
-    </div>
+      <div className="modulator__knobs">
+        <ParamControl
+          spec={{ key: "rateHz", label: "Rate Hz", type: "range", min: 0, max: 8, step: 0.05, default: 0.5 }}
+          value={modulator.rateHz}
+          onChange={(next) => onChange({ rateHz: next as number })}
+        />
+        <ParamControl
+          spec={{ key: "depth", label: "Depth", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 }}
+          value={modulator.depth}
+          onChange={(next) => onChange({ depth: next as number })}
+        />
+        <ParamControl
+          spec={{ key: "bias", label: "Bias", type: "range", min: -1, max: 1, step: 0.01, default: 0 }}
+          value={modulator.bias}
+          onChange={(next) => onChange({ bias: next as number })}
+        />
+        <ParamControl
+          spec={{ key: "phase", label: "Phase", type: "range", min: 0, max: 1, step: 0.01, default: 0 }}
+          value={modulator.phase}
+          onChange={(next) => onChange({ phase: next as number })}
+        />
+      </div>    </div>
   );
 }
 
@@ -420,8 +416,10 @@ export function Inspector() {
           }
 
           return (
-            <div key={spec.key} className="param-block">
-              <ParamControl
+            <div
+              key={spec.key}
+              className={`param-block${spec.type === "range" ? " param-block--knob" : ""}`}
+            >              <ParamControl
                 spec={spec}
                 value={value}
                 acceptOverride={acceptOverride}
