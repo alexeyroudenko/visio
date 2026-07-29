@@ -556,7 +556,8 @@ function noiseGrid(): SerializedPatch {
  *
  * The Media node starts empty on purpose — drop a video with an audio track on
  * it and every cell that appears starts looping a grain cut from that track at
- * the playhead. Media is muted so what you hear is the grains, not the film.
+ * the playhead. Media stays muted; Granular's Source fader brings the dry
+ * track back in after the grains bus.
  */
 function granularGrid(): SerializedPatch {
   return {
@@ -600,7 +601,8 @@ function granularGrid(): SerializedPatch {
         position: { x: 1000, y: 420 },
         params: {
           playing: true,
-          master: 0.7,
+          grains: 0.7,
+          source: 0,
           grainMs: 320,
           crossfadeMs: 40,
           maxVoices: 8,

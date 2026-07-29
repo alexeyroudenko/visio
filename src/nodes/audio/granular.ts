@@ -29,10 +29,22 @@ interface Voice {
 
 interface GranularState {
   voices: Map<number, Voice>;
-  master: GainNode | null;
+  /** Bus for the looping grains. */
+  grainsGain: GainNode | null;
+  /**
+   * Dry source, mixed in after the grains bus — so the original sits on top of
+   * the granulation rather than feeding into it.
+   */
+  sourceGain: GainNode | null;
+  /** One-shot (or until seek) playback of the full buffer for the dry path. */
+  dry: AudioBufferSourceNode | null;
+  dryUrl: string | null;
+  /** Context time and buffer offset when `dry` was started — for drift checks. */
+  dryStartedAt: number;
+  dryOffsetSec: number;
   limiter: DynamicsCompressorNode | null;
   /**
-   * Sits inline on the master purely so the debug panel can show that sound is
+   * Sits inline on the mix purely so the debug panel can show that sound is
    * actually leaving the node — "8 grains" is not the same as "8 grains audible".
    */
   meter: AnalyserNode | null;
@@ -129,12 +141,39 @@ export function sliceLoop(
   return out;
 }
 
-function ensureChain(state: GranularState): { ctx: AudioContext; master: GainNode } {
+function ensureChain(state: GranularState): {
+  ctx: AudioContext;
+  grainsGain: GainNode;
+  sourceGain: GainNode;
+} {
   const ctx = audioContext();
-  if (state.ctx !== ctx || !state.master || !state.limiter || !state.meter) {
+  if (
+    state.ctx !== ctx ||
+    !state.grainsGain ||
+    !state.sourceGain ||
+    !state.limiter ||
+    !state.meter
+  ) {
+    stopDry(state);
+    // HMR may leave an older `master` bus still wired to the destination.
+    const legacy = state as GranularState & { master?: GainNode | null };
+    if (legacy.master) {
+      try {
+        legacy.master.disconnect();
+      } catch {
+        /* already gone */
+      }
+      legacy.master = null;
+    }
+    state.grainsGain?.disconnect();
+    state.sourceGain?.disconnect();
+    state.meter?.disconnect();
+    state.limiter?.disconnect();
     state.ctx = ctx;
-    state.master = ctx.createGain();
-    state.master.gain.value = 0;
+    state.grainsGain = ctx.createGain();
+    state.grainsGain.gain.value = 0;
+    state.sourceGain = ctx.createGain();
+    state.sourceGain.gain.value = 0;
     state.meter = ctx.createAnalyser();
     state.meter.fftSize = 1024;
     state.meterBuffer = null;
@@ -147,9 +186,81 @@ function ensureChain(state: GranularState): { ctx: AudioContext; master: GainNod
     state.limiter.release.value = 0.15;
     // The meter is inline rather than a side tap: an analyser only runs when it
     // reaches the destination, and a dangling one would read silence forever.
-    state.master.connect(state.meter).connect(state.limiter).connect(ctx.destination);
+    // Grains and dry both land here — dry is mixed after granulation, not into it.
+    state.grainsGain.connect(state.meter);
+    state.sourceGain.connect(state.meter);
+    state.meter.connect(state.limiter).connect(ctx.destination);
   }
-  return { ctx, master: state.master };
+  return { ctx, grainsGain: state.grainsGain, sourceGain: state.sourceGain };
+}
+
+function stopDry(state: GranularState): void {
+  if (!state.dry) return;
+  try {
+    state.dry.stop();
+  } catch {
+    // Already stopped.
+  }
+  try {
+    state.dry.disconnect();
+  } catch {
+    // Already disconnected.
+  }
+  state.dry = null;
+  state.dryUrl = null;
+}
+
+/**
+ * Keep a dry BufferSource locked to the Media playhead. Restarts on seek / URL
+ * change; mutes via sourceGain when the element is paused or the fader is down.
+ */
+function syncDry(
+  state: GranularState,
+  ctx: AudioContext,
+  sourceGain: GainNode,
+  decoded: AudioBuffer,
+  url: string,
+  timeSec: number,
+  mediaPlaying: boolean,
+  level: number,
+): void {
+  const now = ctx.currentTime;
+  sourceGain.gain.setTargetAtTime(mediaPlaying ? level : 0, now, 0.02);
+
+  if (!mediaPlaying || level <= 0.0001) {
+    stopDry(state);
+    return;
+  }
+
+  const offset = Math.max(0, Math.min(timeSec, Math.max(0, decoded.duration - 0.01)));
+  let drift = Infinity;
+  if (state.dry && state.dryUrl === url) {
+    const expected = state.dryOffsetSec + (now - state.dryStartedAt);
+    drift = Math.abs(expected - offset);
+  }
+
+  if (state.dry && state.dryUrl === url && drift < 0.12) return;
+
+  stopDry(state);
+  const dry = ctx.createBufferSource();
+  dry.buffer = decoded;
+  dry.connect(sourceGain);
+  try {
+    dry.start(now, offset);
+  } catch {
+    dry.disconnect();
+    return;
+  }
+  state.dry = dry;
+  state.dryUrl = url;
+  state.dryStartedAt = now;
+  state.dryOffsetSec = offset;
+  dry.onended = () => {
+    if (state.dry === dry) {
+      state.dry = null;
+      state.dryUrl = null;
+    }
+  };
 }
 
 function stopVoice(voice: Voice, when: number): void {
@@ -185,7 +296,9 @@ export const granularNode = defineNode<GranularState>({
   outputs: [],
   params: [
     { key: "playing", label: "Play", type: "toggle", default: true },
-    { key: "master", label: "Master", type: "range", min: 0, max: 1, step: 0.01, default: 0.7 },
+    { key: "grains", label: "Grains", type: "range", min: 0, max: 1, step: 0.01, default: 0.7 },
+    // Dry level is applied after the grains bus — the original rides on top.
+    { key: "source", label: "Source", type: "range", min: 0, max: 1, step: 0.01, default: 0 },
     { key: "grainMs", label: "Grain length", type: "range", min: 30, max: 2000, step: 10, default: 240 },
     { key: "crossfadeMs", label: "Loop crossfade", type: "range", min: 1, max: 200, step: 1, default: 30 },
     { key: "maxVoices", label: "Max voices", type: "range", min: 1, max: 24, step: 1, default: 8 },
@@ -216,7 +329,12 @@ export const granularNode = defineNode<GranularState>({
   createState() {
     return {
       voices: new Map(),
-      master: null,
+      grainsGain: null,
+      sourceGain: null,
+      dry: null,
+      dryUrl: null,
+      dryStartedAt: 0,
+      dryOffsetSec: 0,
       limiter: null,
       meter: null,
       meterBuffer: null,
@@ -226,10 +344,13 @@ export const granularNode = defineNode<GranularState>({
   },
   disposeState(state) {
     releaseAll(state);
-    state.master?.disconnect();
+    stopDry(state);
+    state.grainsGain?.disconnect();
+    state.sourceGain?.disconnect();
     state.meter?.disconnect();
     state.limiter?.disconnect();
-    state.master = null;
+    state.grainsGain = null;
+    state.sourceGain = null;
     state.meter = null;
     state.limiter = null;
     state.ctx = null;
@@ -238,7 +359,10 @@ export const granularNode = defineNode<GranularState>({
     // The engine stops ticking while paused, so anything still looping would
     // never be told to stop.
     releaseAll(runtime.state);
-    runtime.state.master?.gain.setValueAtTime(0, runtime.state.ctx?.currentTime ?? 0);
+    stopDry(runtime.state);
+    const t = runtime.state.ctx?.currentTime ?? 0;
+    runtime.state.grainsGain?.gain.setValueAtTime(0, t);
+    runtime.state.sourceGain?.gain.setValueAtTime(0, t);
   },
   evaluate({ ctx: engine, nodeId, inputs, params, runtime, debug }) {
     const state = runtime.state;
@@ -250,17 +374,19 @@ export const granularNode = defineNode<GranularState>({
 
     if (!audio) {
       releaseAll(state);
+      stopDry(state);
       engine.report(nodeId, "idle", "wire an audio source");
       if (debug) engine.debugRows(nodeId, [{ label: "source", value: "not connected" }]);
       return {};
     }
 
     const decoded = audio.buffer ?? ensureAudioBuffer(audio.url).buffer;
-    const { ctx, master } = ensureChain(state);
+    const { ctx, grainsGain, sourceGain } = ensureChain(state);
     const now = ctx.currentTime;
 
     if (!decoded) {
       releaseAll(state);
+      stopDry(state);
       const entry = ensureAudioBuffer(audio.url);
       if (entry.status === "error") {
         engine.report(nodeId, "error", entry.message ?? "no decodable audio track");
@@ -276,8 +402,14 @@ export const granularNode = defineNode<GranularState>({
       return {};
     }
 
-    const level = Math.max(0, Math.min(1, paramNumber(params, "master", 0.7)));
-    master.gain.setTargetAtTime(playing ? level : 0, now, 0.02);
+    // Older patches stored a single `master`; map it onto the grains fader.
+    const grainsFallback =
+      typeof params.master === "number" && Number.isFinite(params.master)
+        ? (params.master as number)
+        : 0.7;
+    const grainsLevel = Math.max(0, Math.min(1, paramNumber(params, "grains", grainsFallback)));
+    const sourceLevel = Math.max(0, Math.min(1, paramNumber(params, "source", 0)));
+    grainsGain.gain.setTargetAtTime(playing ? grainsLevel : 0, now, 0.02);
 
     if (ctx.state !== "running") {
       engine.report(nodeId, "loading", "click anywhere to start audio");
@@ -289,6 +421,9 @@ export const granularNode = defineNode<GranularState>({
       }
       return {};
     }
+
+    // Dry follows the Media playhead and is mixed after the grains bus.
+    syncDry(state, ctx, sourceGain, decoded, audio.url, audio.timeSec, audio.playing, sourceLevel);
 
     const attack = Math.max(0.001, paramNumber(params, "attackMs", 80) / 1000);
     const release = Math.max(0.001, paramNumber(params, "releaseMs", 300) / 1000);
@@ -377,7 +512,7 @@ export const granularNode = defineNode<GranularState>({
       const panner = ctx.createStereoPanner();
       panner.pan.value = pan;
 
-      source.connect(filter).connect(gain).connect(panner).connect(master);
+      source.connect(filter).connect(gain).connect(panner).connect(grainsGain);
       source.start(now);
 
       state.voices.set(id, {
@@ -451,7 +586,8 @@ export const granularNode = defineNode<GranularState>({
               ? `${meter.peak.toFixed(3)} (${meter.db.toFixed(1)} dB)`
               : "silent",
         },
-        { label: "master", value: master.gain.value.toFixed(2) },
+        { label: "grains", value: grainsGain.gain.value.toFixed(2) },
+        { label: "source", value: sourceGain.gain.value.toFixed(2) },
       ]);
     }
     return {};
