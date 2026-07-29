@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
-import type { EngineStats } from "../engine/runtime";
+import { useCallback, useRef, useState } from "react";
 import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
+import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
+import { PresetsModal } from "./PresetsModal";
 
 const RESOLUTIONS = [
   { label: "1080×1920", width: 1080, height: 1920 },
@@ -13,21 +14,23 @@ const RESOLUTIONS = [
 const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "output"];
 
 export function Toolbar({
-  stats,
   recording,
   onToggleRecord,
   paused,
   onTogglePause,
 }: {
-  stats: EngineStats;
   recording: boolean;
   onToggleRecord: () => void;
   paused: boolean;
   onTogglePause: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const fps = useEngineStatsStore((state) => state.fps);
+  const frameMs = useEngineStatsStore((state) => state.frameMs);
+  const nodeCount = useEngineStatsStore((state) => state.nodeCount);
   const addNode = useGraphStore((state) => state.addNode);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
@@ -35,6 +38,7 @@ export function Toolbar({
   const exportPatch = useGraphStore((state) => state.exportPatch);
   const importPatch = useGraphStore((state) => state.importPatch);
   const resetPatch = useGraphStore((state) => state.resetPatch);
+  const closePresets = useCallback(() => setPresetsOpen(false), []);
 
   return (
     <header className="toolbar">
@@ -78,6 +82,15 @@ export function Toolbar({
             </div>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          className="button"
+          onClick={() => setPresetsOpen(true)}
+          title="Load a preset patch"
+        >
+          Presets
+        </button>
 
         <select
           className="select"
@@ -163,10 +176,12 @@ export function Toolbar({
           ) : paused ? (
             "paused · resources stopped"
           ) : (
-            `${stats.fps} fps · ${stats.frameMs} ms · ${stats.nodeCount} nodes`
+            `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`
           )}
         </span>
       </div>
+
+      <PresetsModal open={presetsOpen} onClose={closePresets} />
     </header>
   );
 }

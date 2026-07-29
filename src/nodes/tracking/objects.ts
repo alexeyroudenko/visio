@@ -1,6 +1,7 @@
 import type { ObjectDetector, ObjectDetectorResult } from "@mediapipe/tasks-vision";
 import type { BoxesValue, FrameValue } from "../../engine/types";
 import { defineNode, paramNumber } from "../defineNode";
+import { paramsKey } from "../shared/paramsKey";
 import { loadTasksVision, loadVisionFileset, Monotonic } from "./mediapipeShared";
 
 const MODEL =
@@ -14,6 +15,7 @@ interface ObjectsState {
   lastFrameId: number;
   lastResult: BoxesValue;
   optionsKey: string;
+  paramsFingerprint: string;
 }
 
 const EMPTY: BoxesValue = { boxes: [] };
@@ -39,6 +41,7 @@ export const objectsNode = defineNode<ObjectsState>({
       lastFrameId: -1,
       lastResult: EMPTY,
       optionsKey: "",
+      paramsFingerprint: "",
     };
   },
   disposeState(state) {
@@ -51,6 +54,12 @@ export const objectsNode = defineNode<ObjectsState>({
     if (!frame) {
       if (!state.failed) ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
+    }
+
+    const fingerprint = paramsKey(params);
+    if (fingerprint !== state.paramsFingerprint) {
+      state.paramsFingerprint = fingerprint;
+      state.lastFrameId = -1;
     }
 
     const options = {
@@ -74,6 +83,7 @@ export const objectsNode = defineNode<ObjectsState>({
         .then((instance) => {
           state.instance = instance;
           state.loading = false;
+          state.lastFrameId = -1;
           ctx.report(nodeId, "ready", null);
         })
         .catch((error: unknown) => {
@@ -88,11 +98,13 @@ export const objectsNode = defineNode<ObjectsState>({
 
     if (optionsKey !== state.optionsKey) {
       state.optionsKey = optionsKey;
+      state.lastFrameId = -1;
       void instance.setOptions(options).catch(() => undefined);
     }
 
     const interval = Math.max(1, Math.round(paramNumber(params, "interval", 2)));
-    if (frame.frameId === state.lastFrameId || ctx.frameCount % interval !== 0) {
+    if (frame.frameId === state.lastFrameId) return { out: state.lastResult };
+    if (state.lastFrameId >= 0 && ctx.frameCount % interval !== 0) {
       return { out: state.lastResult };
     }
     state.lastFrameId = frame.frameId;

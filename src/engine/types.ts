@@ -142,6 +142,11 @@ export interface EngineContext {
   /** Seconds since previous frame. */
   deltaSec: number;
   frameCount: number;
+  /** Timeline playhead (for video sync when timelinePlaying). */
+  timelineFrame: number;
+  timelineFps: number;
+  /** When true, video sources seek to the playhead instead of free-running. */
+  timelinePlaying: boolean;
   /** Persistent render target owned by (nodeId, slot), resized on demand. */
   target: (nodeId: string, slot: string, width?: number, height?: number) => RenderTarget;
   /** Marks a node's status for the UI. */

@@ -17,9 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { PatchNode } from "./ui/PatchNode";
 import { Inspector } from "./ui/Inspector";
 import { Toolbar } from "./ui/Toolbar";
+import { AppConsole } from "./ui/AppConsole";
 import { useEngine } from "./ui/useEngine";
 import { useRecorder } from "./ui/useRecorder";
 import { useOutputWindow } from "./ui/useOutputWindow";
+import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
@@ -65,12 +67,12 @@ function useSideResize(
   );
 }
 
-function mediaDefType(file: File): "source.image" | "source.video" | null {
-  if (file.type.startsWith("image/")) return "source.image";
-  if (file.type.startsWith("video/")) return "source.video";
+function mediaKind(file: File): "image" | "video" | null {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
   const lower = file.name.toLowerCase();
-  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "source.image";
-  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "source.video";
+  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "image";
+  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "video";
   return null;
 }
 
@@ -101,6 +103,7 @@ function GraphCanvas({
   const addNode = useGraphStore((state) => state.addNode);
 
   const onDragOver = useCallback((event: DragEvent) => {
+    if (![...event.dataTransfer.types].includes("Files")) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   }, []);
@@ -114,12 +117,16 @@ function GraphCanvas({
       const origin = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       let offset = 0;
       for (const file of files) {
-        const defType = mediaDefType(file);
-        if (!defType) continue;
+        const kind = mediaKind(file);
+        if (!kind) continue;
         addNode(
-          defType,
+          "source.media",
           { x: origin.x + offset, y: origin.y + offset },
-          { file: { name: file.name, url: URL.createObjectURL(file) } },
+          {
+            mode: kind,
+            file: { name: file.name, url: URL.createObjectURL(file) },
+            mirror: false,
+          },
         );
         offset += 48;
       }
@@ -143,7 +150,7 @@ function GraphCanvas({
       deleteKeyCode={null}
       fitView
       proOptions={{ hideAttribution: false }}
-      defaultEdgeOptions={{ animated: true, style: { stroke: "#6ea8fe", strokeWidth: 2 } }}
+      defaultEdgeOptions={{ animated: true, style: { stroke: "#6b8afd", strokeWidth: 1.5 } }}
     >
       <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
       <Controls />
@@ -153,7 +160,7 @@ function GraphCanvas({
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { error, stats, paused, togglePause } = useEngine(canvasRef);
+  const { error, paused, togglePause } = useEngine(canvasRef);
   const { recording, toggle } = useRecorder(() => canvasRef.current);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
@@ -202,7 +209,6 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar
-        stats={stats}
         recording={recording}
         onToggleRecord={toggle}
         paused={paused}
@@ -268,6 +274,10 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      <Timeline />
+
+      <AppConsole />
     </div>
   );
 }

@@ -66,6 +66,8 @@ export class Engine {
   private outputs = new Map<string, Record<string, PortValue>>();
   private order: string[] = [];
   private inputMap = buildInputMap([]);
+  /** Node ids/types + wiring; when this changes, slots are rebuilt from scratch. */
+  private topologyKey = "";
 
   private rafHandle: number | null = null;
   private startTime = 0;
@@ -83,6 +85,9 @@ export class Engine {
   /** Texture the Output node produced last frame, for preview and recording. */
   displayTarget: RenderTarget | null = null;
   private paused = false;
+  private timelineFrame = 0;
+  private timelineFps = 30;
+  private timelinePlaying = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -111,9 +116,31 @@ export class Engine {
     this.canvas.height = this.height;
   }
 
-  /** Diffs against the live graph so node state (models, cameras) survives edits. */
+  setTimeline(frame: number, fps: number, playing: boolean): void {
+    this.timelineFrame = frame;
+    this.timelineFps = Math.max(1, fps);
+    this.timelinePlaying = playing;
+  }
+
+  /**
+   * Diffs against the live graph so node state (models, cameras) survives edits.
+   * Topology changes clear cached port values so a preset load cannot keep a
+   * previous frame stuck on the Output path.
+   */
   setGraph(nodes: GraphNode[], edges: GraphEdge[]): void {
     this.nodes = nodes;
+
+    const topologyKey = [
+      ...nodes.map((node) => `${node.id}@${node.type}`).sort(),
+      ...edges
+        .map(
+          (edge) =>
+            `${edge.source}.${edge.sourceHandle ?? "out"}>${edge.target}.${edge.targetHandle ?? "in"}`,
+        )
+        .sort(),
+    ].join("|");
+    const topologyChanged = topologyKey !== this.topologyKey;
+    this.topologyKey = topologyKey;
 
     const seen = new Set<string>();
     for (const node of nodes) {
@@ -135,6 +162,11 @@ export class Engine {
 
     for (const id of [...this.slots.keys()]) {
       if (!seen.has(id)) this.disposeSlot(id);
+    }
+
+    if (topologyChanged) {
+      this.outputs.clear();
+      this.displayTarget = null;
     }
 
     const sorted = topoSort(nodes, edges, this.definitions);
@@ -194,6 +226,9 @@ export class Engine {
       timeMs,
       deltaSec,
       frameCount: this.frameCount,
+      timelineFrame: this.timelineFrame,
+      timelineFps: this.timelineFps,
+      timelinePlaying: this.timelinePlaying,
       target: this.target,
       report: this.report,
     };

@@ -1,8 +1,9 @@
 import type { Edge } from "@xyflow/react";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
+import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
 
-const STORAGE_KEY = "visio.patch.v3";
+const STORAGE_KEY = "visio.patch.v4";
 const FORMAT = 1;
 
 export interface SerializedPatch {
@@ -97,6 +98,13 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
   for (const entry of patch.nodes) {
     // Skip node types this build no longer knows about rather than failing.
     if (!entry || typeof entry.id !== "string" || !NODE_DEFS[entry.type]) continue;
+
+    const legacyMode = LEGACY_SOURCE_TYPES[entry.type];
+    const defType = legacyMode ? "source.media" : entry.type;
+    const migratedParams = legacyMode
+      ? { mode: legacyMode, ...(entry.params ?? {}) }
+      : (entry.params ?? {});
+
     nodes.push({
       id: entry.id,
       type: "patch",
@@ -106,8 +114,8 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
       },
       // Defaults first, so params added since the patch was saved exist.
       data: {
-        defType: entry.type,
-        params: { ...defaultParams(entry.type), ...(entry.params ?? {}) },
+        defType,
+        params: { ...defaultParams(defType), ...migratedParams },
         bypass: entry.bypass === true,
       },
     });

@@ -1,11 +1,13 @@
 import type { FrameValue, PointsValue } from "../../engine/types";
 import { defineNode, paramNumber } from "../defineNode";
 import { GrayFrame } from "../shared/grayscale";
+import { paramsKey } from "../shared/paramsKey";
 
 interface FeaturesState {
   frame: GrayFrame;
   lastFrameId: number;
   lastResult: PointsValue;
+  paramsFingerprint: string;
 }
 
 const EMPTY: PointsValue = { points: [] };
@@ -29,7 +31,7 @@ export const featuresNode = defineNode<FeaturesState>({
     { key: "minDistance", label: "Min distance", type: "range", min: 2, max: 60, step: 1, default: 12 },
   ],
   createState() {
-    return { frame: new GrayFrame(), lastFrameId: -1, lastResult: EMPTY };
+    return { frame: new GrayFrame(), lastFrameId: -1, lastResult: EMPTY, paramsFingerprint: "" };
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const state = runtime.state;
@@ -38,6 +40,13 @@ export const featuresNode = defineNode<FeaturesState>({
       ctx.report(nodeId, "idle", "connect a frame from a source");
       return { out: EMPTY };
     }
+
+    const fingerprint = paramsKey(params);
+    if (fingerprint !== state.paramsFingerprint) {
+      state.paramsFingerprint = fingerprint;
+      state.lastFrameId = -1;
+    }
+
     if (frame.frameId === state.lastFrameId) return { out: state.lastResult };
     state.lastFrameId = frame.frameId;
     ctx.report(nodeId, "ready", null);

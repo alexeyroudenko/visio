@@ -1,17 +1,28 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { Engine, type EngineStats } from "../engine/runtime";
+import { Engine } from "../engine/runtime";
+import { applyKeyframesToNodes } from "../lib/keyframes";
 import { NODE_DEFS } from "../nodes/registry";
+import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
+import { appLog } from "../store/consoleStore";
+import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
+import { useTimelineStore } from "../store/timelineStore";
 
+function engineNodeType(defType: string): string {
+  return LEGACY_SOURCE_TYPES[defType] ? "source.media" : defType;
+}
 /**
  * Bridges the React graph description to the imperative engine: one Engine per
- * canvas, re-fed whenever nodes, edges, params or resolution change.
+ * canvas, re-fed whenever nodes, edges, params, timeline playhead or resolution
+ * change.
+ *
+ * Stats go to a separate store so the React Flow tree is not re-rendered every
+ * 500ms (that was resetting in-progress node drags).
  */
 export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
   const engineRef = useRef<Engine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
-  const [stats, setStats] = useState<EngineStats>({ fps: 0, frameMs: 0, nodeCount: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,7 +32,9 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     try {
       engine = new Engine(canvas);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to create WebGL2 context");
+      const message = err instanceof Error ? err.message : "failed to create WebGL2 context";
+      setError(message);
+      appLog("error", "engine", message);
       return;
     }
 
@@ -29,34 +42,56 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     engine.onStatus((statuses) => useGraphStore.getState().setStatuses(statuses));
     engineRef.current = engine;
 
-    const { width, height, nodes, edges } = useGraphStore.getState();
-    engine.setResolution(width, height);
-    engine.setGraph(
-      nodes.map((node) => ({
-        id: node.id,
-        type: node.data.defType,
-        params: node.data.params,
-        bypass: node.data.bypass === true,
-      })),
-      edges.map((edge) => ({
-        id: edge.id,
-        source: edge.source,
-        sourceHandle: edge.sourceHandle ?? "out",
-        target: edge.target,
-        targetHandle: edge.targetHandle ?? "in",
-      })),
-    );
+    const pushGraph = () => {
+      const { width, height, nodes, edges } = useGraphStore.getState();
+      const timeline = useTimelineStore.getState();
+      const keyed = applyKeyframesToNodes(
+        timeline.currentFrame,
+        nodes.map((node) => ({ id: node.id, params: node.data.params })),
+        timeline.paramKeyframes,
+      );
+
+      engine.setResolution(width, height);
+      engine.setTimeline(timeline.currentFrame, timeline.fps, timeline.isPlaying);
+      // Refresh defs every push so HMR-added nodes (converters, etc.) are live.
+      engine.setDefinitions(NODE_DEFS);
+      engine.setGraph(
+        nodes.map((node) => ({
+          id: node.id,
+          type: engineNodeType(node.data.defType),
+          params: (() => {
+            const base = keyed.get(node.id) ?? node.data.params;
+            const mode = LEGACY_SOURCE_TYPES[node.data.defType];
+            return mode && base.mode == null ? { ...base, mode } : base;
+          })(),
+          bypass: node.data.bypass === true,
+        })),
+        edges.map((edge) => ({
+          id: edge.id,
+          source: edge.source,
+          sourceHandle: edge.sourceHandle ?? "out",
+          target: edge.target,
+          targetHandle: edge.targetHandle ?? "in",
+        })),
+      );
+    };
+
+    pushGraph();
     engine.start();
     setPaused(false);
+    useEngineStatsStore.getState().setStats({ ...engine.stats });
+    const { width, height, nodes } = useGraphStore.getState();
+    appLog("ok", "engine", `started · ${width}×${height} · ${nodes.length} nodes`);
 
-    // Status updates flow back into the store from the engine itself, so only
-    // rebuild when the graph or resolution actually changed.
-    let prevNodes = nodes;
-    let prevEdges = edges;
-    let prevWidth = width;
-    let prevHeight = height;
+    let prevNodes = useGraphStore.getState().nodes;
+    let prevEdges = useGraphStore.getState().edges;
+    let prevWidth = useGraphStore.getState().width;
+    let prevHeight = useGraphStore.getState().height;
+    let prevFrame = useTimelineStore.getState().currentFrame;
+    let prevKeys = useTimelineStore.getState().paramKeyframes;
+    let prevPlaying = useTimelineStore.getState().isPlaying;
 
-    const unsubscribe = useGraphStore.subscribe((state) => {
+    const unsubGraph = useGraphStore.subscribe((state) => {
       if (
         state.nodes === prevNodes &&
         state.edges === prevEdges &&
@@ -69,30 +104,31 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
       prevEdges = state.edges;
       prevWidth = state.width;
       prevHeight = state.height;
-
-      engine.setResolution(state.width, state.height);
-      engine.setGraph(
-        state.nodes.map((node) => ({
-          id: node.id,
-          type: node.data.defType,
-          params: node.data.params,
-          bypass: node.data.bypass === true,
-        })),
-        state.edges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          sourceHandle: edge.sourceHandle ?? "out",
-          target: edge.target,
-          targetHandle: edge.targetHandle ?? "in",
-        })),
-      );
+      pushGraph();
     });
 
-    const statsTimer = window.setInterval(() => setStats({ ...engine.stats }), 500);
+    const unsubTimeline = useTimelineStore.subscribe((state) => {
+      if (
+        state.currentFrame === prevFrame &&
+        state.paramKeyframes === prevKeys &&
+        state.isPlaying === prevPlaying
+      ) {
+        return;
+      }
+      prevFrame = state.currentFrame;
+      prevKeys = state.paramKeyframes;
+      prevPlaying = state.isPlaying;
+      pushGraph();
+    });
+
+    const statsTimer = window.setInterval(() => {
+      useEngineStatsStore.getState().setStats({ ...engine.stats });
+    }, 500);
 
     return () => {
       window.clearInterval(statsTimer);
-      unsubscribe();
+      unsubGraph();
+      unsubTimeline();
       engine.dispose();
       engineRef.current = null;
     };
@@ -104,7 +140,8 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const next = !engine.isPaused;
     engine.setPaused(next);
     setPaused(next);
+    appLog("info", "engine", next ? "paused" : "playing");
   }, []);
 
-  return { engineRef, error, stats, paused, togglePause };
+  return { engineRef, error, paused, togglePause };
 }

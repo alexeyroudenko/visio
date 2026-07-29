@@ -1,6 +1,7 @@
 import type { CirclesValue, FrameValue } from "../../engine/types";
 import { defineNode, paramNumber } from "../defineNode";
 import { GrayFrame } from "../shared/grayscale";
+import { paramsKey } from "../shared/paramsKey";
 
 interface CirclesState {
   frame: GrayFrame;
@@ -9,6 +10,7 @@ interface CirclesState {
   accumulator: Float32Array;
   smoothed: Float32Array;
   histogram: Float32Array;
+  paramsFingerprint: string;
 }
 
 const EMPTY: CirclesValue = { circles: [] };
@@ -47,6 +49,7 @@ export const houghCirclesNode = defineNode<CirclesState>({
       accumulator: new Float32Array(0),
       smoothed: new Float32Array(0),
       histogram: new Float32Array(0),
+      paramsFingerprint: "",
     };
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
@@ -57,8 +60,15 @@ export const houghCirclesNode = defineNode<CirclesState>({
       return { out: EMPTY };
     }
 
+    const fingerprint = paramsKey(params);
+    if (fingerprint !== state.paramsFingerprint) {
+      state.paramsFingerprint = fingerprint;
+      state.lastFrameId = -1;
+    }
+
     const interval = Math.max(1, Math.round(paramNumber(params, "interval", 2)));
-    if (frame.frameId === state.lastFrameId || ctx.frameCount % interval !== 0) {
+    if (frame.frameId === state.lastFrameId) return { out: state.lastResult };
+    if (state.lastFrameId >= 0 && ctx.frameCount % interval !== 0) {
       return { out: state.lastResult };
     }
     state.lastFrameId = frame.frameId;

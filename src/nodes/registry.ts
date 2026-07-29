@@ -1,7 +1,5 @@
 import type { NodeDefinition } from "../engine/types";
-import { cameraNode } from "./source/camera";
-import { videoNode } from "./source/video";
-import { imageNode } from "./source/image";
+import { mediaNode, LEGACY_SOURCE_TYPES } from "./source/media";
 import { poseNode } from "./tracking/pose";
 import { handsNode } from "./tracking/hands";
 import { faceNode } from "./tracking/face";
@@ -9,6 +7,7 @@ import { objectsNode } from "./tracking/objects";
 import { featuresNode } from "./tracking/features";
 import { houghCirclesNode } from "./tracking/houghCircles";
 import { houghLinesNode } from "./tracking/houghLines";
+import { landmarksToPointsNode } from "./convert/landmarksToPoints";
 import { drawLandmarksNode } from "./draw/landmarks";
 import { drawPointsNode } from "./draw/points";
 import { drawBoxesNode } from "./draw/boxes";
@@ -21,12 +20,18 @@ import { colorNode } from "./fx/color";
 import { pixelSortNode } from "./fx/pixelSort";
 import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
+import { zoomNode } from "./fx/zoom";
 import { outputNode } from "./output/output";
 
+declare global {
+  interface Window {
+    /** Survives Vite HMR so graphStore.onConnect always sees the latest defs. */
+    __visioNodeDefs?: Record<string, NodeDefinition<never>>;
+  }
+}
+
 export const NODE_LIST: NodeDefinition<never>[] = [
-  cameraNode,
-  imageNode,
-  videoNode,
+  mediaNode,
   poseNode,
   handsNode,
   faceNode,
@@ -34,6 +39,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   featuresNode,
   houghCirclesNode,
   houghLinesNode,
+  landmarksToPointsNode,
   drawLandmarksNode,
   drawPointsNode,
   drawBoxesNode,
@@ -46,18 +52,34 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   pixelSortNode,
   sliceShiftNode,
   blockScatterNode,
+  zoomNode,
   outputNode,
 ];
 
-export const NODE_DEFS: Record<string, NodeDefinition<never>> = Object.fromEntries(
-  NODE_LIST.map((definition) => [definition.type, definition]),
-);
+/** Mutated in place across HMR — do not replace the object reference. */
+export const NODE_DEFS: Record<string, NodeDefinition<never>> =
+  typeof window !== "undefined" && window.__visioNodeDefs
+    ? window.__visioNodeDefs
+    : {};
+
+for (const key of Object.keys(NODE_DEFS)) delete NODE_DEFS[key];
+for (const definition of NODE_LIST) NODE_DEFS[definition.type] = definition;
+// Old patches / drops still resolve camera|image|video to the unified Media node.
+for (const legacy of Object.keys(LEGACY_SOURCE_TYPES)) {
+  NODE_DEFS[legacy] = mediaNode;
+}
+
+if (typeof window !== "undefined") {
+  window.__visioNodeDefs = NODE_DEFS;
+}
 
 export function defaultParams(type: string): Record<string, unknown> {
   const definition = NODE_DEFS[type];
   if (!definition) return {};
   const params: Record<string, unknown> = {};
   for (const spec of definition.params) params[spec.key] = spec.default;
+  const mode = LEGACY_SOURCE_TYPES[type];
+  if (mode) params.mode = mode;
   return params;
 }
 
@@ -70,20 +92,20 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  source: "#6ea8fe",
-  tracking: "#7fe3c0",
-  draw: "#ffd166",
-  fx: "#c39bff",
-  output: "#ff8fa3",
+  source: "#6b8afd",
+  tracking: "#3d8f6e",
+  draw: "#d9822b",
+  fx: "#8b74e8",
+  output: "#d64545",
 };
 
 export const PORT_COLORS: Record<string, string> = {
-  texture: "#6ea8fe",
-  frame: "#9aa4b2",
-  landmarks: "#7fe3c0",
-  points: "#ffd166",
-  boxes: "#ff5c7a",
-  circles: "#8fd6ff",
-  lines: "#c39bff",
-  number: "#b0b6c2",
+  texture: "#6b8afd",
+  frame: "#7d9aff",
+  landmarks: "#2d6a4f",
+  points: "#e67e22",
+  boxes: "#e74c3c",
+  circles: "#6b8afd",
+  lines: "#9a9cab",
+  number: "#6b6d7a",
 };

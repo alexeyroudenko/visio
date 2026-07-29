@@ -857,8 +857,8 @@ function run(): void {
         type: "patch",
         position: { x: 10, y: 20 },
         data: {
-          defType: "source.video",
-          params: { ...defaultParams("source.video"), file: { name: "x.mp4", url: "blob:zzz" } },
+          defType: "source.media",
+          params: { ...defaultParams("source.media"), mode: "video", file: { name: "x.mp4", url: "blob:zzz" } },
         },
       },
     ],

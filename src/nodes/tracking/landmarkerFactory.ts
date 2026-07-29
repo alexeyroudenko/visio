@@ -1,6 +1,7 @@
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import type { FrameValue, LandmarksValue, NodeDefinition, ParamSpec } from "../../engine/types";
 import { defineNode, paramNumber } from "../defineNode";
+import { paramsKey } from "../shared/paramsKey";
 import { loadVisionFileset, Monotonic } from "./mediapipeShared";
 
 interface LandmarkerLike {
@@ -20,6 +21,8 @@ interface LandmarkerState {
   loadedModelKey: string | null;
   /** Fingerprint of live-tunable options — a change forces setOptions. */
   optionsKey: string;
+  /** All UI params; change invalidates the cached detection (still frames). */
+  paramsFingerprint: string;
 }
 
 export interface LandmarkerConfig {
@@ -73,6 +76,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
         lastResult: EMPTY,
         loadedModelKey: null,
         optionsKey: "",
+        paramsFingerprint: "",
       };
     },
     disposeState(state) {
@@ -86,6 +90,13 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
       if (!frame) {
         if (!state.failed) ctx.report(nodeId, "idle", "connect a frame from a source");
         return { out: EMPTY };
+      }
+
+      const fingerprint = paramsKey(params);
+      if (fingerprint !== state.paramsFingerprint) {
+        state.paramsFingerprint = fingerprint;
+        // Still images keep the same frameId — force a fresh detect after tweaks.
+        state.lastFrameId = -1;
       }
 
       const modelKey = config.modelKey(params);
@@ -108,6 +119,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
             state.instance = instance;
             state.loadedModelKey = modelKey;
             state.loading = false;
+            state.lastFrameId = -1;
             ctx.report(nodeId, "ready", null);
           })
           .catch((error: unknown) => {
@@ -123,6 +135,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
       const optionsKey = JSON.stringify(config.toOptions(params));
       if (optionsKey !== state.optionsKey) {
         state.optionsKey = optionsKey;
+        state.lastFrameId = -1;
         void instance
           .setOptions?.({ ...config.toOptions(params), runningMode: "VIDEO" })
           .catch(() => undefined);
@@ -130,7 +143,7 @@ export function createLandmarkerNode(config: LandmarkerConfig): NodeDefinition<n
 
       const interval = Math.max(1, Math.round(paramNumber(params, "interval", 1)));
       const isNewFrame = frame.frameId !== state.lastFrameId;
-      const dueThisTick = ctx.frameCount % interval === 0;
+      const dueThisTick = state.lastFrameId < 0 || ctx.frameCount % interval === 0;
       if (!isNewFrame || !dueThisTick) return { out: state.lastResult };
       state.lastFrameId = frame.frameId;
 

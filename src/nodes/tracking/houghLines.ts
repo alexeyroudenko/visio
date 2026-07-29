@@ -1,6 +1,7 @@
 import type { FrameValue, LinesValue } from "../../engine/types";
 import { defineNode, paramNumber } from "../defineNode";
 import { GrayFrame, type EdgePoint } from "../shared/grayscale";
+import { paramsKey } from "../shared/paramsKey";
 
 interface LinesState {
   frame: GrayFrame;
@@ -10,6 +11,7 @@ interface LinesState {
   cosTable: Float32Array;
   sinTable: Float32Array;
   tableSize: number;
+  paramsFingerprint: string;
 }
 
 const EMPTY: LinesValue = { lines: [] };
@@ -42,6 +44,7 @@ export const houghLinesNode = defineNode<LinesState>({
       cosTable: new Float32Array(0),
       sinTable: new Float32Array(0),
       tableSize: 0,
+      paramsFingerprint: "",
     };
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
@@ -52,8 +55,15 @@ export const houghLinesNode = defineNode<LinesState>({
       return { out: EMPTY };
     }
 
+    const fingerprint = paramsKey(params);
+    if (fingerprint !== state.paramsFingerprint) {
+      state.paramsFingerprint = fingerprint;
+      state.lastFrameId = -1;
+    }
+
     const interval = Math.max(1, Math.round(paramNumber(params, "interval", 2)));
-    if (frame.frameId === state.lastFrameId || ctx.frameCount % interval !== 0) {
+    if (frame.frameId === state.lastFrameId) return { out: state.lastResult };
+    if (state.lastFrameId >= 0 && ctx.frameCount % interval !== 0) {
       return { out: state.lastResult };
     }
     state.lastFrameId = frame.frameId;

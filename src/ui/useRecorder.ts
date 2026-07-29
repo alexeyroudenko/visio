@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { appLog } from "../store/consoleStore";
 
 const MIME_CANDIDATES = [
   "video/webm;codecs=vp9",
@@ -25,7 +26,10 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
 
   const start = useCallback(() => {
     const canvas = getCanvas();
-    if (!canvas) return;
+    if (!canvas) {
+      appLog("warn", "record", "no canvas to capture");
+      return;
+    }
 
     const stream = canvas.captureStream(60);
     const recorder = new MediaRecorder(stream, {
@@ -49,11 +53,13 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
       stream.getTracks().forEach((track) => track.stop());
       recorderRef.current = null;
       setRecording(false);
+      appLog("ok", "record", `saved ${link.download}`);
     };
 
     recorder.start(1000);
     recorderRef.current = recorder;
     setRecording(true);
+    appLog("info", "record", "started");
   }, [getCanvas]);
 
   const toggle = useCallback(() => {
