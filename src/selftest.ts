@@ -786,6 +786,46 @@ function run(): void {
     `x=10 → ${sortedRow[10]}, x=200 → ${sortedRow[200]}, ascending=${ascending}`,
   );
 
+  // --- 4d. custom shader node ----------------------------------------------
+  const runShader = (source: string) => {
+    engine.setGraph(
+      [
+        { id: "grad", type: "test.gradient", params: { reverse: false } },
+        {
+          id: "sh",
+          type: "fx.shader",
+          params: { ...defaultParams("fx.shader"), source },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "grad", sourceHandle: "out", target: "sh", targetHandle: "src" },
+        { id: "b", source: "sh", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+    engine.tick();
+    return readPixel(engine, Math.round(WIDTH * 0.75), Math.round(HEIGHT / 2));
+  };
+
+  // Swapping the channels proves the user's code is what ran, not a pass-through.
+  const shaded = runShader(
+    "void main() { vec4 t = texture(uTex, vUv); fragColor = vec4(0.0, t.r, 0.0, 1.0); }",
+  );
+  check(
+    "shader node runs user source",
+    shaded[1] > 150 && shaded[0] < 20,
+    `rgba=${shaded.join(",")} (red should move to green)`,
+  );
+
+  // A broken shader must not black out the chain, and must say why.
+  const broken = runShader("void main() { fragColor = nope; }");
+  const brokenStatus = engine.statusOf("sh");
+  check(
+    "broken shader passes input through and reports",
+    broken[0] > 150 && brokenStatus?.status === "error" && !!brokenStatus.message,
+    `rgba=${broken.join(",")} status=${brokenStatus?.status} msg=${(brokenStatus?.message ?? "none").slice(0, 60)}`,
+  );
+
   // --- 5. Hough detectors on a synthetic frame -----------------------------
   engine.setGraph(
     [

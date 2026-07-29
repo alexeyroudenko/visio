@@ -57,10 +57,10 @@ results into textures.
 
 | Category | Nodes |
 |---|---|
-| Sources | Camera, Image File, Video File |
-| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Hough Circles**, **Hough Lines** |
-| Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, **Features Grid** |
-| FX | Feedback, Blend, Color, **Slice Shift**, **Block Scatter**, **Pixel Sort** |
+| Sources | Media (camera · image · video · audio) |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), Hough Circles, Hough Lines, Landmarks → Points |
+| Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree |
+| FX | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader** |
 | Output | Output |
 
 Ports are typed (`frame`, `texture`, `landmarks`, `points`, `boxes`, `circles`,
@@ -92,6 +92,19 @@ at 1, 8.9 ms at 4, 4.4 ms at 8.
 picked by a seeded LCG, a 1 px-wide column from the center is stretched across the
 whole cell. Each such cell is a separate pass with `gl.viewport` set to its
 rectangle, so the shader does not iterate cells per pixel.
+
+**Shader** — write the fragment shader yourself. The version pragma, precision,
+`vUv`, `fragColor` and the uniform block are prepended for you, so the editor
+starts at `void main()`; a `#line 1` directive makes the compiler count from your
+first line, and any log that still points past the preamble is folded back, so
+reported line numbers match what you are looking at.
+
+Available: `uTex`, `uResolution`, `uTime` (seconds), `uFrame`, `uColor`, and four
+knobs `uK1`–`uK4` wired to range params — which means they keyframe and animate
+like any other parameter. Compilation happens only when the text changes, so a
+shader that does not build is not recompiled every frame; it reports the compiler
+log to the node status and **passes its input through**, rather than blacking out
+everything downstream while you are mid-edit.
 
 ### Glitch effects (port from [glitcher](../glitcher))
 

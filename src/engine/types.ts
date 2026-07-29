@@ -90,7 +90,9 @@ export type ParamSpec =
   | { key: string; label: string; type: "color"; default: string }
   | { key: string; label: string; type: "select"; options: { value: string; label: string }[]; default: string }
   | { key: string; label: string; type: "file"; accept: string; default: null }
-  | { key: string; label: string; type: "text"; default: string };
+  | { key: string; label: string; type: "text"; default: string }
+  /** Multi-line source text — same value shape as `text`, taller control. */
+  | { key: string; label: string; type: "code"; rows?: number; default: string };
 
 export type ParamValues = Record<string, unknown>;
 

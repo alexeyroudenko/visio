@@ -153,6 +153,21 @@ function ParamControl({
         </label>
       );
     }
+    case "code": {
+      const current = typeof value === "string" ? value : spec.default;
+      return (
+        <label className="param">
+          <span className="param__label">{spec.label}</span>
+          <textarea
+            className="param__code"
+            rows={spec.rows ?? 14}
+            spellCheck={false}
+            value={current}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </label>
+      );
+    }
     default:
       return null;
   }

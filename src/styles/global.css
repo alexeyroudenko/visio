@@ -987,6 +987,21 @@ body.is-resizing {
   width: 100%;
 }
 
+.param__code {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--panel) 80%, #000);
+  color: var(--text);
+  font: 11px/1.45 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  /* Tabs and leading runs of spaces are load-bearing in shader source. */
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  resize: vertical;
+}
+
 .param select,
 .param input[type="text"],
 .param input[type="file"],

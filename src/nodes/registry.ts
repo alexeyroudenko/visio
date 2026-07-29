@@ -23,6 +23,7 @@ import { pixelSortNode } from "./fx/pixelSort";
 import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
 import { zoomNode } from "./fx/zoom";
+import { shaderNode } from "./fx/shader";
 import { outputNode } from "./output/output";
 
 declare global {
@@ -57,6 +58,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   sliceShiftNode,
   blockScatterNode,
   zoomNode,
+  shaderNode,
   outputNode,
 ];
 

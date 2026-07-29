@@ -144,6 +144,12 @@ export class Engine {
     this.statusListener = listener;
   }
 
+  /** Current status of one node, without waiting for the next listener push. */
+  statusOf(nodeId: string): { status: NodeRuntime["status"]; message: string | null } | null {
+    const slot = this.slots.get(nodeId);
+    return slot ? { status: slot.runtime.status, message: slot.runtime.message } : null;
+  }
+
   setResolution(width: number, height: number): void {
     this.width = Math.max(16, Math.round(width));
     this.height = Math.max(16, Math.round(height));
