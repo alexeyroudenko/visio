@@ -67,7 +67,8 @@ function FileParamControl({
   acceptOverride?: string;
 }) {
   const current = (value as FileParam | null) ?? null;
-  const accept = acceptOverride ?? spec.accept;
+  const accept =
+    acceptOverride ?? (spec.type === "file" ? spec.accept : undefined) ?? "";
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

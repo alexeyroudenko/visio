@@ -4,7 +4,6 @@ import {
   getAllMediaFiles,
   persistFileParam,
   reviveStoredFile,
-  type StoredMediaMode,
 } from "./mediaFileDb";
 
 /**

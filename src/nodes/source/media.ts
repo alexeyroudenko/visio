@@ -13,7 +13,6 @@ import {
   enrichMediaMetaAudio,
   enrichMediaMetaDuration,
   ensureMediaMeta,
-  type MediaMeta,
 } from "../../lib/mediaMeta";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
@@ -97,7 +96,7 @@ function fileMetaFields(
       channels: null,
     };
   }
-  const meta: MediaMeta = ensureMediaMeta(url, { sizeBytes, mime });
+  ensureMediaMeta(url, { sizeBytes, mime });
   if (durationSec != null && durationSec > 0) enrichMediaMetaDuration(url, durationSec);
 
   if (wantAudio) {
