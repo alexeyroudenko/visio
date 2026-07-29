@@ -32,6 +32,7 @@ import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { BUILTIN_PRESETS } from "./presets";
+import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
 
@@ -1419,6 +1420,44 @@ async function run(): Promise<void> {
     "resampling keeps transients",
     squeezed.length === 16 && keptPeak > 0.9,
     `columns=${squeezed.length / 2} peak=${keptPeak.toFixed(3)}`,
+  );
+
+  // --- 6b-bis. node debug panels -------------------------------------------
+  // The panel is built by the runtime from the ports it already has, so any
+  // node gets one for free — and it must cost nothing while the toggle is off.
+  engine.setGraph(
+    [
+      { id: "pts", type: "test.points", params: {} },
+      {
+        id: "dp",
+        type: "draw.points",
+        params: { ...defaultParams("draw.points") },
+        debug: true,
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "pts", sourceHandle: "out", target: "dp", targetHandle: "points" },
+      { id: "b", source: "dp", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+
+  const debugStore = useNodeDebugStore.getState();
+  const dpRows = debugStore.byId["dp"] ?? [];
+  const rowFor = (label: string) => dpRows.find((row) => row.label === label)?.value ?? "";
+  check(
+    "debug panel summarises a node's ports",
+    rowFor("in points") === "points ×3" &&
+      rowFor("out out").startsWith("texture ") &&
+      rowFor("status") !== "" &&
+      rowFor("eval").endsWith("ms"),
+    dpRows.map((r) => `${r.label}=${r.value}`).join(" · ") || "no rows",
+  );
+  check(
+    "nodes without the toggle publish nothing",
+    !("pts" in debugStore.byId) && !("out" in debugStore.byId),
+    `panels for ${Object.keys(debugStore.byId).join(",") || "none"}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------

@@ -37,22 +37,21 @@ export function mediaInfoRows(info: MediaInfo): { label: string; value: string }
   return rows;
 }
 
-export function MediaInfoPanel({
-  info,
+/** Label/value table shared by the Media probe and the per-node debug panel. */
+export function InfoRows({
+  rows,
+  label,
   compact = false,
 }: {
-  info: MediaInfo;
+  rows: { label: string; value: string }[];
+  label: string;
   /** Tighter layout for the graph node body. */
   compact?: boolean;
 }) {
-  const rows = mediaInfoRows(info);
   if (rows.length === 0) return null;
 
   return (
-    <div
-      className={`media-info${compact ? " media-info--compact" : ""}`}
-      aria-label="Media info"
-    >
+    <div className={`media-info${compact ? " media-info--compact" : ""}`} aria-label={label}>
       {rows.map((row) => (
         <div key={row.label} className="media-info__row">
           <span className="media-info__label">{row.label}</span>
@@ -63,4 +62,14 @@ export function MediaInfoPanel({
       ))}
     </div>
   );
+}
+
+export function MediaInfoPanel({
+  info,
+  compact = false,
+}: {
+  info: MediaInfo;
+  compact?: boolean;
+}) {
+  return <InfoRows rows={mediaInfoRows(info)} label="Media info" compact={compact} />;
 }

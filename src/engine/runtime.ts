@@ -8,11 +8,13 @@ import {
   type RenderTarget,
 } from "./gl/rt";
 import type {
+  DebugRow,
   EngineContext,
   NodeDefinition,
   NodeRuntime,
   PortValue,
 } from "./types";
+import { publishNodeDebug } from "../store/nodeDebugStore";
 
 function waitForVideoSeek(video: HTMLVideoElement, time: number): Promise<void> {
   const target = Math.max(0, time);
@@ -65,6 +67,30 @@ function bypassOutputs(
   return result;
 }
 
+/** What a wire is actually carrying right now, in one line. */
+function describePort(value: PortValue): string {
+  if (value == null) return "—";
+  if (typeof value === "number") return String(Math.round(value * 1000) / 1000);
+  if (isRenderTarget(value)) return `texture ${value.width}×${value.height}`;
+  if ("element" in value) return `frame #${value.frameId} ${value.width}×${value.height}`;
+  if ("points" in value) return `points ×${value.points.length}`;
+  if ("boxes" in value) return `boxes ×${value.boxes.length}`;
+  if ("circles" in value) return `circles ×${value.circles.length}`;
+  if ("lines" in value) return `lines ×${value.lines.length}`;
+  if ("sets" in value) {
+    const total = value.sets.reduce((sum, set) => sum + set.length, 0);
+    return `landmarks ${value.sets.length}×, ${total} pts`;
+  }
+  if ("url" in value) {
+    const length = value.durationSec > 0 ? value.durationSec.toFixed(1) : "?";
+    return `audio ${value.timeSec.toFixed(2)}/${length}s ${value.playing ? "▶" : "❚❚"}`;
+  }
+  return "value";
+}
+
+/** Debug panels are read by eye — a few updates a second is plenty. */
+const DEBUG_INTERVAL_MS = 250;
+
 export interface EngineStats {
   fps: number;
   frameMs: number;
@@ -112,6 +138,12 @@ export class Engine {
 
   private statusDirty = false;
   private statusListener: StatusListener | null = null;
+
+  /** Rows a node pushed during its own evaluate, for the frame in flight. */
+  private debugExtra: DebugRow[] | null = null;
+  /** Ids currently showing a panel, so turning the toggle off can clear it. */
+  private debugPublished = new Set<string>();
+  private debugAt = 0;
 
   width = DEFAULT_WIDTH;
   height = DEFAULT_HEIGHT;
@@ -343,6 +375,7 @@ export class Engine {
       }
     }
     this.outputs.delete(id);
+    if (this.debugPublished.delete(id)) publishNodeDebug(id, null);
   }
 
   private target = (nodeId: string, slot: string, width?: number, height?: number): RenderTarget => {
@@ -369,6 +402,12 @@ export class Engine {
     this.statusDirty = true;
   };
 
+  // The buffer belongs to the node currently being evaluated, and is null while
+  // its debug toggle is off — the id is taken only for symmetry with report().
+  private debugRows = (_nodeId: string, rows: DebugRow[]): void => {
+    this.debugExtra?.push(...rows);
+  };
+
   private context(timeMs: number, deltaSec = 0): EngineContext {
     return {
       gl: this.gl,
@@ -383,6 +422,7 @@ export class Engine {
       timelineForceSync: this.timelineForceSync,
       target: this.target,
       report: this.report,
+      debugRows: this.debugRows,
     };
   }
 
@@ -443,6 +483,34 @@ export class Engine {
     for (const id of [...this.slots.keys()]) this.disposeSlot(id);
   }
 
+  /**
+   * The panel every node gets for free: what each port is carrying, how long
+   * evaluate took, and the current status — plus whatever the node itself
+   * pushed through `ctx.debugRows`.
+   */
+  private publishDebug(
+    id: string,
+    slot: NodeSlot,
+    inputs: Record<string, PortValue>,
+    evalMs: number,
+    bypassed: boolean,
+  ): void {
+    const rows: DebugRow[] = [{ label: "eval", value: `${evalMs.toFixed(2)} ms` }];
+    if (bypassed) rows.push({ label: "bypass", value: "on" });
+    rows.push({ label: "status", value: slot.runtime.status });
+
+    const outputs = this.outputs.get(id) ?? {};
+    for (const port of slot.definition.inputs) {
+      rows.push({ label: `in ${port.id}`, value: describePort(inputs[port.id] ?? null) });
+    }
+    for (const port of slot.definition.outputs) {
+      rows.push({ label: `out ${port.id}`, value: describePort(outputs[port.id] ?? null) });
+    }
+    if (this.debugExtra) rows.push(...this.debugExtra);
+
+    publishNodeDebug(id, rows);
+  }
+
   /** One evaluation pass. Public so tests can step the graph without rAF. */
   tick(): void {
     const now = performance.now();
@@ -453,6 +521,8 @@ export class Engine {
     const ctx = this.context(now - this.startTime, deltaSec);
     const gl = this.gl;
     this.displayTarget = null;
+    const debugDue = now - this.debugAt >= DEBUG_INTERVAL_MS;
+    const stillDebugging = new Set<string>();
 
     for (const id of this.order) {
       const node = this.nodesById.get(id);
@@ -467,6 +537,12 @@ export class Engine {
         }
       }
 
+      const debug = node.debug === true;
+      if (debug) stillDebugging.add(id);
+      // Timing the node is only worth two clock reads while someone is looking.
+      const startedAt = debug ? performance.now() : 0;
+      this.debugExtra = debug ? [] : null;
+
       try {
         const result = node.bypass
           ? bypassOutputs(slot.definition, inputs)
@@ -476,6 +552,7 @@ export class Engine {
               inputs,
               params: node.params,
               runtime: slot.runtime,
+              debug,
             });
         this.outputs.set(id, result);
 
@@ -486,6 +563,19 @@ export class Engine {
         this.outputs.set(id, {});
         this.report(id, "error", error instanceof Error ? error.message : String(error));
       }
+
+      if (debug && debugDue) {
+        this.publishDebug(id, slot, inputs, performance.now() - startedAt, node.bypass === true);
+      }
+      this.debugExtra = null;
+    }
+
+    if (debugDue) {
+      this.debugAt = now;
+      for (const id of this.debugPublished) {
+        if (!stillDebugging.has(id)) publishNodeDebug(id, null);
+      }
+      this.debugPublished = stillDebugging;
     }
 
     // Present. Without an Output node the canvas stays black rather than stale.

@@ -125,12 +125,23 @@ export interface NodeRuntime<S = unknown> {
   message: string | null;
 }
 
+/** One line in a node's debug panel. */
+export interface DebugRow {
+  label: string;
+  value: string;
+}
+
 export interface EvalArgs<S = unknown> {
   ctx: EngineContext;
   nodeId: string;
   inputs: Record<string, PortValue>;
   params: ParamValues;
   runtime: NodeRuntime<S>;
+  /**
+   * The node's debug toggle is on. Guard `ctx.debugRows` with it — formatting
+   * numbers every frame for every node is the cost the toggle exists to avoid.
+   */
+  debug: boolean;
 }
 
 export interface NodeDefinition<S = unknown> {
@@ -146,9 +157,9 @@ export interface NodeDefinition<S = unknown> {
   createState: (ctx: EngineContext) => S;
   disposeState?: (state: S, ctx: EngineContext) => void;
   /** Release live sources (camera tracks, video decode) while the engine is paused. */
-  suspend?: (args: Omit<EvalArgs<S>, "inputs">) => void;
+  suspend?: (args: Omit<EvalArgs<S>, "inputs" | "debug">) => void;
   /** Re-enable sources after pause. */
-  resume?: (args: Omit<EvalArgs<S>, "inputs">) => void;
+  resume?: (args: Omit<EvalArgs<S>, "inputs" | "debug">) => void;
   evaluate: (args: EvalArgs<S>) => Record<string, PortValue>;
 }
 
@@ -177,4 +188,9 @@ export interface EngineContext {
   target: (nodeId: string, slot: string, width?: number, height?: number) => RenderTarget;
   /** Marks a node's status for the UI. */
   report: (nodeId: string, status: NodeRuntime["status"], message?: string | null) => void;
+  /**
+   * Node-specific debug lines, appended to the port summary the runtime builds
+   * on its own. Only call this while `EvalArgs.debug` is true.
+   */
+  debugRows: (nodeId: string, rows: DebugRow[]) => void;
 }

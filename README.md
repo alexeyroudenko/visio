@@ -261,6 +261,23 @@ the next gesture. Pausing the engine releases every voice, since a paused graph
 stops ticking and nothing would ever tell them to stop.
 
 Mute the Media node to hear the grains alone rather than the film under them.
+Turn the node's **D** toggle on to watch it work: the panel reports the context
+state, the decoded buffer, live voice count, the cutoff range across them, and an
+**out level** metered inline on the master — "8 grains" and "8 grains you can
+actually hear" are not the same claim, and only the meter settles it.
+
+### Debug panels
+
+Every node's title bar carries a square **D** next to the round bypass dot.
+Switched on, the node body grows a panel in the same shape as the Media probe:
+what each port is carrying right now (`points ×143`, `texture 1080×1920`,
+`audio 4.12/6.7s ▶`), how long `evaluate` took, and the node's status. That much
+the runtime builds on its own from ports it already has, so every node gets a
+panel for free, including ones written later. A node with more to say pushes
+extra lines through `ctx.debugRows` — which it only does while `EvalArgs.debug`
+is set, since formatting numbers every frame for every node is the cost the
+toggle exists to avoid. Panels refresh four times a second and re-render only
+when a line actually changes.
 
 ## Patches and output
 

@@ -6,6 +6,8 @@ export interface GraphNode {
   params: Record<string, unknown>;
   /** Skip evaluate and forward matching inputs to outputs. */
   bypass?: boolean;
+  /** Publish a live port/timing summary for the node's debug panel. */
+  debug?: boolean;
 }
 
 export interface GraphEdge {

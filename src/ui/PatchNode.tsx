@@ -3,7 +3,8 @@ import { memo } from "react";
 import { CATEGORY_COLORS, NODE_DEFS, PORT_COLORS } from "../nodes/registry";
 import { useGraphStore, type PatchNode as PatchNodeType } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
-import { MediaInfoPanel } from "./MediaInfoPanel";
+import { useNodeDebugStore } from "../store/nodeDebugStore";
+import { InfoRows, MediaInfoPanel } from "./MediaInfoPanel";
 
 const STATUS_DOT: Record<string, string> = {
   idle: "#6b7280",
@@ -17,9 +18,12 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
   const definition = NODE_DEFS[data.defType];
   const status = useGraphStore((state) => state.statuses[id]);
   const setBypass = useGraphStore((state) => state.setBypass);
+  const setDebug = useGraphStore((state) => state.setDebug);
   const mediaInfo = useMediaInfoStore((state) =>
     data.defType === "source.media" ? state.byId[id] : undefined,
   );
+  const debugOn = data.debug === true;
+  const debugRows = useNodeDebugStore((state) => (debugOn ? state.byId[id] : undefined));
   const bypassed = data.bypass === true;
 
   if (!definition) {
@@ -37,18 +41,34 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
     >
       <div className="node__title" style={{ background: accent }}>
         <span>{definition.label}</span>
-        <button
-          type="button"
-          className={`node__bypass nodrag nopan ${bypassed ? "node__bypass--on" : ""}`}
-          title={bypassed ? "Bypass on — click to enable" : `${statusKey} — click: bypass`}
-          aria-pressed={bypassed}
-          style={bypassed ? undefined : { background: STATUS_DOT[statusKey] }}
-          onClick={(event) => {
-            event.stopPropagation();
-            setBypass(id, !bypassed);
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-        />
+        <div className="node__toggles">
+          <button
+            type="button"
+            className={`node__debug nodrag nopan ${debugOn ? "node__debug--on" : ""}`}
+            title={debugOn ? "Debug on — click to hide" : "Show debug info"}
+            aria-pressed={debugOn}
+            aria-label="Debug info"
+            onClick={(event) => {
+              event.stopPropagation();
+              setDebug(id, !debugOn);
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            D
+          </button>
+          <button
+            type="button"
+            className={`node__bypass nodrag nopan ${bypassed ? "node__bypass--on" : ""}`}
+            title={bypassed ? "Bypass on — click to enable" : `${statusKey} — click: bypass`}
+            aria-pressed={bypassed}
+            style={bypassed ? undefined : { background: STATUS_DOT[statusKey] }}
+            onClick={(event) => {
+              event.stopPropagation();
+              setBypass(id, !bypassed);
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+          />
+        </div>
       </div>
 
       <div className="node__ports">
@@ -82,6 +102,13 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
       </div>
 
       {mediaInfo ? <MediaInfoPanel info={mediaInfo} compact /> : null}
+      {debugOn ? (
+        <InfoRows
+          rows={debugRows ?? [{ label: "debug", value: "waiting for a frame…" }]}
+          label="Node debug"
+          compact
+        />
+      ) : null}
       {status?.message ? <div className="node__message">{status.message}</div> : null}
     </div>
   );

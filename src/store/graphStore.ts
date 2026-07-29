@@ -32,6 +32,8 @@ export interface PatchNodeData extends Record<string, unknown> {
   defType: string;
   params: Record<string, unknown>;
   bypass?: boolean;
+  /** Show the live port/timing panel in the node body. */
+  debug?: boolean;
 }
 
 export type PatchNode = Node<PatchNodeData>;
@@ -62,6 +64,7 @@ interface GraphState {
   removeNode: (id: string) => void;
   setParam: (id: string, key: string, value: unknown) => void;
   setBypass: (id: string, bypass: boolean) => void;
+  setDebug: (id: string, debug: boolean) => void;
   select: (id: string | null) => void;
   setStatuses: (statuses: Record<string, NodeStatus>) => void;
   setResolution: (width: number, height: number) => void;
@@ -248,6 +251,13 @@ function createGraphStore() {
         ),
       });
       appLog("info", id, bypass ? "bypass on" : "bypass off");
+    },
+    setDebug(id, debug) {
+      set({
+        nodes: get().nodes.map((node) =>
+          node.id === id ? { ...node, data: { ...node.data, debug } } : node,
+        ),
+      });
     },
     select(id) {
       set({ selectedId: id });

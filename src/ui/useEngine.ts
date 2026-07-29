@@ -79,6 +79,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
             return mode && base.mode == null ? { ...base, mode } : base;
           })(),
           bypass: node.data.bypass === true,
+          debug: node.data.debug === true,
         })),
         edges.map((edge) => ({
           id: edge.id,

@@ -26,10 +26,33 @@ interface GranularState {
   voices: Map<number, Voice>;
   master: GainNode | null;
   limiter: DynamicsCompressorNode | null;
+  /**
+   * Sits inline on the master purely so the debug panel can show that sound is
+   * actually leaving the node — "8 grains" is not the same as "8 grains audible".
+   */
+  meter: AnalyserNode | null;
+  meterBuffer: Float32Array<ArrayBuffer> | null;
   /** The context the chain above belongs to — rebuilt if HMR swaps it out. */
   ctx: AudioContext | null;
   /** Set once we have complained about a missing/undecodable track. */
   reported: string | null;
+}
+
+/** Peak of the last analyser window, as a 0..1 level plus a coarse dBFS. */
+function readLevel(state: GranularState): { peak: number; db: number } {
+  const meter = state.meter;
+  if (!meter) return { peak: 0, db: -Infinity };
+  if (!state.meterBuffer || state.meterBuffer.length !== meter.fftSize) {
+    state.meterBuffer = new Float32Array(meter.fftSize);
+  }
+  const buffer = state.meterBuffer;
+  meter.getFloatTimeDomainData(buffer);
+  let peak = 0;
+  for (let i = 0; i < buffer.length; i += 1) {
+    const value = Math.abs(buffer[i]!);
+    if (value > peak) peak = value;
+  }
+  return { peak, db: peak > 0 ? 20 * Math.log10(peak) : -Infinity };
 }
 
 /** Perceptual size of a normalized rectangle: 1 = the whole frame. */
@@ -103,10 +126,13 @@ export function sliceLoop(
 
 function ensureChain(state: GranularState): { ctx: AudioContext; master: GainNode } {
   const ctx = audioContext();
-  if (state.ctx !== ctx || !state.master || !state.limiter) {
+  if (state.ctx !== ctx || !state.master || !state.limiter || !state.meter) {
     state.ctx = ctx;
     state.master = ctx.createGain();
     state.master.gain.value = 0;
+    state.meter = ctx.createAnalyser();
+    state.meter.fftSize = 1024;
+    state.meterBuffer = null;
     state.limiter = ctx.createDynamicsCompressor();
     // A safety net, not an effect: a dozen loops stacking up would otherwise
     // clip the moment several large cells appear at once.
@@ -114,7 +140,9 @@ function ensureChain(state: GranularState): { ctx: AudioContext; master: GainNod
     state.limiter.ratio.value = 12;
     state.limiter.attack.value = 0.003;
     state.limiter.release.value = 0.15;
-    state.master.connect(state.limiter).connect(ctx.destination);
+    // The meter is inline rather than a side tap: an analyser only runs when it
+    // reaches the destination, and a dangling one would read silence forever.
+    state.master.connect(state.meter).connect(state.limiter).connect(ctx.destination);
   }
   return { ctx, master: state.master };
 }
@@ -181,13 +209,23 @@ export const granularNode = defineNode<GranularState>({
     { key: "releaseMs", label: "Release", type: "range", min: 1, max: 3000, step: 10, default: 300 },
   ],
   createState() {
-    return { voices: new Map(), master: null, limiter: null, ctx: null, reported: null };
+    return {
+      voices: new Map(),
+      master: null,
+      limiter: null,
+      meter: null,
+      meterBuffer: null,
+      ctx: null,
+      reported: null,
+    };
   },
   disposeState(state) {
     releaseAll(state);
     state.master?.disconnect();
+    state.meter?.disconnect();
     state.limiter?.disconnect();
     state.master = null;
+    state.meter = null;
     state.limiter = null;
     state.ctx = null;
   },
@@ -197,7 +235,7 @@ export const granularNode = defineNode<GranularState>({
     releaseAll(runtime.state);
     runtime.state.master?.gain.setValueAtTime(0, runtime.state.ctx?.currentTime ?? 0);
   },
-  evaluate({ ctx: engine, nodeId, inputs, params, runtime }) {
+  evaluate({ ctx: engine, nodeId, inputs, params, runtime, debug }) {
     const state = runtime.state;
     if (!state.voices) state.voices = new Map();
 
@@ -208,6 +246,7 @@ export const granularNode = defineNode<GranularState>({
     if (!audio) {
       releaseAll(state);
       engine.report(nodeId, "idle", "wire an audio source");
+      if (debug) engine.debugRows(nodeId, [{ label: "source", value: "not connected" }]);
       return {};
     }
 
@@ -223,6 +262,12 @@ export const granularNode = defineNode<GranularState>({
       } else {
         engine.report(nodeId, "loading", "decoding audio…");
       }
+      if (debug) {
+        engine.debugRows(nodeId, [
+          { label: "buffer", value: entry.status },
+          { label: "detail", value: entry.message ?? "fetching + decoding" },
+        ]);
+      }
       return {};
     }
 
@@ -231,6 +276,12 @@ export const granularNode = defineNode<GranularState>({
 
     if (ctx.state !== "running") {
       engine.report(nodeId, "loading", "click anywhere to start audio");
+      if (debug) {
+        engine.debugRows(nodeId, [
+          { label: "audio ctx", value: ctx.state },
+          { label: "detail", value: "blocked until a click or keypress" },
+        ]);
+      }
       return {};
     }
 
@@ -311,9 +362,10 @@ export const granularNode = defineNode<GranularState>({
       filter.Q.value = resonance;
 
       const gain = ctx.createGain();
-      // Voices share the master, so keep each one modest — the limiter catches
-      // the rest when many rectangles land at once.
-      const voiceLevel = 1 / Math.sqrt(maxVoices);
+      // A fixed level per voice, not one divided by Max voices: raising the cap
+      // should let more grains in, not quieten the one that is already playing.
+      // The limiter is what deals with several landing at once.
+      const voiceLevel = 0.6;
       gain.gain.setValueAtTime(0.0001, now);
       gain.gain.linearRampToValueAtTime(voiceLevel, now + attack);
 
@@ -345,6 +397,36 @@ export const granularNode = defineNode<GranularState>({
       playing ? "ready" : "idle",
       playing ? `${state.voices.size} grains` : "stopped",
     );
+
+    if (debug) {
+      let releasing = 0;
+      let lowest = Infinity;
+      let highest = 0;
+      for (const voice of state.voices.values()) {
+        if (voice.endAt !== null) releasing += 1;
+        lowest = Math.min(lowest, voice.filter.frequency.value);
+        highest = Math.max(highest, voice.filter.frequency.value);
+      }
+      const meter = readLevel(state);
+      engine.debugRows(nodeId, [
+        { label: "audio ctx", value: `${ctx.state} @ ${Math.round(ctx.sampleRate / 1000)}k` },
+        { label: "buffer", value: `${trackSec.toFixed(1)}s · ${decoded.numberOfChannels}ch` },
+        { label: "voices", value: `${state.voices.size}/${maxVoices}${releasing ? ` (${releasing} releasing)` : ""}` },
+        {
+          label: "cutoff",
+          value: state.voices.size > 0 ? `${Math.round(lowest)}–${Math.round(highest)} Hz` : "—",
+        },
+        // The one row that says the grains are audible rather than merely alive.
+        {
+          label: "out level",
+          value:
+            meter.peak > 0.0005
+              ? `${meter.peak.toFixed(3)} (${meter.db.toFixed(1)} dB)`
+              : "silent",
+        },
+        { label: "master", value: master.gain.value.toFixed(2) },
+      ]);
+    }
     return {};
   },
 });

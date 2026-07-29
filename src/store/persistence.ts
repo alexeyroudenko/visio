@@ -35,6 +35,7 @@ export interface SerializedPatch {
     position: { x: number; y: number };
     params: Record<string, unknown>;
     bypass?: boolean;
+    debug?: boolean;
   }[];
   edges: {
     id: string;
@@ -116,6 +117,7 @@ export function serializePatch(
       position: node.position,
       params: serializableParams(node.data.defType, node.data.params),
       ...(node.data.bypass ? { bypass: true } : {}),
+      ...(node.data.debug ? { debug: true } : {}),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -211,6 +213,7 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
         defType,
         params: { ...defaultParams(defType), ...migratedParams },
         bypass: entry.bypass === true,
+        debug: entry.debug === true,
       },
     });
   }
