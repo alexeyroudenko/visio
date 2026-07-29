@@ -13,6 +13,10 @@ export interface EdgePoint {
  * Downscaled grayscale copy of a frame plus its Sobel gradients. Shared by the
  * CPU trackers (corners, Hough circles, Hough lines) so a patch running several
  * of them pays for the readback once per node, with zero per-frame allocation.
+ *
+ * This part has to stay on the main thread — it draws the frame element into a
+ * canvas. Turning the gradients into edges and then into shapes does not, and
+ * lives in `houghAlgorithms` so a worker can do it.
  */
 export class GrayFrame {
   private canvas = document.createElement("canvas");
@@ -79,29 +83,4 @@ export class GrayFrame {
     }
   }
 
-  /**
-   * Edge points above `threshold`, evenly subsampled to at most `limit` so the
-   * Hough accumulators stay dense enough to peak without blowing up cost.
-   */
-  collectEdges(threshold: number, limit: number): EdgePoint[] {
-    const { width, height, gradX, gradY } = this;
-    const raw: EdgePoint[] = [];
-    for (let y = 1; y < height - 1; y += 1) {
-      for (let x = 1; x < width - 1; x += 1) {
-        const i = y * width + x;
-        const gx = gradX[i];
-        const gy = gradY[i];
-        const magnitude = Math.hypot(gx, gy);
-        if (magnitude < threshold) continue;
-        const inv = 1 / magnitude;
-        raw.push({ x, y, ux: gx * inv, uy: gy * inv, magnitude });
-      }
-    }
-    if (raw.length <= limit) return raw;
-
-    const step = Math.ceil(raw.length / limit);
-    const sampled: EdgePoint[] = [];
-    for (let i = 0; i < raw.length; i += step) sampled.push(raw[i]);
-    return sampled;
-  }
 }

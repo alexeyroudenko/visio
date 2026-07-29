@@ -285,7 +285,9 @@ function testVectorRenderer(engine: Engine): void {
   );
 }
 
-function run(): void {
+// Async because the worker-backed detectors answer on a later turn of the event
+// loop; everything else in here still runs a tick at a time.
+async function run(): Promise<void> {
   const canvas = document.createElement("canvas");
   const engine = new Engine(canvas);
   engine.setResolution(WIDTH, HEIGHT);
@@ -900,6 +902,9 @@ function run(): void {
           minRadius: 20,
           maxRadius: 80,
           interval: 1,
+          // Inline, so a single tick has the answer. The worker path runs the
+          // very same functions and is checked separately below.
+          worker: false,
         },
       },
       {
@@ -912,6 +917,7 @@ function run(): void {
           votes: 30,
           minLength: 80,
           interval: 1,
+          worker: false,
         },
       },
     ],
@@ -944,6 +950,48 @@ function run(): void {
     horizontal
       ? `y=${horizontal.y1.toFixed(2)} (expected ${(170 / HEIGHT).toFixed(2)}), total=${foundLines.length}`
       : `not found, total=${foundLines.length}`,
+  );
+
+  // --- 5b. the same detector, on the worker --------------------------------
+  // Results come back asynchronously, so this ticks and waits instead of
+  // reading straight after one tick like the inline checks above.
+  engine.setGraph(
+    [
+      { id: "src", type: "test.frame", params: {} },
+      {
+        id: "hcw",
+        type: "tracking.circles",
+        params: {
+          ...defaultParams("tracking.circles"),
+          downscale: 2,
+          edgeThreshold: 90,
+          votes: 25,
+          minRadius: 20,
+          maxRadius: 80,
+          interval: 1,
+          worker: true,
+        },
+      },
+    ],
+    [{ id: "a", source: "src", sourceHandle: "frame", target: "hcw", targetHandle: "frame" }],
+  );
+
+  let workerCircles: CirclesValue["circles"] = [];
+  for (let i = 0; i < 60 && workerCircles.length === 0; i += 1) {
+    engine.tick();
+    await new Promise((resolve) => setTimeout(resolve, 16));
+    workerCircles =
+      (houghDebug.outputs.get("hcw")?.out as CirclesValue | undefined)?.circles ?? [];
+  }
+  const workerBest = workerCircles[0];
+  check(
+    "Hough on the worker finds the same circle",
+    workerBest !== undefined &&
+      Math.abs(workerBest.x - 0.5) < 0.08 &&
+      Math.abs(workerBest.y - 0.5) < 0.08,
+    workerBest
+      ? `x=${workerBest.x.toFixed(2)} y=${workerBest.y.toFixed(2)} r=${workerBest.r.toFixed(3)}`
+      : "nothing came back",
   );
 
   engine.dispose();
@@ -1148,11 +1196,10 @@ async function asyncChecks(): Promise<void> {
   render();
 }
 
-try {
-  run();
-} catch (error) {
-  check("engine threw", false, error instanceof Error ? error.message : String(error));
-  render();
-}
-
-void asyncChecks();
+void run()
+  .catch((error: unknown) => {
+    check("engine threw", false, error instanceof Error ? error.message : String(error));
+    render();
+  })
+  // MediaPipe's check runs either way — a failure above should not hide it.
+  .then(() => asyncChecks());

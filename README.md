@@ -70,6 +70,19 @@ CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
 Sobel run once per node, with no allocations per frame. Each has an
 “every N frames” throttle — Hough is expensive; every 2–3 frames it is barely noticeable.
 
+**Hough runs in a worker** (`Run in worker`, on by default). The split follows what
+can actually move: reading the frame and downscaling it needs a canvas and stays on
+the main thread, while turning gradients into edges and edges into shapes is pure
+arithmetic and goes to `hough.worker.ts`. On a busy 1080×1920 frame at downscale 2
+that takes the per-tick main-thread cost from 139 ms to 0.1 ms — the remaining
+spikes are the frame read and Sobel, which cannot leave.
+
+One job per node is in flight at a time; queueing more would only build a backlog
+of stale frames. Results therefore arrive a frame or two late and the node keeps
+showing the previous ones, which is the same deal as the throttle. The gradients
+are copied before being posted, because `GrayFrame` reuses its arrays and posting
+transfers ownership. Turning the toggle off runs the identical functions inline.
+
 **Draw Points** supports three styles, like tracking layers in cv-reels:
 `point` · `ring (detection)` — a ring with radius from score between min/max plus a
 center dot · `cross`. Plus a “web” of links between nearby points.
@@ -213,7 +226,8 @@ Live: https://visio.aa.arthew0.online/
 
 ## What’s next
 
-- Shader node with custom GLSL
-- Particles driven by landmarks
-- Modulators: LFO/audio → any numeric parameter
-- Hough in a worker so heavy frames do not drop the main loop’s fps
+- Audio as a modulation source — the modulator layer takes any per-frame value,
+  so an FFT band would plug in where the LFO does
+- Modulator routing from the graph itself, so one source can drive several params
+- A worker for Pixel Sort, the last transform still sorting on the main thread
+- Corners (Shi–Tomasi) could share the Hough worker; it already has the gradients

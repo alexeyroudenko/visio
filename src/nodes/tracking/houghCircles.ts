@@ -1,28 +1,29 @@
 import type { CirclesValue, FrameValue } from "../../engine/types";
-import { defineNode, paramNumber } from "../defineNode";
+import { defineNode, paramBool, paramNumber } from "../defineNode";
 import { GrayFrame } from "../shared/grayscale";
 import { paramsKey } from "../shared/paramsKey";
+import {
+  circlesFromEdges,
+  collectEdges,
+  MAX_EDGES,
+  type CircleOptions,
+} from "./houghAlgorithms";
+import { HoughJob } from "./houghClient";
 
 interface CirclesState {
   frame: GrayFrame;
   lastFrameId: number;
   lastResult: CirclesValue;
-  accumulator: Float32Array;
-  smoothed: Float32Array;
-  histogram: Float32Array;
   paramsFingerprint: string;
+  job: HoughJob | null;
 }
 
 const EMPTY: CirclesValue = { circles: [] };
-const MAX_EDGES = 20_000;
 
 /**
- * Hough gradient method — the OpenCV HoughCircles (HOUGH_GRADIENT) approach.
- *
- * Stage 1: each edge point votes for centers along its gradient direction, both
- * ways, across the radius range. Stage 2: accumulator peaks become centers, and
- * each center picks its radius from a histogram of edge distances. Voting into
- * exact (cx, cy, r) bins would be far too sparse to ever clear a threshold.
+ * Hough gradient circles. The transform itself lives in `houghAlgorithms` so it
+ * can run either here or in a worker; this node reads the frame, downscales it,
+ * and decides which.
  */
 export const houghCirclesNode = defineNode<CirclesState>({
   type: "tracking.circles",
@@ -40,17 +41,19 @@ export const houghCirclesNode = defineNode<CirclesState>({
     { key: "minDistance", label: "Min distance", type: "range", min: 4, max: 300, step: 2, default: 40 },
     { key: "maxCircles", label: "Max circles", type: "range", min: 1, max: 40, step: 1, default: 10 },
     { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 2 },
+    { key: "worker", label: "Run in worker", type: "toggle", default: true },
   ],
   createState() {
     return {
       frame: new GrayFrame(),
       lastFrameId: -1,
       lastResult: EMPTY,
-      accumulator: new Float32Array(0),
-      smoothed: new Float32Array(0),
-      histogram: new Float32Array(0),
       paramsFingerprint: "",
+      job: null,
     };
+  },
+  disposeState(state) {
+    state.job?.dispose();
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const state = runtime.state;
@@ -64,6 +67,8 @@ export const houghCirclesNode = defineNode<CirclesState>({
     if (fingerprint !== state.paramsFingerprint) {
       state.paramsFingerprint = fingerprint;
       state.lastFrameId = -1;
+      // Whatever is running was started under the old settings.
+      state.job?.cancel();
     }
 
     const interval = Math.max(1, Math.round(paramNumber(params, "interval", 2)));
@@ -71,152 +76,53 @@ export const houghCirclesNode = defineNode<CirclesState>({
     if (state.lastFrameId >= 0 && ctx.frameCount % interval !== 0) {
       return { out: state.lastResult };
     }
+
+    const useWorker = paramBool(params, "worker", true);
+    if (!state.job) {
+      state.job = new HoughJob(nodeId, (response) => {
+        if (response.kind === "circles") state.lastResult = response.value;
+      });
+    }
+    // A job is still running — let it finish rather than stacking stale frames.
+    if (useWorker && state.job.busy) return { out: state.lastResult };
+
     state.lastFrameId = frame.frameId;
     ctx.report(nodeId, "ready", null);
 
     const factor = Math.max(2, Math.round(paramNumber(params, "downscale", 4)));
     state.frame.update(frame, factor);
-    const { width, height } = state.frame;
+    const { width, height, gradX, gradY } = state.frame;
 
-    const edges = state.frame.collectEdges(
-      paramNumber(params, "edgeThreshold", 90),
-      MAX_EDGES,
+    const options: CircleOptions = {
+      minR: Math.max(2, Math.round(paramNumber(params, "minRadius", 16) / factor)),
+      maxR: 0,
+      minDist: Math.max(2, paramNumber(params, "minDistance", 40) / factor),
+      votes: paramNumber(params, "votes", 40),
+      maxCircles: Math.round(paramNumber(params, "maxCircles", 10)),
+    };
+    options.maxR = Math.max(
+      options.minR + 1,
+      Math.round(paramNumber(params, "maxRadius", 120) / factor),
     );
-    if (edges.length === 0) {
-      state.lastResult = EMPTY;
-      return { out: EMPTY };
-    }
+    const edgeThreshold = paramNumber(params, "edgeThreshold", 90);
 
-    const minR = Math.max(2, Math.round(paramNumber(params, "minRadius", 16) / factor));
-    const maxR = Math.max(minR + 1, Math.round(paramNumber(params, "maxRadius", 120) / factor));
-    const minDist = Math.max(2, paramNumber(params, "minDistance", 40) / factor);
-
-    const size = width * height;
-    if (state.accumulator.length !== size) {
-      state.accumulator = new Float32Array(size);
-      state.smoothed = new Float32Array(size);
-    }
-    const acc = state.accumulator;
-    const smooth = state.smoothed;
-    acc.fill(0);
-
-    for (const edge of edges) {
-      for (let dir = -1; dir <= 1; dir += 2) {
-        const stepX = edge.ux * dir;
-        const stepY = edge.uy * dir;
-        let cx = edge.x + stepX * minR;
-        let cy = edge.y + stepY * minR;
-        for (let r = minR; r <= maxR; r += 1) {
-          const ax = cx | 0;
-          const ay = cy | 0;
-          if (ax >= 0 && ay >= 0 && ax < width && ay < height) acc[ay * width + ax] += 1;
-          cx += stepX;
-          cy += stepY;
-        }
-      }
-    }
-
-    // Box-blur the accumulator so votes scattered by gradient noise and radius
-    // quantization reinforce one peak instead of several weak neighbours.
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        let sum = 0;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          const yy = y + dy;
-          if (yy < 0 || yy >= height) continue;
-          for (let dx = -1; dx <= 1; dx += 1) {
-            const xx = x + dx;
-            if (xx < 0 || xx >= width) continue;
-            sum += acc[yy * width + xx];
-          }
-        }
-        smooth[y * width + x] = sum;
-      }
-    }
-
-    const threshold = paramNumber(params, "votes", 40);
-    const peaks: { x: number; y: number; votes: number }[] = [];
-    for (let y = 1; y < height - 1; y += 1) {
-      for (let x = 1; x < width - 1; x += 1) {
-        const value = smooth[y * width + x];
-        if (value < threshold) continue;
-        let isPeak = true;
-        for (let dy = -1; dy <= 1 && isPeak; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            if (smooth[(y + dy) * width + (x + dx)] > value) {
-              isPeak = false;
-              break;
-            }
-          }
-        }
-        if (isPeak) peaks.push({ x, y, votes: value });
-      }
-    }
-
-    if (peaks.length === 0) {
-      state.lastResult = EMPTY;
-      return { out: EMPTY };
-    }
-
-    peaks.sort((a, b) => b.votes - a.votes);
-
-    const maxCircles = Math.round(paramNumber(params, "maxCircles", 10));
-    const minDistSq = minDist * minDist;
-    const accepted: { x: number; y: number; votes: number }[] = [];
-    for (const peak of peaks) {
-      if (accepted.length >= maxCircles) break;
-      let tooClose = false;
-      for (const other of accepted) {
-        const dx = other.x - peak.x;
-        const dy = other.y - peak.y;
-        if (dx * dx + dy * dy < minDistSq) {
-          tooClose = true;
-          break;
-        }
-      }
-      if (!tooClose) accepted.push(peak);
-    }
-
-    if (state.histogram.length !== maxR + 2) state.histogram = new Float32Array(maxR + 2);
-    const histogram = state.histogram;
-    const maxVotes = accepted[0]?.votes || 1;
-    const minRSq = minR * minR;
-    const maxRSq = maxR * maxR;
-    const circles: CirclesValue["circles"] = [];
-
-    for (const center of accepted) {
-      histogram.fill(0);
-      for (const edge of edges) {
-        const dx = edge.x - center.x;
-        const dy = edge.y - center.y;
-        const distSq = dx * dx + dy * dy;
-        if (distSq < minRSq || distSq > maxRSq) continue;
-        const r = Math.round(Math.sqrt(distSq));
-        if (r >= minR && r <= maxR) histogram[r] += 1;
-      }
-
-      let bestR = minR;
-      let bestCount = 0;
-      for (let r = minR; r <= maxR; r += 1) {
-        // Sum a small window so a soft distance peak isn't missed.
-        const count = (histogram[r - 1] ?? 0) + histogram[r] + (histogram[r + 1] ?? 0);
-        if (count > bestCount) {
-          bestCount = count;
-          bestR = r;
-        }
-      }
-      if (bestCount <= 0) continue;
-
-      circles.push({
-        x: center.x / width,
-        y: center.y / height,
-        r: bestR / width,
-        score: Math.min(1, center.votes / maxVotes),
+    if (useWorker) {
+      // Copies: GrayFrame reuses its arrays, and posting transfers ownership.
+      const posted = state.job.submit({
+        kind: "circles",
+        gradX: gradX.slice(),
+        gradY: gradY.slice(),
+        width,
+        height,
+        edgeThreshold,
+        options,
       });
+      if (posted) return { out: state.lastResult };
     }
 
-    state.lastResult = { circles };
+    const edges = collectEdges(gradX, gradY, width, height, edgeThreshold, MAX_EDGES);
+    state.lastResult =
+      edges.length === 0 ? EMPTY : circlesFromEdges(edges, width, height, options);
     return { out: state.lastResult };
   },
 });
