@@ -833,6 +833,58 @@ function run(): void {
     `rgba=${broken.join(",")} status=${brokenStatus?.status} msg=${(brokenStatus?.message ?? "none").slice(0, 60)}`,
   );
 
+  // --- 4e. particles --------------------------------------------------------
+  // test.points emits from (0.5, 0.5) among others. With no forces and a short
+  // life, particles must show up there and be gone once every one has expired.
+  const particleParams = {
+    ...defaultParams("draw.particles"),
+    rate: 600,
+    life: 0.3,
+    speed: 40,
+    gravity: 0,
+    drag: 0,
+    attract: 0,
+    size: 6,
+    trail: 0,
+    opacity: 1,
+  };
+  engine.setGraph(
+    [
+      { id: "pts", type: "test.points", params: {} },
+      { id: "par", type: "draw.particles", params: particleParams },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "pts", sourceHandle: "out", target: "par", targetHandle: "points" },
+      { id: "b", source: "par", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  for (let i = 0; i < 6; i += 1) engine.tick();
+
+  const nearEmitter = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  const farCorner = readPixel(engine, 4, 4);
+  check(
+    "particles appear at the emitter",
+    nearEmitter[1] > 20 && farCorner[1] < 10,
+    `emitter=${nearEmitter.join(",")} corner=${farCorner.join(",")}`,
+  );
+
+  // Emission stops without points; after more than one lifetime nothing is left.
+  engine.setGraph(
+    [
+      { id: "par", type: "draw.particles", params: particleParams },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "b", source: "par", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  for (let i = 0; i < 30; i += 1) engine.tick();
+  const afterLifetime = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  check(
+    "particles expire and stop emitting",
+    afterLifetime[1] < 10,
+    `rgba=${afterLifetime.join(",")}`,
+  );
+
   // --- 5. Hough detectors on a synthetic frame -----------------------------
   engine.setGraph(
     [

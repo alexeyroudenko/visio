@@ -59,7 +59,7 @@ results into textures.
 |---|---|
 | Sources | Media (camera · image · video · audio) |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), Hough Circles, Hough Lines, Landmarks → Points |
-| Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree |
+| Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree, **Particles** |
 | FX | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader** |
 | Output | Output |
 
@@ -92,6 +92,18 @@ at 1, 8.9 ms at 4, 4.4 ms at 8.
 picked by a seeded LCG, a 1 px-wide column from the center is stretched across the
 whole cell. Each such cell is a separate pass with `gl.viewport` set to its
 rectangle, so the shader does not iterate cells per pixel.
+
+**Particles** — emitted from whatever `points` you feed it (landmarks go through
+Landmarks → Points), then pushed around by gravity, drag and an attraction that
+pulls each particle toward its *nearest* source rather than the centroid, so a
+cloud tracks individual landmarks instead of collapsing between them. State lives
+in fixed typed arrays sized to `Max particles`, and dead slots are recycled, so a
+frame allocates nothing; drawing is one instanced call through the same vector
+renderer the other draw nodes use.
+
+The step is a fixed `1/fps`, not the wall-clock delta. The simulation carries
+state, so an 80 ms hitch would otherwise fling everything off screen, and an
+offline render would not reproduce what playback showed.
 
 **Shader** — write the fragment shader yourself. The version pragma, precision,
 `vUv`, `fragColor` and the uniform block are prepended for you, so the editor
