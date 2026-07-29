@@ -97,9 +97,20 @@ without losing precision; only one stays on the CPU — by the nature of the pro
 - **Block Scatter** — instanced textured quads. In the original, blocks are copied from
   an untouched frame snapshot, which matches sampling the input texture. Tint
   (`overlay` + alpha) is computed in the shader.
-- **Pixel Sort** — the only CPU one: span finding and luminance sort are sequential by
-  nature. It costs a full-frame `readPixels`, so the node has “every N frames” —
-  on skipped frames the target simply keeps the previous result.
+- **Pixel Sort** — the only CPU one: span finding is sequential by nature. The sort is
+  not, though. Luminance is the key, it rounds to a byte, and it does not change while
+  a frame is being sorted — so it is computed once into a `Uint8Array` and each span is
+  ordered by a stable counting sort with no comparisons at all. Pixels move as 32-bit
+  words, and every buffer is preallocated, so a frame costs no allocations. That is
+  roughly an order of magnitude off a comparator sort that recomputes luminance on
+  every comparison.
+  Sorted bytes go straight into the target texture with `texSubImage2D` — the 2D-canvas
+  roundtrip the drawing nodes need would be three extra full-frame copies here.
+  What is left is the synchronous `readPixels` (about 10 ms at 1080×1920, roughly a
+  quarter of the node). `Scale` sorts at a fraction of the resolution and upscales —
+  cost falls quadratically and the effect stays live, unlike “every N frames”, which
+  just freezes the result between runs. The node reports its own `read / sort / write`
+  split in the status line.
 
 Seeds match glitcher (mulberry32 with the same offset), so the same seed yields the
 same layout. Block Scatter adds `Jitter` — at zero the scatter is static like the

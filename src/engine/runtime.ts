@@ -93,6 +93,8 @@ export class Engine {
 
   private definitions: Record<string, NodeDefinition<never>> = {};
   private nodes: GraphNode[] = [];
+  /** Same nodes by id — `tick` walks `order` and must not scan the list per node. */
+  private nodesById = new Map<string, GraphNode>();
   private slots = new Map<string, NodeSlot>();
   private targets = new Map<string, RenderTarget>();
   private outputs = new Map<string, Record<string, PortValue>>();
@@ -267,6 +269,7 @@ export class Engine {
    */
   setGraph(nodes: GraphNode[], edges: GraphEdge[]): void {
     this.nodes = nodes;
+    this.nodesById = new Map(nodes.map((node) => [node.id, node]));
 
     const topologyKey = [
       ...nodes.map((node) => `${node.id}@${node.type}`).sort(),
@@ -446,7 +449,7 @@ export class Engine {
     this.displayTarget = null;
 
     for (const id of this.order) {
-      const node = this.nodes.find((n) => n.id === id);
+      const node = this.nodesById.get(id);
       const slot = this.slots.get(id);
       if (!node || !slot) continue;
 

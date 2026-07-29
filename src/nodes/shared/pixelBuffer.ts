@@ -15,6 +15,7 @@ export class PixelBuffer {
   private ctx: CanvasRenderingContext2D;
   private texture: SourceTexture | null = null;
   private pixels = new Uint8ClampedArray(0);
+  private pixelWords = new Uint32Array(0);
   private imageData: ImageData | null = null;
   private uploadId = 0;
   width = 0;
@@ -32,13 +33,23 @@ export class PixelBuffer {
     return this.canvas;
   }
 
+  /**
+   * The same bytes viewed as one word per pixel. Moving pixels around costs a
+   * single assignment instead of four, and the byte order inside a word is
+   * whatever the platform uses either way — nothing here unpacks channels.
+   */
+  get words(): Uint32Array {
+    return this.pixelWords;
+  }
+
   /** Pull RGBA from a render target into a reusable ImageData. */
   read(gl: WebGL2RenderingContext, source: RenderTarget): ImageData {
     const { width, height } = source;
     this.ensureSize(width, height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, source.framebuffer);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
-    this.imageData = new ImageData(this.pixels, width, height);
+    // The view wraps `pixels` in place, so it only has to be rebuilt on resize.
+    if (!this.imageData) this.imageData = new ImageData(this.pixels, width, height);
     return this.imageData;
   }
 
@@ -52,6 +63,11 @@ export class PixelBuffer {
   syncFromCanvas(): ImageData {
     this.imageData = this.ctx.getImageData(0, 0, this.width, this.height);
     this.pixels = this.imageData.data;
+    this.pixelWords = new Uint32Array(
+      this.pixels.buffer,
+      this.pixels.byteOffset,
+      this.width * this.height,
+    );
     return this.imageData;
   }
 
@@ -61,6 +77,31 @@ export class PixelBuffer {
     this.uploadId += 1;
     this.texture.upload(this.canvas, this.uploadId);
     copyTexture(ctx.gl, this.texture.texture, target);
+  }
+
+  /**
+   * Upload the pixel buffer straight into a target's texture, skipping the 2D
+   * canvas and the fullscreen blit. Only for nodes that edit bytes rather than
+   * draw — anything that paints with the 2D context still needs `write`.
+   * Values go up as-is: everything in the graph is already premultiplied.
+   */
+  writePixels(gl: WebGL2RenderingContext, target: RenderTarget): void {
+    if (target.width !== this.width || target.height !== this.height) return;
+    gl.bindTexture(gl.TEXTURE_2D, target.texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      this.width,
+      this.height,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.pixels,
+    );
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   dispose(): void {
@@ -79,6 +120,7 @@ export class PixelBuffer {
       this.canvas.height = height;
     }
     this.pixels = new Uint8ClampedArray(width * height * 4);
+    this.pixelWords = new Uint32Array(this.pixels.buffer, 0, width * height);
     this.imageData = null;
   }
 }
