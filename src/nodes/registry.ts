@@ -1,6 +1,7 @@
 import type { NodeDefinition } from "../engine/types";
 import { cameraNode } from "./source/camera";
 import { videoNode } from "./source/video";
+import { imageNode } from "./source/image";
 import { poseNode } from "./tracking/pose";
 import { handsNode } from "./tracking/hands";
 import { faceNode } from "./tracking/face";
@@ -24,6 +25,7 @@ import { outputNode } from "./output/output";
 
 export const NODE_LIST: NodeDefinition<never>[] = [
   cameraNode,
+  imageNode,
   videoNode,
   poseNode,
   handsNode,

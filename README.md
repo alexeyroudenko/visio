@@ -1,6 +1,6 @@
 # visio
 
-Node environment in the browser: **camera or video → tracking → WebGL graphics with feedback**.
+Node environment in the browser: **image, video, or camera → tracking → WebGL graphics with feedback**. Drop an image/video onto the graph to create a source node.
 A simplified cables.gl for one job — visualizing tracking data in real time.
 
 ```bash
@@ -57,7 +57,7 @@ results into textures.
 
 | Category | Nodes |
 |---|---|
-| Sources | Camera, Video File |
+| Sources | Camera, Image File, Video File |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Hough Circles**, **Hough Lines** |
 | Draw | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, **Features Grid** |
 | FX | Feedback, Blend, Color, **Slice Shift**, **Block Scatter**, **Pixel Sort** |
@@ -129,6 +129,9 @@ those edges are excluded from topo-sort.
 ```bash
 ../deploy.sh visio ./dist --build "cd visio && npm run build"
 ```
+
+Live: https://visio.aa.arthew0.online/  
+(New subdomain needs LE expand: `certbot --cert-name aa.arthew0.online --expand -d … -d visio.aa.arthew0.online`.)
 
 ## What’s next
 

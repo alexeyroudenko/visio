@@ -11,6 +11,7 @@ import {
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
+import { DEFAULT_IMAGE_FILE } from "../nodes/shared/fileParam";
 import {
   clearStorage,
   downloadPatch,
@@ -45,7 +46,11 @@ interface GraphState {
   onNodesChange: (changes: NodeChange<PatchNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
-  addNode: (defType: string, position: { x: number; y: number }) => void;
+  addNode: (
+    defType: string,
+    position: { x: number; y: number },
+    params?: Record<string, unknown>,
+  ) => string;
   removeNode: (id: string) => void;
   setParam: (id: string, key: string, value: unknown) => void;
   setBypass: (id: string, bypass: boolean) => void;
@@ -69,26 +74,27 @@ function nextId(defType: string, taken: Set<string>): string {
   return id;
 }
 
-/** Camera → Pose → Draw → Feedback → Output: a patch that shows something immediately. */
+/** Image → Objects → Boxes → Feedback → Output — shows something without a webcam. */
 function starterPatch(): { nodes: PatchNode[]; edges: Edge[] } {
+  const imageParams = { ...defaultParams("source.image"), file: DEFAULT_IMAGE_FILE };
   const nodes: PatchNode[] = [
     {
-      id: "camera-1",
+      id: "image-1",
       type: "patch",
       position: { x: 0, y: 120 },
-      data: { defType: "source.camera", params: defaultParams("source.camera") },
+      data: { defType: "source.image", params: imageParams },
     },
     {
-      id: "pose-1",
+      id: "objects-1",
       type: "patch",
       position: { x: 300, y: 40 },
-      data: { defType: "tracking.pose", params: defaultParams("tracking.pose") },
+      data: { defType: "tracking.objects", params: defaultParams("tracking.objects") },
     },
     {
-      id: "landmarks-1",
+      id: "boxes-1",
       type: "patch",
       position: { x: 620, y: 120 },
-      data: { defType: "draw.landmarks", params: defaultParams("draw.landmarks") },
+      data: { defType: "draw.boxes", params: defaultParams("draw.boxes") },
     },
     {
       id: "feedback-1",
@@ -105,16 +111,10 @@ function starterPatch(): { nodes: PatchNode[]; edges: Edge[] } {
   ];
 
   const edges: Edge[] = [
-    { id: "e1", source: "camera-1", sourceHandle: "frame", target: "pose-1", targetHandle: "frame" },
-    { id: "e2", source: "camera-1", sourceHandle: "out", target: "landmarks-1", targetHandle: "bg" },
-    {
-      id: "e3",
-      source: "pose-1",
-      sourceHandle: "out",
-      target: "landmarks-1",
-      targetHandle: "landmarks",
-    },
-    { id: "e4", source: "landmarks-1", sourceHandle: "out", target: "feedback-1", targetHandle: "src" },
+    { id: "e1", source: "image-1", sourceHandle: "frame", target: "objects-1", targetHandle: "frame" },
+    { id: "e2", source: "image-1", sourceHandle: "out", target: "boxes-1", targetHandle: "bg" },
+    { id: "e3", source: "objects-1", sourceHandle: "out", target: "boxes-1", targetHandle: "boxes" },
+    { id: "e4", source: "boxes-1", sourceHandle: "out", target: "feedback-1", targetHandle: "src" },
     { id: "e5", source: "feedback-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
   ];
 
@@ -123,7 +123,7 @@ function starterPatch(): { nodes: PatchNode[]; edges: Edge[] } {
 }
 
 const restored = loadFromStorage();
-const initial = restored ?? { ...starterPatch(), width: 1280, height: 720 };
+const initial = restored ?? { ...starterPatch(), width: 1080, height: 1920 };
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   nodes: initial.nodes,
@@ -161,15 +161,21 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     );
     set({ edges: addEdge({ ...connection, id: `e-${crypto.randomUUID()}` }, cleaned) });
   },
-  addNode(defType, position) {
+  addNode(defType, position, params) {
     const id = nextId(defType, new Set(get().nodes.map((node) => node.id)));
     set({
       nodes: [
         ...get().nodes,
-        { id, type: "patch", position, data: { defType, params: defaultParams(defType) } },
+        {
+          id,
+          type: "patch",
+          position,
+          data: { defType, params: { ...defaultParams(defType), ...params } },
+        },
       ],
       selectedId: id,
     });
+    return id;
   },
   removeNode(id) {
     set({
@@ -235,6 +241,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({
       nodes: fresh.nodes,
       edges: fresh.edges,
+      width: 1080,
+      height: 1920,
       selectedId: null,
       statuses: {},
     });

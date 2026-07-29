@@ -48,8 +48,8 @@ interface NodeSlot {
   runtime: NodeRuntime<never>;
 }
 
-const DEFAULT_WIDTH = 1280;
-const DEFAULT_HEIGHT = 720;
+const DEFAULT_WIDTH = 1080;
+const DEFAULT_HEIGHT = 1920;
 
 /**
  * Owns the WebGL2 context and drives one evaluation pass per animation frame.

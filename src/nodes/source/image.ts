@@ -1,33 +1,31 @@
 import { copyTexture } from "../../engine/gl/quad";
 import { SourceTexture } from "../../engine/gl/videoTexture";
 import type { FrameValue } from "../../engine/types";
-import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
+import { defineNode, paramBool, paramString } from "../defineNode";
 import { fileParam } from "../shared/fileParam";
 import { StageCanvas, type FitMode } from "../shared/stage";
 
-interface VideoState {
-  video: HTMLVideoElement;
+interface ImageState {
+  image: HTMLImageElement;
   stage: StageCanvas;
   texture: SourceTexture | null;
   loadedUrl: string | null;
   frameId: number;
-  lastTime: number;
+  ready: boolean;
 }
 
-export const videoNode = defineNode<VideoState>({
-  type: "source.video",
-  label: "Video File",
+export const imageNode = defineNode<ImageState>({
+  type: "source.image",
+  label: "Image File",
   category: "source",
-  description: "Local video file (drop onto the graph or pick a file). Loops; speed is adjustable.",
+  description: "Still image (drop onto the graph or pick a file). Outputs texture + frame.",
   inputs: [],
   outputs: [
     { id: "out", label: "texture", type: "texture" },
     { id: "frame", label: "frame", type: "frame" },
   ],
   params: [
-    { key: "file", label: "File", type: "file", accept: "video/*", default: null },
-    { key: "playing", label: "Play", type: "toggle", default: true },
-    { key: "speed", label: "Speed", type: "range", min: 0.1, max: 3, step: 0.1, default: 1 },
+    { key: "file", label: "File", type: "file", accept: "image/*", default: null },
     { key: "mirror", label: "Mirror", type: "toggle", default: false },
     {
       key: "fit",
@@ -42,32 +40,20 @@ export const videoNode = defineNode<VideoState>({
     },
   ],
   createState() {
-    const video = document.createElement("video");
-    video.loop = true;
-    video.muted = true;
-    video.playsInline = true;
+    const image = new Image();
+    image.decoding = "async";
     return {
-      video,
+      image,
       stage: new StageCanvas(),
       texture: null,
       loadedUrl: null,
       frameId: 0,
-      lastTime: -1,
+      ready: false,
     };
   },
   disposeState(state) {
-    state.video.pause();
-    state.video.removeAttribute("src");
-    state.video.load();
+    state.image.removeAttribute("src");
     state.texture?.dispose();
-  },
-  suspend({ runtime }) {
-    runtime.state.video.pause();
-  },
-  resume({ params, runtime }) {
-    if (paramBool(params, "playing", true)) {
-      void runtime.state.video.play().catch(() => undefined);
-    }
   },
   evaluate({ ctx, nodeId, params, runtime }) {
     const state = runtime.state;
@@ -76,40 +62,32 @@ export const videoNode = defineNode<VideoState>({
     const file = fileParam(params);
     if (file && file.url !== state.loadedUrl) {
       state.loadedUrl = file.url;
-      state.video.src = file.url;
+      state.ready = false;
       state.frameId = 0;
-      state.lastTime = -1;
       ctx.report(nodeId, "loading", file.name);
-      state.video
-        .play()
-        .then(() => ctx.report(nodeId, "ready", file.name))
-        .catch((error: unknown) => {
-          ctx.report(nodeId, "error", error instanceof Error ? error.message : "failed to open");
-        });
+      state.image.onload = () => {
+        state.ready = true;
+        state.frameId += 1;
+        ctx.report(nodeId, "ready", file.name);
+      };
+      state.image.onerror = () => {
+        state.ready = false;
+        ctx.report(nodeId, "error", "failed to open image");
+      };
+      state.image.src = file.url;
     }
 
     const target = ctx.target(nodeId, "out");
-    const { video } = state;
     if (!state.loadedUrl) {
-      if (runtime.status === "idle") ctx.report(nodeId, "idle", "drop a video file");
+      if (runtime.status === "idle") ctx.report(nodeId, "idle", "drop an image file");
       return { out: target, frame: null };
     }
 
-    video.playbackRate = paramNumber(params, "speed", 1);
-    const shouldPlay = paramBool(params, "playing", true);
-    if (shouldPlay && video.paused) void video.play().catch(() => undefined);
-    if (!shouldPlay && !video.paused) video.pause();
-
-    if (video.readyState < 2 || video.videoWidth === 0) {
+    if (!state.ready || state.image.naturalWidth === 0) {
       return { out: target, frame: null };
     }
 
-    if (video.currentTime !== state.lastTime) {
-      state.lastTime = video.currentTime;
-      state.frameId += 1;
-    }
-
-    state.stage.draw(video, video.videoWidth, video.videoHeight, ctx.width, ctx.height, {
+    state.stage.draw(state.image, state.image.naturalWidth, state.image.naturalHeight, ctx.width, ctx.height, {
       mode: paramString(params, "fit", "cover") as FitMode,
       mirror: paramBool(params, "mirror", false),
     });

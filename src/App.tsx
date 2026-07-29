@@ -4,10 +4,16 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  type EdgeChange,
+  type NodeChange,
   type NodeMouseHandler,
+  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { PatchNode } from "./ui/PatchNode";
 import { Inspector } from "./ui/Inspector";
 import { Toolbar } from "./ui/Toolbar";
@@ -59,6 +65,92 @@ function useSideResize(
   );
 }
 
+function mediaDefType(file: File): "source.image" | "source.video" | null {
+  if (file.type.startsWith("image/")) return "source.image";
+  if (file.type.startsWith("video/")) return "source.video";
+  const lower = file.name.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "source.image";
+  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "source.video";
+  return null;
+}
+
+interface GraphCanvasProps {
+  nodes: PatchNodeType[];
+  edges: Edge[];
+  nodeTypes: NodeTypes;
+  onNodesChange: (changes: NodeChange<PatchNodeType>[]) => void;
+  onEdgesChange: (changes: EdgeChange[]) => void;
+  onConnect: (connection: Connection) => void;
+  onNodeClick: NodeMouseHandler<PatchNodeType>;
+  onNodeDoubleClick: NodeMouseHandler<PatchNodeType>;
+  onPaneClick: () => void;
+}
+
+function GraphCanvas({
+  nodes,
+  edges,
+  nodeTypes,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onNodeClick,
+  onNodeDoubleClick,
+  onPaneClick,
+}: GraphCanvasProps) {
+  const { screenToFlowPosition } = useReactFlow();
+  const addNode = useGraphStore((state) => state.addNode);
+
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length === 0) return;
+
+      const origin = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      let offset = 0;
+      for (const file of files) {
+        const defType = mediaDefType(file);
+        if (!defType) continue;
+        addNode(
+          defType,
+          { x: origin.x + offset, y: origin.y + offset },
+          { file: { name: file.name, url: URL.createObjectURL(file) } },
+        );
+        offset += 48;
+      }
+    },
+    [addNode, screenToFlowPosition],
+  );
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodeClick={onNodeClick}
+      onNodeDoubleClick={onNodeDoubleClick}
+      onPaneClick={onPaneClick}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      deleteKeyCode={null}
+      fitView
+      proOptions={{ hideAttribution: false }}
+      defaultEdgeOptions={{ animated: true, style: { stroke: "#6ea8fe", strokeWidth: 2 } }}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
+      <Controls />
+    </ReactFlow>
+  );
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { error, stats, paused, togglePause } = useEngine(canvasRef);
@@ -93,6 +185,20 @@ export default function App() {
     [outputWindow],
   );
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Delete") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const { selectedId, removeNode } = useGraphStore.getState();
+      if (!selectedId) return;
+      event.preventDefault();
+      removeNode(selectedId);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="app">
       <Toolbar
@@ -120,7 +226,7 @@ export default function App() {
 
         <section className="editor">
           <ReactFlowProvider>
-            <ReactFlow
+            <GraphCanvas
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
@@ -130,13 +236,7 @@ export default function App() {
               onNodeClick={onNodeClick}
               onNodeDoubleClick={onNodeDoubleClick}
               onPaneClick={() => select(null)}
-              fitView
-              proOptions={{ hideAttribution: false }}
-              defaultEdgeOptions={{ animated: true, style: { stroke: "#6ea8fe", strokeWidth: 2 } }}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
-              <Controls />
-            </ReactFlow>
+            />
           </ReactFlowProvider>
         </section>
 

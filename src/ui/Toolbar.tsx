@@ -4,10 +4,10 @@ import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 
 const RESOLUTIONS = [
-  { label: "1280×720", width: 1280, height: 720 },
-  { label: "1920×1080", width: 1920, height: 1080 },
-  { label: "1080×1350", width: 1080, height: 1350 },
   { label: "1080×1920", width: 1080, height: 1920 },
+  { label: "1080×1350", width: 1080, height: 1350 },
+  { label: "1920×1080", width: 1920, height: 1080 },
+  { label: "1280×720", width: 1280, height: 720 },
 ];
 
 const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "output"];

@@ -2,7 +2,7 @@ import type { Edge } from "@xyflow/react";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
 import type { PatchNode } from "./graphStore";
 
-const STORAGE_KEY = "visio.patch.v1";
+const STORAGE_KEY = "visio.patch.v3";
 const FORMAT = 1;
 
 export interface SerializedPatch {
@@ -26,15 +26,26 @@ export interface SerializedPatch {
 }
 
 /**
- * Picked files live as blob: URLs that die with the tab, so they are dropped on
- * save — a reloaded patch keeps its wiring and asks for the file again.
+ * blob: URLs die with the tab — drop those on save. Public / http(s) file refs
+ * (e.g. the bundled default image) are kept so reloads still show media.
  */
 function serializableParams(defType: string, params: Record<string, unknown>): Record<string, unknown> {
   const definition = NODE_DEFS[defType];
   if (!definition) return {};
   const clean: Record<string, unknown> = {};
   for (const spec of definition.params) {
-    if (spec.type === "file") continue;
+    if (spec.type === "file") {
+      const value = params[spec.key];
+      if (
+        value &&
+        typeof value === "object" &&
+        typeof (value as { url?: unknown }).url === "string" &&
+        !(value as { url: string }).url.startsWith("blob:")
+      ) {
+        clean[spec.key] = value;
+      }
+      continue;
+    }
     clean[spec.key] = params[spec.key];
   }
   return clean;
@@ -118,8 +129,8 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
   return {
     nodes,
     edges,
-    width: Number(patch.width) || 1280,
-    height: Number(patch.height) || 720,
+    width: Number(patch.width) || 1080,
+    height: Number(patch.height) || 1920,
   };
 }
 
