@@ -73,6 +73,18 @@ interface GridState {
   /** Scratch for downscaled content-mask sampling. */
   maskCanvas: HTMLCanvasElement;
   maskCtx: CanvasRenderingContext2D;
+  /**
+   * Last built content mask. It describes the background, which changes far
+   * slower than the cells sitting on top of it, so it is worth keeping between
+   * frames — building it costs a full-frame readback or a getImageData.
+   * `maskFrame < 0` means "never built", which is not the same as "built and
+   * found nothing": without that distinction an empty frame would rebuild the
+   * mask every tick, the exact case the throttle exists for.
+   */
+  mask: ContentMask | null;
+  maskFrame: number;
+  maskW: number;
+  maskH: number;
 }
 
 function colorDistance(
@@ -381,6 +393,15 @@ export const featuresGridNode = defineNode<GridState>({
       type: "toggle",
       default: false,
     },
+    {
+      key: "edgeInterval",
+      label: "Edge mask every N frames",
+      type: "range",
+      min: 1,
+      max: 8,
+      step: 1,
+      default: 1,
+    },
     { key: "labels", label: "Labels", type: "toggle", default: true },
     { key: "labelSize", label: "Font size", type: "range", min: 8, max: 40, step: 1, default: 13 },
     { key: "labelText", label: "Text", type: "text", default: "Element" },
@@ -414,6 +435,10 @@ export const featuresGridNode = defineNode<GridState>({
       buffer: new PixelBuffer(),
       maskCanvas,
       maskCtx: maskCanvas.getContext("2d", { willReadFrequently: true })!,
+      mask: null,
+      maskFrame: -1,
+      maskW: 0,
+      maskH: 0,
     };
   },
   disposeState(state) {
@@ -449,9 +474,23 @@ export const featuresGridNode = defineNode<GridState>({
     const background = inputs.bg;
     const frame = inputs.frame as FrameValue | null;
     if (cells.length > 0 && paramBool(params, "useContentEdge", false)) {
-      const mask = buildContentMask(ctx, state, width, height, background, frame);
-      if (mask) {
-        cells = trimCellsToContentEdge(cells, mask, width, height, minSize);
+      // Trimming stays per-frame — it is cheap and the cells move every frame.
+      // Only the mask behind it is throttled. A resolution change invalidates it
+      // outright, since its scale factors are tied to the frame it was built for.
+      const edgeInterval = Math.max(1, Math.round(paramNumber(params, "edgeInterval", 1)));
+      const stale =
+        state.maskFrame < 0 ||
+        state.maskW !== width ||
+        state.maskH !== height ||
+        ctx.frameCount - state.maskFrame >= edgeInterval;
+      if (stale) {
+        state.mask = buildContentMask(ctx, state, width, height, background, frame);
+        state.maskFrame = ctx.frameCount;
+        state.maskW = width;
+        state.maskH = height;
+      }
+      if (state.mask) {
+        cells = trimCellsToContentEdge(cells, state.mask, width, height, minSize);
       }
     }
 
