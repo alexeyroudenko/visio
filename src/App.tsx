@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { PatchNode } from "./ui/PatchNode";
+import { FloatingInspector } from "./ui/FloatingInspector";
 import { Inspector } from "./ui/Inspector";
 import { Toolbar } from "./ui/Toolbar";
 import { AppConsole } from "./ui/AppConsole";
@@ -318,6 +319,8 @@ export default function App() {
               />
             </ReactFlowProvider>
           </div>
+
+          {vertical ? <FloatingInspector /> : null}
         </section>
 
         {!vertical ? (
