@@ -23,6 +23,8 @@ interface RegionStats {
 
 interface QuadtreeState {
   buffer: PixelBuffer;
+  /** Frame index of the last rebuild, so throttling can reuse the target. */
+  lastFrame: number;
 }
 
 function sampleRegion(
@@ -37,14 +39,23 @@ function sampleRegion(
   let r = 0;
   let g = 0;
   let b = 0;
+  let lumSquares = 0;
   let count = 0;
 
+  // Luma is linear in r/g/b, so the mean of the per-pixel luma is the luma of the
+  // mean — which lets the deviation come out of E[lum²] − E[lum]² in a single
+  // pass instead of averaging first and re-walking the region to subtract it.
   for (let yy = y; yy < y + h; yy += step) {
     for (let xx = x; xx < x + w; xx += step) {
       const idx = (yy * imageWidth + xx) * 4;
-      r += data[idx]!;
-      g += data[idx + 1]!;
-      b += data[idx + 2]!;
+      const pr = data[idx]!;
+      const pg = data[idx + 1]!;
+      const pb = data[idx + 2]!;
+      const lum = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+      r += pr;
+      g += pg;
+      b += pb;
+      lumSquares += lum * lum;
       count += 1;
     }
   }
@@ -56,16 +67,10 @@ function sampleRegion(
   b /= count;
 
   const averageLum = 0.299 * r + 0.587 * g + 0.114 * b;
-  let error = 0;
-  for (let yy = y; yy < y + h; yy += step) {
-    for (let xx = x; xx < x + w; xx += step) {
-      const idx = (yy * imageWidth + xx) * 4;
-      const lum = 0.299 * data[idx]! + 0.587 * data[idx + 1]! + 0.114 * data[idx + 2]!;
-      error += (lum - averageLum) ** 2;
-    }
-  }
+  // Rounding can push a flat region a hair below zero; clamp before the root.
+  const variance = Math.max(0, lumSquares / count - averageLum * averageLum);
 
-  return { r, g, b, error: Math.sqrt(error / count) };
+  return { r, g, b, error: Math.sqrt(variance) };
 }
 
 function buildCells(
@@ -139,17 +144,27 @@ export const quadtreeNode = defineNode<QuadtreeState>({
     { key: "bgColor", label: "Background", type: "color", default: "#0a0a0a" },
     { key: "replace", label: "Replace bg", type: "toggle", default: true },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, default: 1 },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 1 },
   ],
   createState() {
-    return { buffer: new PixelBuffer() };
+    return { buffer: new PixelBuffer(), lastFrame: -1 };
   },
   disposeState(state) {
     state.buffer.dispose();
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
+    // A full readback plus the recursive sampling is expensive; on skipped frames
+    // the target still holds the previous result, so leaving it untouched is the
+    // throttle — same deal as Pixel Sort and the Hough detectors.
+    const interval = Math.max(1, Math.round(paramNumber(params, "interval", 1)));
+    if (runtime.state.lastFrame >= 0 && ctx.frameCount % interval !== 0) {
+      return { out: ctx.target(nodeId, "out") };
+    }
+
     const target = beginDraw(ctx, nodeId, inputs.bg ?? null);
     const source = inputs.bg;
     if (!isRenderTarget(source)) return { out: target };
+    runtime.state.lastFrame = ctx.frameCount;
 
     const { buffer } = runtime.state;
     const image = buffer.read(ctx.gl, source);
