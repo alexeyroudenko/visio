@@ -14,6 +14,8 @@ import { drawBoxesNode } from "./draw/boxes";
 import { drawCirclesNode } from "./draw/circles";
 import { drawLinesNode } from "./draw/lines";
 import { featuresGridNode } from "./draw/featuresGrid";
+import { connectorsNode } from "./draw/connectors";
+import { quadtreeNode } from "./draw/quadtree";
 import { feedbackNode } from "./fx/feedback";
 import { blendNode } from "./fx/blend";
 import { colorNode } from "./fx/color";
@@ -46,6 +48,8 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   drawCirclesNode,
   drawLinesNode,
   featuresGridNode,
+  connectorsNode,
+  quadtreeNode,
   feedbackNode,
   blendNode,
   colorNode,

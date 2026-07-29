@@ -1,11 +1,60 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   getKeyframeMarkerFrames,
   getNextKeyframeFrame,
   getPrevKeyframeFrame,
 } from "../lib/keyframes";
+import { fileParam } from "../nodes/shared/fileParam";
+import { useGraphStore } from "../store/graphStore";
+import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { PlaybackControls } from "./PlaybackControls";
+
+const TRACKS = [
+  { id: "video", label: "Video" },
+  { id: "audio", label: "Audio" },
+  { id: "params", label: "Parameters" },
+] as const;
+
+interface MediaClip {
+  id: string;
+  label: string;
+  startFrame: number;
+  durationFrames: number;
+  sync: boolean;
+}
+
+function collectMediaClips(
+  kind: "video" | "audio",
+  nodes: ReturnType<typeof useGraphStore.getState>["nodes"],
+  mediaById: Record<string, { name?: string | null; durationSec?: number | null; totalFrames?: number | null }>,
+  fps: number,
+  timelineDuration: number,
+): MediaClip[] {
+  const clips: MediaClip[] = [];
+  for (const node of nodes) {
+    if (node.data.defType !== "source.media") continue;
+    if (node.data.params.mode !== kind) continue;
+    const info = mediaById[node.id];
+    const file = fileParam(node.data.params);
+    const label = info?.name || file?.name || node.id;
+    let durationFrames = timelineDuration;
+    if (info?.totalFrames != null && info.totalFrames > 0) {
+      durationFrames = info.totalFrames;
+    } else if (info?.durationSec != null && info.durationSec > 0) {
+      durationFrames = Math.ceil(info.durationSec * fps);
+    }
+    durationFrames = Math.max(1, Math.min(durationFrames, timelineDuration));
+    clips.push({
+      id: node.id,
+      label,
+      startFrame: 0,
+      durationFrames,
+      sync: node.data.params.syncTimeline === true,
+    });
+  }
+  return clips;
+}
 
 export function Timeline() {
   const fps = useTimelineStore((s) => s.fps);
@@ -17,6 +66,18 @@ export function Timeline() {
   const selectedKeyframeFrame = useTimelineStore((s) => s.selectedKeyframeFrame);
   const selectKeyframe = useTimelineStore((s) => s.selectKeyframe);
   const moveSelectedKeyframe = useTimelineStore((s) => s.moveSelectedKeyframe);
+
+  const nodes = useGraphStore((s) => s.nodes);
+  const mediaById = useMediaInfoStore((s) => s.byId);
+
+  const videoClips = useMemo(
+    () => collectMediaClips("video", nodes, mediaById, fps, durationInFrames),
+    [nodes, mediaById, fps, durationInFrames],
+  );
+  const audioClips = useMemo(
+    () => collectMediaClips("audio", nodes, mediaById, fps, durationInFrames),
+    [nodes, mediaById, fps, durationInFrames],
+  );
 
   const [zoom, setZoom] = useState(3);
   const [dragPreview, setDragPreview] = useState<number | null>(null);
@@ -111,7 +172,11 @@ export function Timeline() {
       <div className="timeline__body">
         <div className="timeline__labels">
           <div className="timeline__label timeline__label--ruler" />
-          <div className="timeline__label">Parameters</div>
+          {TRACKS.map((track) => (
+            <div key={track.id} className="timeline__label">
+              {track.label}
+            </div>
+          ))}
         </div>
 
         <div ref={scrollRef} className="timeline__scroll">
@@ -133,6 +198,9 @@ export function Timeline() {
                 </div>
               ))}
             </div>
+
+            <MediaTrack clips={videoClips} pxPerFrame={pxPerFrame} variant="video" />
+            <MediaTrack clips={audioClips} pxPerFrame={pxPerFrame} variant="audio" />
 
             <div className="timeline__track">
               {keyframeFrames.map((frame) => {
@@ -180,6 +248,39 @@ export function Timeline() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MediaTrack({
+  clips,
+  pxPerFrame,
+  variant,
+}: {
+  clips: MediaClip[];
+  pxPerFrame: number;
+  variant: "video" | "audio";
+}) {
+  const count = Math.max(1, clips.length);
+  const slotH = 20 / count;
+
+  return (
+    <div className="timeline__track">
+      {clips.map((clip, index) => (
+        <div
+          key={clip.id}
+          className={`timeline__clip timeline__clip--${variant}${clip.sync ? " timeline__clip--sync" : ""}`}
+          style={{
+            left: clip.startFrame * pxPerFrame,
+            width: Math.max(clip.durationFrames * pxPerFrame, 8),
+            top: 4 + index * (slotH + 2),
+            height: Math.max(slotH, 10),
+          }}
+          title={`${clip.label}${clip.sync ? " · sync" : ""} · ${clip.durationFrames}f`}
+        >
+          {clip.label}
+        </div>
+      ))}
     </div>
   );
 }

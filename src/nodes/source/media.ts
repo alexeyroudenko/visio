@@ -218,6 +218,15 @@ export const mediaNode = defineNode<MediaState>({
       ],
       default: "cover",
     },
+    {
+      key: "zoom",
+      label: "Zoom",
+      type: "range",
+      min: 0,
+      max: 2,
+      step: 0.05,
+      default: 1,
+    },
   ],
   createState() {
     const image = new Image();
@@ -301,11 +310,14 @@ export const mediaNode = defineNode<MediaState>({
     const target = ctx.target(nodeId, "out");
     const fit = paramString(params, "fit", "cover") as FitMode;
     const mirror = paramBool(params, "mirror", mode === "camera");
+    const zoom = Math.max(0, paramNumber(params, "zoom", 1));
 
-    if (mode === "camera") return evalCamera(ctx, nodeId, state, target, fit, mirror);
-    if (mode === "image") return evalImage(ctx, nodeId, params, runtime, state, target, fit, mirror);
+    if (mode === "camera") return evalCamera(ctx, nodeId, state, target, fit, mirror, zoom);
+    if (mode === "image") {
+      return evalImage(ctx, nodeId, params, runtime, state, target, fit, mirror, zoom);
+    }
     if (mode === "audio") return evalAudio(ctx, nodeId, params, runtime, state, target);
-    return evalVideo(ctx, nodeId, params, runtime, state, target, fit, mirror);
+    return evalVideo(ctx, nodeId, params, runtime, state, target, fit, mirror, zoom);
   },
 });
 
@@ -316,6 +328,7 @@ function evalCamera(
   target: RT,
   fit: FitMode,
   mirror: boolean,
+  zoom: number,
 ) {
   state.video.autoplay = true;
   state.video.loop = false;
@@ -360,6 +373,12 @@ function evalCamera(
     state.frameId += 1;
   }
 
+  const drawKey = `${fit}:${mirror}:${zoom}:${ctx.width}x${ctx.height}`;
+  if (drawKey !== state.drawKey) {
+    state.drawKey = drawKey;
+    state.frameId += 1;
+  }
+
   const track = state.stream?.getVideoTracks()[0];
   const settings = track?.getSettings();
   const fps =
@@ -381,6 +400,7 @@ function evalCamera(
   state.stage.draw(video, video.videoWidth, video.videoHeight, ctx.width, ctx.height, {
     mode: fit,
     mirror,
+    zoom,
   });
   return emit(state, target, ctx);
 }
@@ -394,6 +414,7 @@ function evalImage(
   target: RT,
   fit: FitMode,
   mirror: boolean,
+  zoom: number,
 ) {
   const file = fileParam(params);
   if (file && file.url !== state.loadedUrl) {
@@ -422,7 +443,7 @@ function evalImage(
     return { out: target, frame: null };
   }
 
-  const drawKey = `${fit}:${mirror}:${ctx.width}x${ctx.height}`;
+  const drawKey = `${fit}:${mirror}:${zoom}:${ctx.width}x${ctx.height}`;
   if (drawKey !== state.drawKey) {
     state.drawKey = drawKey;
     state.frameId += 1;
@@ -444,7 +465,7 @@ function evalImage(
     state.image.naturalHeight,
     ctx.width,
     ctx.height,
-    { mode: fit, mirror },
+    { mode: fit, mirror, zoom },
   );
   return emit(state, target, ctx);
 }
@@ -458,6 +479,7 @@ function evalVideo(
   target: RT,
   fit: FitMode,
   mirror: boolean,
+  zoom: number,
 ) {
   state.video.autoplay = false;
   state.video.loop = true;
@@ -497,6 +519,12 @@ function evalVideo(
     state.frameId += 1;
   }
 
+  const drawKey = `${fit}:${mirror}:${zoom}:${ctx.width}x${ctx.height}`;
+  if (drawKey !== state.drawKey) {
+    state.drawKey = drawKey;
+    state.frameId += 1;
+  }
+
   const mime = file?.mime ?? null;
   const fps = ensureProbedFps(state, state.loadedUrl);
   const durationSec = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
@@ -524,6 +552,7 @@ function evalVideo(
   state.stage.draw(video, video.videoWidth, video.videoHeight, ctx.width, ctx.height, {
     mode: fit,
     mirror,
+    zoom,
   });
   return emit(state, target, ctx);
 }

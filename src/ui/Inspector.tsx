@@ -1,7 +1,8 @@
 import type { ParamSpec } from "../engine/types";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
-import { useMediaInfoStore, type MediaInfo } from "../store/mediaInfoStore";
+import { useMediaInfoStore } from "../store/mediaInfoStore";
+import { MediaInfoPanel } from "./MediaInfoPanel";
 
 /** Resolve `<input accept>` tokens against a File (MIME and/or extension). */
 function fileMatchesAccept(file: File, accept: string): boolean {
@@ -36,53 +37,6 @@ function mediaFileAccept(mode: unknown): string | undefined {
   if (mode === "image") return "image/*";
   if (mode === "audio") return "audio/*";
   return undefined;
-}
-
-function formatDuration(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec - m * 60;
-  return `${m}:${s.toFixed(2).padStart(5, "0")}`;
-}
-
-function MediaInfoPanel({ info }: { info: MediaInfo }) {
-  const rows: { label: string; value: string }[] = [];
-  if (info.width > 0 && info.height > 0) {
-    rows.push({ label: "Size", value: `${info.width}×${info.height}` });
-  }
-  if (info.name) rows.push({ label: "File", value: info.name });
-  if (info.mime) rows.push({ label: "MIME", value: info.mime });
-  if (info.codec) rows.push({ label: "Codec", value: info.codec });
-  if (info.fps != null) rows.push({ label: "FPS", value: String(info.fps) });
-  if (info.durationSec != null) {
-    rows.push({ label: "Duration", value: formatDuration(info.durationSec) });
-  }
-  if (info.kind === "video" || info.kind === "audio") {
-    if (info.currentTimeSec != null) {
-      rows.push({ label: "Time", value: formatDuration(info.currentTimeSec) });
-    }
-    if (info.currentFrame != null) {
-      const total = info.totalFrames != null ? ` / ${info.totalFrames}` : "";
-      rows.push({ label: "Frame", value: `${info.currentFrame}${total}` });
-    }
-    if (info.playing != null) {
-      rows.push({ label: "State", value: info.playing ? "playing" : "paused" });
-    }
-  } else if (info.kind === "camera" && info.playing != null) {
-    rows.push({ label: "State", value: info.playing ? "live" : "paused" });
-  }
-
-  return (
-    <div className="media-info" aria-label="Media info">
-      {rows.map((row) => (
-        <div key={row.label} className="media-info__row">
-          <span className="media-info__label">{row.label}</span>
-          <span className="media-info__value" title={row.value}>
-            {row.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function ParamControl({
@@ -262,15 +216,13 @@ export function Inspector() {
                 acceptOverride={acceptOverride}
                 onChange={(next) => setParam(node.id, spec.key, next)}
               />
-              {isMedia && spec.key === "fit" && mediaInfo ? (
-                <MediaInfoPanel info={mediaInfo} />
-              ) : null}
             </div>
           );
         })}
         {definition.params.length === 0 ? (
           <p className="inspector__empty">No parameters.</p>
         ) : null}
+        {isMedia && mediaInfo ? <MediaInfoPanel info={mediaInfo} /> : null}
       </div>
     </aside>
   );

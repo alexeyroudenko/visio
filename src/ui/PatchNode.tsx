@@ -2,6 +2,8 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { memo } from "react";
 import { CATEGORY_COLORS, NODE_DEFS, PORT_COLORS } from "../nodes/registry";
 import { useGraphStore, type PatchNode as PatchNodeType } from "../store/graphStore";
+import { useMediaInfoStore } from "../store/mediaInfoStore";
+import { MediaInfoPanel } from "./MediaInfoPanel";
 
 const STATUS_DOT: Record<string, string> = {
   idle: "#6b7280",
@@ -15,6 +17,9 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
   const definition = NODE_DEFS[data.defType];
   const status = useGraphStore((state) => state.statuses[id]);
   const setBypass = useGraphStore((state) => state.setBypass);
+  const mediaInfo = useMediaInfoStore((state) =>
+    data.defType === "source.media" ? state.byId[id] : undefined,
+  );
   const bypassed = data.bypass === true;
 
   if (!definition) {
@@ -23,10 +28,11 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
 
   const accent = CATEGORY_COLORS[definition.category] ?? "#8b8b8b";
   const statusKey = status?.status ?? "idle";
+  const isMedia = data.defType === "source.media";
 
   return (
     <div
-      className={`node ${selected ? "node--selected" : ""} ${bypassed ? "node--bypassed" : ""}`}
+      className={`node ${selected ? "node--selected" : ""} ${bypassed ? "node--bypassed" : ""} ${isMedia ? "node--media" : ""}`}
       style={{ borderColor: accent }}
     >
       <div className="node__title" style={{ background: accent }}>
@@ -75,6 +81,7 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
         </div>
       </div>
 
+      {mediaInfo ? <MediaInfoPanel info={mediaInfo} compact /> : null}
       {status?.message ? <div className="node__message">{status.message}</div> : null}
     </div>
   );

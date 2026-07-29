@@ -285,6 +285,7 @@ function poseFeaturesGrid(): SerializedPatch {
           effectMinArea: 0,
           effectMaxArea: 0.15,
           effectSeed: 0,
+          useContentEdge: true,
         },
       },
       {
@@ -336,6 +337,13 @@ function poseFeaturesGrid(): SerializedPatch {
         sourceHandle: "out",
         target: "featuresGrid-6",
         targetHandle: "bg",
+      },
+      {
+        id: "e-grid-frame",
+        source: "camera-1",
+        sourceHandle: "frame",
+        target: "featuresGrid-6",
+        targetHandle: "frame",
       },
       {
         id: "e-out",

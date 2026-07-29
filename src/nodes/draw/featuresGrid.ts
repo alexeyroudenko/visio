@@ -1,10 +1,11 @@
 import { getProgram } from "../../engine/gl/program";
 import { bindTexture, drawFullscreen, FULLSCREEN_VS } from "../../engine/gl/quad";
 import { isRenderTarget, type RenderTarget } from "../../engine/gl/rt";
-import type { EngineContext, PointsValue } from "../../engine/types";
+import type { EngineContext, FrameValue, PointsValue } from "../../engine/types";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { CanvasOverlay } from "../shared/canvasOverlay";
 import { beginDraw } from "../shared/drawTarget";
+import { PixelBuffer } from "../shared/pixelBuffer";
 import { mulberry32 } from "../shared/rng";
 
 /**
@@ -57,8 +58,233 @@ interface Cell {
   h: number;
 }
 
+/** Downscaled boolean mask of "drawn content" pixels (non-background). */
+interface ContentMask {
+  data: Uint8Array;
+  sw: number;
+  sh: number;
+  scaleX: number;
+  scaleY: number;
+}
+
 interface GridState {
   overlay: CanvasOverlay;
+  buffer: PixelBuffer;
+  /** Scratch for downscaled content-mask sampling. */
+  maskCanvas: HTMLCanvasElement;
+  maskCtx: CanvasRenderingContext2D;
+}
+
+function colorDistance(
+  r: number,
+  g: number,
+  b: number,
+  ref: [number, number, number],
+): number {
+  const dr = r - ref[0];
+  const dg = g - ref[1];
+  const db = b - ref[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function ensureMaskScratch(
+  state: GridState,
+  sw: number,
+  sh: number,
+): CanvasRenderingContext2D {
+  if (state.maskCanvas.width !== sw || state.maskCanvas.height !== sh) {
+    state.maskCanvas.width = sw;
+    state.maskCanvas.height = sh;
+  }
+  return state.maskCtx;
+}
+
+/**
+ * Content mask from ImageData (cv-reels): pixel is content when opaque and
+ * different from the average corner color.
+ */
+function buildContentMaskFromImage(
+  image: ImageData,
+  width: number,
+  height: number,
+): ContentMask | null {
+  const { data, width: sw, height: sh } = image;
+  if (sw < 1 || sh < 1) return null;
+
+  const inset = Math.max(1, Math.floor(Math.min(sw, sh) * 0.04));
+
+  const sampleCorner = (cx: number, cy: number): [number, number, number] | null => {
+    const x = Math.round(Math.min(sw - 1, Math.max(0, cx)));
+    const y = Math.round(Math.min(sh - 1, Math.max(0, cy)));
+    const idx = (y * sw + x) * 4;
+    if (data[idx + 3]! < 8) return null;
+    return [data[idx]!, data[idx + 1]!, data[idx + 2]!];
+  };
+
+  const corners = [
+    sampleCorner(inset, inset),
+    sampleCorner(sw - 1 - inset, inset),
+    sampleCorner(inset, sh - 1 - inset),
+    sampleCorner(sw - 1 - inset, sh - 1 - inset),
+  ].filter((c): c is [number, number, number] => c !== null);
+
+  const imageBg: [number, number, number] =
+    corners.length > 0
+      ? [
+          corners.reduce((s, c) => s + c[0], 0) / corners.length,
+          corners.reduce((s, c) => s + c[1], 0) / corners.length,
+          corners.reduce((s, c) => s + c[2], 0) / corners.length,
+        ]
+      : [0, 0, 0];
+
+  const threshold = 32;
+  const mask = new Uint8Array(sw * sh);
+  let hasContent = false;
+
+  for (let i = 0; i < sw * sh; i += 1) {
+    const idx = i * 4;
+    if (data[idx + 3]! < 8) continue;
+    const dist = colorDistance(data[idx]!, data[idx + 1]!, data[idx + 2]!, imageBg);
+    if (dist > threshold) {
+      mask[i] = 1;
+      hasContent = true;
+    }
+  }
+
+  if (!hasContent) return null;
+  return { data: mask, sw, sh, scaleX: width / sw, scaleY: height / sh };
+}
+
+/** Prefer Media `frame` (2D canvas). Fall back to reading the bg texture. */
+function buildContentMask(
+  ctx: EngineContext,
+  state: GridState,
+  width: number,
+  height: number,
+  background: unknown,
+  frame: FrameValue | null,
+): ContentMask | null {
+  const sw = Math.max(1, Math.min(width, 480));
+  const sh = Math.max(1, Math.round((height * sw) / width));
+  const mctx = ensureMaskScratch(state, sw, sh);
+  mctx.setTransform(1, 0, 0, 1, 0, 0);
+  mctx.clearRect(0, 0, sw, sh);
+
+  if (frame?.element && frame.width > 0 && frame.height > 0) {
+    mctx.drawImage(frame.element, 0, 0, frame.width, frame.height, 0, 0, sw, sh);
+    return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
+  }
+
+  if (!isRenderTarget(background)) return null;
+  if (!state.buffer) state.buffer = new PixelBuffer();
+
+  const full = state.buffer.read(ctx.gl, background);
+  state.buffer.syncToCanvas();
+  mctx.drawImage(state.buffer.element, 0, 0, full.width, full.height, 0, 0, sw, sh);
+  return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
+}
+
+/**
+ * Trims cells touching a canvas edge to the extreme content pixel within that
+ * cell's band — local silhouette hug, not a global bbox (cv-reels).
+ */
+function trimCellsToContentEdge(
+  cells: Cell[],
+  mask: ContentMask,
+  width: number,
+  height: number,
+  minSize: number,
+): Cell[] {
+  const edgeTol = 2;
+  const { data, sw, sh, scaleX, scaleY } = mask;
+  const trimmed: Cell[] = [];
+
+  const toSampleX = (x: number) => Math.min(sw - 1, Math.max(0, Math.floor(x / scaleX)));
+  const toSampleY = (y: number) => Math.min(sh - 1, Math.max(0, Math.floor(y / scaleY)));
+
+  for (const cell of cells) {
+    let { x, y, w, h } = cell;
+    const right = x + w;
+    const bottom = y + h;
+
+    const sx0 = toSampleX(x);
+    const sx1 = toSampleX(right - 1);
+    const sy0 = toSampleY(y);
+    const sy1 = toSampleY(bottom - 1);
+
+    const touchesLeft = x <= edgeTol;
+    const touchesRight = right >= width - edgeTol;
+    const touchesTop = y <= edgeTol;
+    const touchesBottom = bottom >= height - edgeTol;
+
+    if (touchesLeft) {
+      let minX = -1;
+      for (let sxx = sx0; sxx <= sx1 && minX < 0; sxx += 1) {
+        for (let syy = sy0; syy <= sy1; syy += 1) {
+          if (data[syy * sw + sxx]) {
+            minX = sxx;
+            break;
+          }
+        }
+      }
+      if (minX < 0) continue;
+      const clipLeft = Math.max(x, minX * scaleX);
+      w = right - clipLeft;
+      x = clipLeft;
+    }
+
+    if (touchesRight) {
+      let maxX = -1;
+      for (let sxx = sx1; sxx >= sx0 && maxX < 0; sxx -= 1) {
+        for (let syy = sy0; syy <= sy1; syy += 1) {
+          if (data[syy * sw + sxx]) {
+            maxX = sxx;
+            break;
+          }
+        }
+      }
+      if (maxX < 0) continue;
+      const clipRight = Math.min(x + w, (maxX + 1) * scaleX);
+      w = clipRight - x;
+    }
+
+    if (touchesTop) {
+      let minY = -1;
+      for (let syy = sy0; syy <= sy1 && minY < 0; syy += 1) {
+        for (let sxx = sx0; sxx <= sx1; sxx += 1) {
+          if (data[syy * sw + sxx]) {
+            minY = syy;
+            break;
+          }
+        }
+      }
+      if (minY < 0) continue;
+      const clipTop = Math.max(y, minY * scaleY);
+      h = bottom - clipTop;
+      y = clipTop;
+    }
+
+    if (touchesBottom) {
+      let maxY = -1;
+      for (let syy = sy1; syy >= sy0 && maxY < 0; syy -= 1) {
+        for (let sxx = sx0; sxx <= sx1; sxx += 1) {
+          if (data[syy * sw + sxx]) {
+            maxY = syy;
+            break;
+          }
+        }
+      }
+      if (maxY < 0) continue;
+      const clipBottom = Math.min(y + h, (maxY + 1) * scaleY);
+      h = clipBottom - y;
+    }
+
+    if (w >= minSize && h >= minSize) {
+      trimmed.push({ x, y, w, h });
+    }
+  }
+
+  return trimmed;
 }
 
 /**
@@ -86,6 +312,10 @@ function buildGrid(
     const vertical = rect.w >= rect.h;
     const sorted = [...inside].sort((a, b) => (vertical ? a.x - b.x : a.y - b.y));
     const median = sorted[Math.floor(sorted.length / 2)];
+    if (!median) {
+      cells.push(rect);
+      return;
+    }
 
     if (vertical) {
       const splitX = Math.round(median.x);
@@ -135,6 +365,7 @@ export const featuresGridNode = defineNode<GridState>({
   description: "Mondrian grid: frame recursively split by tracking points, with cell labels.",
   inputs: [
     { id: "bg", label: "bg", type: "texture" },
+    { id: "frame", label: "frame", type: "frame" },
     { id: "points", label: "points", type: "points" },
   ],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
@@ -144,6 +375,12 @@ export const featuresGridNode = defineNode<GridState>({
     { key: "minSize", label: "Min cell", type: "range", min: 16, max: 300, step: 4, default: 64 },
     { key: "stroke", label: "Stroke", type: "range", min: 0.5, max: 8, step: 0.5, default: 1 },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, default: 1 },
+    {
+      key: "useContentEdge",
+      label: "Use content edge",
+      type: "toggle",
+      default: false,
+    },
     { key: "labels", label: "Labels", type: "toggle", default: true },
     { key: "labelSize", label: "Font size", type: "range", min: 8, max: 40, step: 1, default: 13 },
     { key: "labelText", label: "Text", type: "text", default: "Element" },
@@ -169,25 +406,55 @@ export const featuresGridNode = defineNode<GridState>({
     { key: "effectSeed", label: "Effect seed", type: "range", min: 0, max: 9999, step: 1, default: 42 },
   ],
   createState() {
-    return { overlay: new CanvasOverlay() };
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = 1;
+    maskCanvas.height = 1;
+    return {
+      overlay: new CanvasOverlay(),
+      buffer: new PixelBuffer(),
+      maskCanvas,
+      maskCtx: maskCanvas.getContext("2d", { willReadFrequently: true })!,
+    };
   },
   disposeState(state) {
     state.overlay.dispose();
+    state.buffer.dispose();
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const target = beginDraw(ctx, nodeId, inputs.bg ?? null);
     const data = inputs.points as PointsValue | null;
     if (!data || data.points.length === 0) return { out: target };
 
+    const state = runtime.state;
+    // HMR may keep an older createState() shape without buffer/mask scratch.
+    if (!state.buffer) state.buffer = new PixelBuffer();
+    if (!state.maskCanvas) {
+      state.maskCanvas = document.createElement("canvas");
+      state.maskCanvas.width = 1;
+      state.maskCanvas.height = 1;
+      state.maskCtx = state.maskCanvas.getContext("2d", { willReadFrequently: true })!;
+    }
+
     const width = target.width;
     const height = target.height;
-    const cells = buildGrid(
+    const minSize = Math.max(8, paramNumber(params, "minSize", 64));
+    let cells = buildGrid(
       data.points.map((point) => ({ x: point.x * width, y: point.y * height })),
       width,
       height,
       Math.round(paramNumber(params, "maxDepth", 5)),
-      Math.max(8, paramNumber(params, "minSize", 64)),
+      minSize,
     );
+
+    const background = inputs.bg;
+    const frame = inputs.frame as FrameValue | null;
+    if (cells.length > 0 && paramBool(params, "useContentEdge", false)) {
+      const mask = buildContentMask(ctx, state, width, height, background, frame);
+      if (mask) {
+        cells = trimCellsToContentEdge(cells, mask, width, height, minSize);
+      }
+    }
+
     if (cells.length === 0) return { out: target };
 
     // Area window is relative to the largest cell this frame (0 = empty,
@@ -201,7 +468,6 @@ export const featuresGridNode = defineNode<GridState>({
       effectMinArea = effectMaxArea;
       effectMaxArea = swap;
     }
-    const background = inputs.bg;
     if (effectChance > 0 && isRenderTarget(background)) {
       let largest = 0;
       for (const cell of cells) largest = Math.max(largest, cell.w * cell.h);
@@ -228,7 +494,7 @@ export const featuresGridNode = defineNode<GridState>({
     const labelText = paramString(params, "labelText", "Element");
     const padding = Math.max(2, labelSize * 0.5);
 
-    const overlay = runtime.state.overlay.begin(width, height);
+    const overlay = state.overlay.begin(width, height);
     overlay.globalAlpha = paramNumber(params, "opacity", 1);
     overlay.strokeStyle = color;
     overlay.fillStyle = color;
@@ -249,7 +515,7 @@ export const featuresGridNode = defineNode<GridState>({
       );
     });
 
-    runtime.state.overlay.commit(ctx, target);
+    state.overlay.commit(ctx, target);
     return { out: target };
   },
 });

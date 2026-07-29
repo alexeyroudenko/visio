@@ -287,7 +287,11 @@ export class Engine {
       const definition = this.definitions[node.type];
       if (!definition) continue;
 
-      if (existing && existing.definition.type === node.type) continue;
+      if (existing && existing.definition.type === node.type) {
+        // Pick up HMR evaluate/params without recreating node state.
+        existing.definition = definition;
+        continue;
+      }
       if (existing) this.disposeSlot(node.id);
 
       const runtime: NodeRuntime<never> = {
