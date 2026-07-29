@@ -146,6 +146,7 @@ export const pixelSortNode = defineNode<PixelSortState>({
     { key: "vert", label: "Vertical", type: "toggle", default: false },
     { key: "scale", label: "Scale", type: "range", min: 0.25, max: 1, step: 0.25, default: 1 },
     { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 1 },
+    { key: "asyncRead", label: "Async readback", type: "toggle", default: false },
   ],
   createState() {
     return {
@@ -161,8 +162,8 @@ export const pixelSortNode = defineNode<PixelSortState>({
       statusMessage: "",
     };
   },
-  disposeState(state) {
-    state.buffer.dispose();
+  disposeState(state, ctx) {
+    state.buffer.dispose(ctx.gl);
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const gl = ctx.gl;
@@ -200,8 +201,16 @@ export const pixelSortNode = defineNode<PixelSortState>({
       readSource = small;
     }
 
+    // Async trades a frame of latency for the pipeline stall in readPixels. What
+    // lands is the frame the readback started on, so the effect runs one behind —
+    // fine for a glitch, not always what you want, hence the toggle.
     const readStart = performance.now();
-    const image = buffer.read(gl, readSource);
+    const image = paramBool(params, "asyncRead", false)
+      ? buffer.readAsync(gl, readSource)
+      : buffer.read(gl, readSource);
+    // Nothing has landed yet (first frames, or the GPU is still busy) — the
+    // target keeps what it had, exactly like a throttled frame.
+    if (!image) return { out: target };
     const sortStart = performance.now();
 
     const width = image.width;

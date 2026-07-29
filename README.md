@@ -115,8 +115,16 @@ without losing precision; only one stays on the CPU — by the nature of the pro
   every comparison.
   Sorted bytes go straight into the target texture with `texSubImage2D` — the 2D-canvas
   roundtrip the drawing nodes need would be three extra full-frame copies here.
-  What is left is the synchronous `readPixels` (about 10 ms at 1080×1920, roughly a
-  quarter of the node). `Scale` sorts at a fraction of the resolution and upscales —
+  That leaves the readback. `readPixels` blocks until the GPU has drained every
+  queued command, which measured 20 ms at 1080×1920 — about a third of the node.
+  `Async readback` routes it through a pixel-pack buffer instead: a fence records
+  when the GPU is done, and the pixels are pulled on a later frame once it has
+  signalled, so nothing ever waits. Read time drops to 0.6 ms and the whole node
+  from 64 to 51 ms. The catch is that what comes back is the frame the readback
+  started on — the effect runs exactly one frame behind, which is why it is a
+  toggle and not the default. (The fence needs an explicit `gl.flush()`, or it can
+  sit unflushed in the client queue and never signal at all.)
+  `Scale` sorts at a fraction of the resolution and upscales —
   cost falls quadratically and the effect stays live, unlike “every N frames”, which
   just freezes the result between runs. The node reports its own `read / sort / write`
   split in the status line.
