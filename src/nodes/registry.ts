@@ -12,6 +12,7 @@ import { pointsNoiseNode } from "./generate/pointsNoise";
 import { drawLandmarksNode } from "./draw/landmarks";
 import { drawPointsNode } from "./draw/points";
 import { drawBoxesNode } from "./draw/boxes";
+import { drawRectsNode } from "./draw/rects";
 import { drawCirclesNode } from "./draw/circles";
 import { drawLinesNode } from "./draw/lines";
 import { featuresGridNode } from "./draw/featuresGrid";
@@ -51,6 +52,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   drawLandmarksNode,
   drawPointsNode,
   drawBoxesNode,
+  drawRectsNode,
   drawCirclesNode,
   drawLinesNode,
   featuresGridNode,
