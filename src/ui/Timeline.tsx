@@ -87,7 +87,7 @@ function ClipWaveform({ url, label, width, height }: {
 
 /**
  * Live grains over the clip — same marks as granular-video's WaveformTimeline:
- * a vertical stroke at each voice's read position, coloured by pitch and scaled
+ * a vertical stroke at each voice's read position, shaded by pitch and scaled
  * by its envelope.
  *
  * Runs its own rAF against a plain store rather than React state — the marks
@@ -123,9 +123,9 @@ function GrainOverlay({ url, width, height }: { url: string; width: number; heig
         const level = Math.max(0, Math.min(1, mark.level));
         if (level <= 0) continue;
         const x = mark.pos * width;
-        // Lower pitch reads warmer, higher cooler — granular-video's mapping.
-        const hue = 200 - Math.max(-24, Math.min(24, mark.pitch)) * 5;
-        ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${(0.15 + level * 0.6).toFixed(3)})`;
+        // Pitch shifts lightness so low/high still read without hue.
+        const light = 45 + Math.max(-24, Math.min(24, mark.pitch));
+        ctx.strokeStyle = `hsla(0, 0%, ${light}%, ${(0.15 + level * 0.6).toFixed(3)})`;
         const half = level * height * 0.42;
         ctx.beginPath();
         ctx.moveTo(x, mid - half);

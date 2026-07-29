@@ -16,7 +16,11 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
   const [selectedId, setSelectedId] = useState(DEFAULT_PRESET_ID);
   const [presets, setPresets] = useState<PatchPreset[]>(() => listPresets());
   const [status, setStatus] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const loadPreset = useGraphStore((state) => state.loadPreset);
+  const exportPatch = useGraphStore((state) => state.exportPatch);
+  const importPatch = useGraphStore((state) => state.importPatch);
+  const resetPatch = useGraphStore((state) => state.resetPatch);
   const titleId = useId();
   const listId = useId();
   const onCloseRef = useRef(onClose);
@@ -140,55 +144,111 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
           {status ? <p className="modal__status">{status}</p> : null}
         </div>
 
-        <footer className="modal__footer">
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              const suggested = `Patch ${new Date().toLocaleString()}`;
-              const label = window.prompt("Name for this preset:", suggested);
-              if (label === null) return;
-              const { nodes, edges, width, height } = useGraphStore.getState();
-              // A preset is a patch, so it carries the animation too.
-              const id = addUserPreset(
-                label,
-                serializePatch(nodes, edges, width, height, currentTimeline()),
-              );
-              refresh();
-              setSelectedId(id);
-              setStatus(`Saved “${label.trim() || "Untitled"}”`);
-              appLog("ok", "preset", `saved “${label.trim() || "Untitled"}”`);
-            }}
-          >
-            Add current
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={savedCount === 0}
-            title="Download all saved (non-builtin) presets as JSON"
-            onClick={() => {
-              const count = downloadUserPresets();
-              setStatus(`Exported ${count} saved preset${count === 1 ? "" : "s"}`);
-              appLog("ok", "preset", `exported ${count} saved presets`);
-            }}
-          >
-            Export saved
-          </button>
-          <div className="modal__footer-spacer" />
-          <button type="button" className="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="button button--accent"
-            disabled={!selected}
-            onClick={() => {
-              if (selected) applyLoad(selected);
-            }}
-          >
-            Load
-          </button>
+        <footer className="modal__footer modal__footer--stack">
+          <div className="modal__footer-row">
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                exportPatch();
+                setStatus("Exported current patch");
+                appLog("ok", "patch", "exported patch JSON");
+              }}
+              title="Download current patch JSON"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              className="button"
+              onClick={() => fileRef.current?.click()}
+              title="Load patch from file"
+            >
+              Import
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                const error = await importPatch(file);
+                event.target.value = "";
+                if (error) {
+                  setStatus(error);
+                  return;
+                }
+                setStatus(`Imported “${file.name}”`);
+                onClose();
+              }}
+            />
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                if (window.confirm("Reset patch to the starter? Current patch will be lost.")) {
+                  resetPatch();
+                  onClose();
+                }
+              }}
+              title="Restore starter patch"
+            >
+              Reset
+            </button>
+            <div className="modal__footer-spacer" />
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                const suggested = `Patch ${new Date().toLocaleString()}`;
+                const label = window.prompt("Name for this preset:", suggested);
+                if (label === null) return;
+                const { nodes, edges, width, height } = useGraphStore.getState();
+                // A preset is a patch, so it carries the animation too.
+                const id = addUserPreset(
+                  label,
+                  serializePatch(nodes, edges, width, height, currentTimeline()),
+                );
+                refresh();
+                setSelectedId(id);
+                setStatus(`Saved “${label.trim() || "Untitled"}”`);
+                appLog("ok", "preset", `saved “${label.trim() || "Untitled"}”`);
+              }}
+            >
+              Add current
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={savedCount === 0}
+              title="Download all saved (non-builtin) presets as JSON"
+              onClick={() => {
+                const count = downloadUserPresets();
+                setStatus(`Exported ${count} saved preset${count === 1 ? "" : "s"}`);
+                appLog("ok", "preset", `exported ${count} saved presets`);
+              }}
+            >
+              Export saved
+            </button>
+          </div>
+          <div className="modal__footer-row">
+            <div className="modal__footer-spacer" />
+            <button type="button" className="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button button--accent"
+              disabled={!selected}
+              onClick={() => {
+                if (selected) applyLoad(selected);
+              }}
+            >
+              Load
+            </button>
+          </div>
         </footer>
       </div>
     </div>

@@ -8,10 +8,10 @@ import { InfoRows, MediaInfoPanel } from "./MediaInfoPanel";
 import { LevelMeters } from "./LevelMeters";
 
 const STATUS_DOT: Record<string, string> = {
-  idle: "#6b7280",
-  loading: "#ffd166",
-  ready: "#7fe3c0",
-  error: "#ff5c7a",
+  idle: "#666666",
+  loading: "#bbbbbb",
+  ready: "#ffffff",
+  error: "#000000",
 };
 
 /** One box in the editor: title bar, typed ports, live status / bypass dot. */

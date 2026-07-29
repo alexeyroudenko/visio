@@ -109,22 +109,22 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  source: "#6b8afd",
-  tracking: "#3d8f6e",
-  draw: "#d9822b",
-  fx: "#8b74e8",
-  audio: "#2fa4a0",
-  output: "#d64545",
+  source: "#2a2a2a",
+  tracking: "#3a3a3a",
+  draw: "#4a4a4a",
+  fx: "#5a5a5a",
+  audio: "#333333",
+  output: "#111111",
 };
 
 export const PORT_COLORS: Record<string, string> = {
-  texture: "#6b8afd",
-  frame: "#7d9aff",
-  landmarks: "#2d6a4f",
-  points: "#e67e22",
-  boxes: "#e74c3c",
-  circles: "#6b8afd",
-  lines: "#9a9cab",
-  number: "#6b6d7a",
-  audio: "#2fa4a0",
+  texture: "#ffffff",
+  frame: "#e0e0e0",
+  landmarks: "#c8c8c8",
+  points: "#b0b0b0",
+  boxes: "#989898",
+  circles: "#ffffff",
+  lines: "#808080",
+  number: "#666666",
+  audio: "#d0d0d0",
 };

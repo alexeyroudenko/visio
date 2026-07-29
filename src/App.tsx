@@ -32,10 +32,22 @@ const RIGHT_WIDTH_KEY = "visio.rightWidth";
 const SIDE_MIN = 240;
 const SIDE_MAX = 720;
 
-/** True for ~9∶16 output (e.g. 1080×1920) — switches the shell into vertical layout. */
-function isVerticalAspect(width: number, height: number): boolean {
-  if (!(width > 0 && height > width)) return false;
-  return Math.abs(width / height - 9 / 16) < 0.05;
+/** True when the browser window is portrait — switches the shell into vertical layout. */
+function isPortraitWindow(winW: number, winH: number): boolean {
+  return winH > winW;
+}
+
+function usePortraitWindow(): boolean {
+  const [portrait, setPortrait] = useState(
+    () => typeof window !== "undefined" && isPortraitWindow(window.innerWidth, window.innerHeight),
+  );
+  useEffect(() => {
+    const sync = () => setPortrait(isPortraitWindow(window.innerWidth, window.innerHeight));
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+  return portrait;
 }
 
 function loadWidth(key: string, fallback: number): number {
@@ -169,11 +181,11 @@ function GraphCanvas({
       deleteKeyCode={null}
       fitView
       proOptions={{ hideAttribution: false }}
-      defaultEdgeOptions={{ animated: true, style: { stroke: "#6b8afd", strokeWidth: 1.5 } }}
+      defaultEdgeOptions={{ animated: true, style: { stroke: "#ffffff", strokeWidth: 1.5 } }}
       className={vertical ? "react-flow--vertical" : undefined}
     >
       {vertical ? null : (
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2e2e2e" />
       )}
       <Controls />
     </ReactFlow>
@@ -184,7 +196,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
-  const vertical = isVerticalAspect(width, height);
+  const vertical = usePortraitWindow();
   const { engineRef, error, paused, togglePause } = useEngine(
     canvasRef,
     vertical ? "vertical" : "horizontal",
@@ -285,7 +297,7 @@ export default function App() {
               </div>
               <span className="editor__backdrop-caption">
                 {mediaStem ? `${mediaStem} · ` : null}
-                vertical · {width}×{height}
+                window · {width}×{height}
               </span>
             </div>
           ) : null}

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
 import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
@@ -33,8 +33,6 @@ export function Toolbar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [presetsOpen, setPresetsOpen] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
   const fps = useEngineStatsStore((state) => state.fps);
   const frameMs = useEngineStatsStore((state) => state.frameMs);
   const nodeCount = useEngineStatsStore((state) => state.nodeCount);
@@ -43,9 +41,6 @@ export function Toolbar({
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
   const setResolution = useGraphStore((state) => state.setResolution);
-  const exportPatch = useGraphStore((state) => state.exportPatch);
-  const importPatch = useGraphStore((state) => state.importPatch);
-  const resetPatch = useGraphStore((state) => state.resetPatch);
   const closePresets = useCallback(() => setPresetsOpen(false), []);
 
   return (
@@ -95,7 +90,7 @@ export function Toolbar({
           type="button"
           className="button"
           onClick={() => setPresetsOpen(true)}
-          title="Load a preset patch"
+          title="Load a preset patch · export / import / reset"
         >
           Presets
         </button>
@@ -116,45 +111,6 @@ export function Toolbar({
             </option>
           ))}
         </select>
-
-        <button type="button" className="button" onClick={exportPatch} title="Download patch JSON">
-          Export
-        </button>
-
-        <button
-          type="button"
-          className="button"
-          onClick={() => fileRef.current?.click()}
-          title="Load patch from file"
-        >
-          Import
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json"
-          hidden
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            if (!file) return;
-            setImportError(await importPatch(file));
-            // Reset so picking the same file twice fires change again.
-            event.target.value = "";
-          }}
-        />
-
-        <button
-          type="button"
-          className="button"
-          onClick={() => {
-            if (window.confirm("Reset patch to the starter? Current patch will be lost.")) {
-              resetPatch();
-            }
-          }}
-          title="Restore starter patch"
-        >
-          Reset
-        </button>
 
         <button
           type="button"
@@ -191,15 +147,11 @@ export function Toolbar({
         </button>
 
         <span className="toolbar__stats">
-          {importError ? (
-            <em className="toolbar__error">{importError}</em>
-          ) : rendering ? (
-            `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
-          ) : paused ? (
-            "paused · resources stopped"
-          ) : (
-            `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`
-          )}
+          {rendering
+            ? `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
+            : paused
+              ? "paused · resources stopped"
+              : `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`}
         </span>
       </div>
 
