@@ -100,6 +100,9 @@ interface GridState {
  * The `rects` output: this frame's leaf cells, normalized, each carrying the id
  * it kept from previous frames. Consumers that react to a rectangle appearing
  * (Granular) key off `id`; `label` stays cosmetic and follows draw order.
+ *
+ * `score` marks the glitch/smear: 1 = this cell got the effect this frame,
+ * 0 = outline-only (or a held ghost). Draw Rects uses that as the white mask.
  */
 function trackRects(
   state: GridState,
@@ -107,6 +110,7 @@ function trackRects(
   width: number,
   height: number,
   params: ParamValues,
+  effectFlags: readonly boolean[],
 ): BoxesValue {
   const tracked = state.tracker.update(
     cells.map((cell) => ({
@@ -128,7 +132,8 @@ function trackRects(
       y: rect.y,
       w: rect.w,
       h: rect.h,
-      score: 1,
+      // Current cells line up with `cells` / `effectFlags`; held ghosts trail after.
+      score: index < effectFlags.length && effectFlags[index] ? 1 : 0,
       label: `${labelText} ${index + 1}`,
       id: rect.id,
     })),
@@ -534,7 +539,7 @@ export const featuresGridNode = defineNode<GridState>({
     // With no points there is nothing to split, but the tracker still has to
     // tick — that is how held rectangles expire and their grains fade out.
     if (!data || data.points.length === 0) {
-      return { out: target, rects: trackRects(state, [], width, height, params) };
+      return { out: target, rects: trackRects(state, [], width, height, params, []) };
     }
 
     const minSize = Math.max(8, paramNumber(params, "minSize", 64));
@@ -569,9 +574,6 @@ export const featuresGridNode = defineNode<GridState>({
       }
     }
 
-    const rects = trackRects(state, cells, width, height, params);
-    if (cells.length === 0) return { out: target, rects };
-
     // Area window is relative to the largest cell this frame (0 = empty,
     // 1 = that largest cell). Then Effect cell fraction picks among survivors:
     // 1 → every cell in the band, <1 → seeded subset.
@@ -583,7 +585,9 @@ export const featuresGridNode = defineNode<GridState>({
       effectMinArea = effectMaxArea;
       effectMaxArea = swap;
     }
-    if (effectChance > 0 && isRenderTarget(background)) {
+
+    const effectFlags = new Array<boolean>(cells.length).fill(false);
+    if (effectChance > 0 && isRenderTarget(background) && cells.length > 0) {
       let largest = 0;
       for (const cell of cells) largest = Math.max(largest, cell.w * cell.h);
       largest = Math.max(1, largest);
@@ -598,9 +602,13 @@ export const featuresGridNode = defineNode<GridState>({
           const roll = mulberry32(seed + (i + 1) * 374761 + 17 * 9973)();
           if (roll >= effectChance) continue;
         }
+        effectFlags[i] = true;
         smearCell(ctx, background, target, cell);
       }
     }
+
+    const rects = trackRects(state, cells, width, height, params, effectFlags);
+    if (cells.length === 0) return { out: target, rects };
 
     const color = paramString(params, "color", "#f5f0e6");
     const stroke = paramNumber(params, "stroke", 1);
