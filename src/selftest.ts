@@ -26,7 +26,10 @@ import {
   waveAt,
 } from "./lib/modulators";
 import { defineNode } from "./nodes/defineNode";
+import { cutoffForScale, rectScale, sliceLoop } from "./nodes/audio/granular";
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
+import { fbm3 } from "./nodes/shared/noise";
+import { RectTracker } from "./nodes/shared/rectTracker";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { BUILTIN_PRESETS } from "./presets";
 import { parsePatch, serializePatch } from "./store/persistence";
@@ -660,6 +663,191 @@ async function run(): Promise<void> {
     `value=${smearLeft} (cell centre x=80 → ~64)`,
   );
 
+  // The `rects` port is what drives Granular, so it has to carry the same cells
+  // the node just drew. Painting them through Draw Boxes proves the wire.
+  engine.setGraph(
+    [
+      { id: "pts", type: "test.points", params: {} },
+      {
+        id: "grid",
+        type: "draw.featuresGrid",
+        params: {
+          ...defaultParams("draw.featuresGrid"),
+          maxDepth: 4,
+          minSize: 40,
+          stroke: 1,
+          labels: false,
+          opacity: 0,
+        },
+      },
+      {
+        id: "dbx",
+        type: "draw.boxes",
+        params: {
+          ...defaultParams("draw.boxes"),
+          color: "#00ff00",
+          width: 2,
+          centers: false,
+          scoreFade: false,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "pts", sourceHandle: "out", target: "grid", targetHandle: "points" },
+      { id: "b", source: "grid", sourceHandle: "rects", target: "dbx", targetHandle: "boxes" },
+      { id: "c", source: "dbx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+
+  const rectRow = new Uint8Array(WIDTH * 4);
+  engine.gl.bindFramebuffer(engine.gl.FRAMEBUFFER, engine.displayTarget!.framebuffer);
+  engine.gl.readPixels(
+    0,
+    Math.round(HEIGHT / 2),
+    WIDTH,
+    1,
+    engine.gl.RGBA,
+    engine.gl.UNSIGNED_BYTE,
+    rectRow,
+  );
+  let strokedColumns = 0;
+  for (let x = 0; x < WIDTH; x += 1) {
+    if (rectRow[x * 4 + 1]! > 90) strokedColumns += 1;
+  }
+  // Both frame edges at least, two pixels of stroke each.
+  check(
+    "features grid exports its cells as rects",
+    strokedColumns >= 4,
+    `${strokedColumns} stroked columns across the middle row`,
+  );
+
+  // --- 4c-bis. points noise -------------------------------------------------
+  // Whole-frame fingerprint: enough to tell "the cloud moved" from "it did not"
+  // without pinning down where any individual point landed.
+  const frameSignature = (): number => {
+    const gl = engine.gl;
+    const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, engine.displayTarget!.framebuffer);
+    gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    let hash = 0;
+    for (let i = 0; i < pixels.length; i += 4) hash = (hash * 31 + pixels[i]!) | 0;
+    return hash;
+  };
+
+  const noiseGraph = (animate: boolean) => {
+    engine.setGraph(
+      [
+        {
+          id: "pn",
+          type: "generate.pointsNoise",
+          params: {
+            ...defaultParams("generate.pointsNoise"),
+            count: 120,
+            animate,
+            speed: 2,
+            amount: 0.3,
+          },
+        },
+        {
+          id: "dp",
+          type: "draw.points",
+          params: { ...defaultParams("draw.points"), color: "#ffffff", linkRadius: 0 },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "pn", sourceHandle: "out", target: "dp", targetHandle: "points" },
+        { id: "b", source: "dp", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+  };
+
+  noiseGraph(true);
+  engine.tick();
+  const movedA = frameSignature();
+  engine.tick();
+  const movedB = frameSignature();
+  check(
+    "animated noise points move between frames",
+    movedA !== movedB && movedA !== 0,
+    `${movedA} → ${movedB}`,
+  );
+
+  noiseGraph(false);
+  engine.tick();
+  const frozenA = frameSignature();
+  engine.tick();
+  const frozenB = frameSignature();
+  // A blank frame hashes to 0, which would pass the equality on its own.
+  check(
+    "Animate off freezes the field",
+    frozenA === frozenB && frozenA !== 0,
+    `${frozenA} → ${frozenB}`,
+  );
+
+  // With points wired in it displaces those instead of generating its own: three
+  // test points in, three shaken points out, each within Displacement of home.
+  engine.setGraph(
+    [
+      { id: "pts", type: "test.points", params: {} },
+      {
+        id: "pn",
+        type: "generate.pointsNoise",
+        params: {
+          ...defaultParams("generate.pointsNoise"),
+          count: 500,
+          animate: false,
+          amount: 0.05,
+          sizeNoise: 0,
+          size: 1,
+        },
+      },
+      {
+        id: "dp",
+        type: "draw.points",
+        params: { ...defaultParams("draw.points"), color: "#ffffff", linkRadius: 0 },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "pts", sourceHandle: "out", target: "pn", targetHandle: "points" },
+      { id: "b", source: "pn", sourceHandle: "out", target: "dp", targetHandle: "points" },
+      { id: "c", source: "dp", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+
+  // test.points sits at x = 0.2 … 0.75; Count is deliberately 500, so falling
+  // back to the generated cloud would both flood the frame and span its width.
+  const lit = (() => {
+    const gl = engine.gl;
+    const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, engine.displayTarget!.framebuffer);
+    gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    let count = 0;
+    let minX = WIDTH;
+    let maxX = 0;
+    for (let y = 0; y < HEIGHT; y += 1) {
+      for (let x = 0; x < WIDTH; x += 1) {
+        if (pixels[(y * WIDTH + x) * 4]! <= 40) continue;
+        count += 1;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+      }
+    }
+    return { count, minX, maxX };
+  })();
+  check(
+    "wired points drive the noise instead of the generated cloud",
+    lit.count > 0 &&
+      lit.count < WIDTH * HEIGHT * 0.03 &&
+      lit.minX > WIDTH * 0.1 &&
+      lit.maxX < WIDTH * 0.88,
+    `${lit.count} lit pixels, x ${lit.minX}..${lit.maxX} of ${WIDTH}`,
+  );
+
   // --- 4d. glitch effects ported from glitcher -----------------------------
   const readRow = (y: number): number[] => {
     const gl = engine.gl;
@@ -1231,6 +1419,112 @@ async function run(): Promise<void> {
     "resampling keeps transients",
     squeezed.length === 16 && keptPeak > 0.9,
     `columns=${squeezed.length / 2} peak=${keptPeak.toFixed(3)}`,
+  );
+
+  // --- 6c-bis. noise field --------------------------------------------------
+  // Points Noise maps the field straight onto normalized coordinates, so a
+  // value outside 0..1 would push points off the frame.
+  let noiseMin = 1;
+  let noiseMax = 0;
+  for (let i = 0; i < 400; i += 1) {
+    const v = fbm3(i * 0.37, i * 0.11, i * 0.03, 11, 3);
+    noiseMin = Math.min(noiseMin, v);
+    noiseMax = Math.max(noiseMax, v);
+  }
+  const repeat = fbm3(1.5, 2.5, 0.25, 11, 3);
+  check(
+    "fbm stays in 0..1 and is reproducible",
+    noiseMin >= 0 &&
+      noiseMax <= 1 &&
+      noiseMax - noiseMin > 0.3 &&
+      fbm3(1.5, 2.5, 0.25, 11, 3) === repeat,
+    `range ${noiseMin.toFixed(3)}..${noiseMax.toFixed(3)}`,
+  );
+
+  // --- 6d. rectangle identity ----------------------------------------------
+  // Granular keys a looping voice off the rectangle id, so "the same cell, one
+  // frame later" must keep it — otherwise every frame retriggers every grain.
+  const tracker = new RectTracker();
+  const trackOptions = { minIou: 0.35, hold: 2 };
+  const firstSeen = tracker.update(
+    [
+      { x: 0, y: 0, w: 0.4, h: 0.4 },
+      { x: 0.5, y: 0.5, w: 0.4, h: 0.4 },
+    ],
+    trackOptions,
+  );
+  const nudged = tracker.update(
+    [
+      { x: 0.01, y: 0.01, w: 0.4, h: 0.4 },
+      { x: 0.52, y: 0.5, w: 0.4, h: 0.4 },
+    ],
+    trackOptions,
+  );
+  check(
+    "moving rectangles keep their ids",
+    nudged.length === 2 &&
+      nudged[0]!.id === firstSeen[0]!.id &&
+      nudged[1]!.id === firstSeen[1]!.id,
+    `${firstSeen.map((r) => r.id).join(",")} → ${nudged.map((r) => r.id).join(",")}`,
+  );
+
+  const stayed = [{ x: 0.01, y: 0.01, w: 0.4, h: 0.4 }];
+  const held = tracker.update(stayed, trackOptions);
+  check(
+    "a rectangle that blinks out is held, not dropped",
+    held.length === 2 && held[1]!.id === firstSeen[1]!.id && held[1]!.missing === 1,
+    `${held.length} tracked, missing=${held[1]?.missing}`,
+  );
+
+  tracker.update(stayed, trackOptions);
+  const expired = tracker.update(stayed, trackOptions);
+  check(
+    "the hold expires after its frames run out",
+    expired.length === 1,
+    `${expired.length} tracked after 3 missed frames (hold=2)`,
+  );
+
+  const appeared = tracker.update(
+    [{ x: 0.01, y: 0.01, w: 0.4, h: 0.4 }, { x: 0.5, y: 0.5, w: 0.1, h: 0.1 }],
+    trackOptions,
+  );
+  check(
+    "a genuinely new rectangle gets a fresh id",
+    appeared.length === 2 && appeared[1]!.id > firstSeen[1]!.id,
+    `new id ${appeared[1]?.id} vs previous max ${firstSeen[1]?.id}`,
+  );
+
+  // --- 6e. granular mapping -------------------------------------------------
+  const cutoffMap = { sizeMin: 0.05, sizeMax: 0.6, cutoffLow: 300, cutoffHigh: 9000 };
+  const tinyCut = cutoffForScale(rectScale(0.05, 0.05), cutoffMap);
+  const midCut = cutoffForScale(rectScale(0.3, 0.3), cutoffMap);
+  const hugeCut = cutoffForScale(rectScale(0.8, 0.8), cutoffMap);
+  check(
+    "smaller rectangles open the filter higher",
+    tinyCut > midCut &&
+      midCut > hugeCut &&
+      Math.abs(tinyCut - 9000) < 1 &&
+      Math.abs(hugeCut - 300) < 1,
+    `${Math.round(tinyCut)} / ${Math.round(midCut)} / ${Math.round(hugeCut)} Hz`,
+  );
+
+  // The grain loops forever, so the seam has to be continuous in the source —
+  // a step there is an audible click on every repeat. 137 Hz over a 0.2 s grain
+  // does not land on a whole number of cycles, so a plain cut would show one.
+  const grainCtx = new OfflineAudioContext(1, 8000, 8000);
+  const tone = grainCtx.createBuffer(1, 8000, 8000);
+  const toneData = tone.getChannelData(0);
+  for (let i = 0; i < toneData.length; i += 1) {
+    toneData[i] = Math.sin((i / 8000) * Math.PI * 2 * 137);
+  }
+  const grain = sliceLoop(grainCtx, tone, 0.1, 0.2, 0.02);
+  const grainData = grain?.getChannelData(0) ?? new Float32Array(1);
+  const seam = Math.abs(grainData[grainData.length - 1]! - grainData[0]!);
+  const naiveSeam = Math.abs(toneData[800 + 1599]! - toneData[800]!);
+  check(
+    "a grain loops without a step at the seam",
+    grain?.length === 1600 && seam < 0.15 && naiveSeam > 1,
+    `crossfaded=${seam.toFixed(3)} vs plain cut=${naiveSeam.toFixed(3)}`,
   );
 
   // --- 7. modulators --------------------------------------------------------

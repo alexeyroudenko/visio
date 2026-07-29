@@ -9,7 +9,8 @@ export type PortType =
   | "points"
   | "circles"
   | "lines"
-  | "number";
+  | "number"
+  | "audio";
 
 /** Raw media frame — what MediaPipe / CPU trackers consume. */
 export interface FrameValue {
@@ -67,6 +68,23 @@ export interface LinesValue {
   lines: { x1: number; y1: number; x2: number; y2: number; score: number }[];
 }
 
+/**
+ * A playing audio source: where to get the samples and where its playhead is.
+ * Decoding is left to whoever consumes it — a Media node would otherwise pull
+ * the whole file through `decodeAudioData` even with nothing wired up.
+ */
+export interface AudioValue {
+  /** blob:/http: URL of the media — the identity key for the decode cache. */
+  url: string;
+  /** Samples, when the producer already has them. Otherwise decode from `url`. */
+  buffer: AudioBuffer | null;
+  /** Playhead inside the source, seconds. */
+  timeSec: number;
+  /** 0 when the element has not reported a duration yet. */
+  durationSec: number;
+  playing: boolean;
+}
+
 export type PortValue =
   | FrameValue
   | RenderTarget
@@ -75,6 +93,7 @@ export type PortValue =
   | PointsValue
   | CirclesValue
   | LinesValue
+  | AudioValue
   | number
   | null;
 
@@ -96,7 +115,7 @@ export type ParamSpec =
 
 export type ParamValues = Record<string, unknown>;
 
-export type NodeCategory = "source" | "tracking" | "draw" | "fx" | "output";
+export type NodeCategory = "source" | "tracking" | "draw" | "fx" | "audio" | "output";
 
 /** Per-node scratch: GL buffers, MediaPipe instances, accumulators. */
 export interface NodeRuntime<S = unknown> {

@@ -1,11 +1,18 @@
 import { getProgram } from "../../engine/gl/program";
 import { bindTexture, drawFullscreen, FULLSCREEN_VS } from "../../engine/gl/quad";
 import { isRenderTarget, type RenderTarget } from "../../engine/gl/rt";
-import type { EngineContext, FrameValue, PointsValue } from "../../engine/types";
+import type {
+  BoxesValue,
+  EngineContext,
+  FrameValue,
+  ParamValues,
+  PointsValue,
+} from "../../engine/types";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { CanvasOverlay } from "../shared/canvasOverlay";
 import { beginDraw } from "../shared/drawTarget";
 import { PixelBuffer } from "../shared/pixelBuffer";
+import { RectTracker } from "../shared/rectTracker";
 import { mulberry32 } from "../shared/rng";
 
 /**
@@ -85,6 +92,47 @@ interface GridState {
   maskFrame: number;
   maskW: number;
   maskH: number;
+  /** Gives the `rects` output stable ids across frames. */
+  tracker: RectTracker;
+}
+
+/**
+ * The `rects` output: this frame's leaf cells, normalized, each carrying the id
+ * it kept from previous frames. Consumers that react to a rectangle appearing
+ * (Granular) key off `id`; `label` stays cosmetic and follows draw order.
+ */
+function trackRects(
+  state: GridState,
+  cells: readonly Cell[],
+  width: number,
+  height: number,
+  params: ParamValues,
+): BoxesValue {
+  const tracked = state.tracker.update(
+    cells.map((cell) => ({
+      x: cell.x / width,
+      y: cell.y / height,
+      w: cell.w / width,
+      h: cell.h / height,
+    })),
+    {
+      minIou: paramNumber(params, "rectMatch", 0.35),
+      hold: paramNumber(params, "rectHold", 3),
+    },
+  );
+
+  const labelText = paramString(params, "labelText", "Element");
+  return {
+    boxes: tracked.map((rect, index) => ({
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      score: 1,
+      label: `${labelText} ${index + 1}`,
+      id: rect.id,
+    })),
+  };
 }
 
 function colorDistance(
@@ -380,7 +428,10 @@ export const featuresGridNode = defineNode<GridState>({
     { id: "frame", label: "frame", type: "frame" },
     { id: "points", label: "points", type: "points" },
   ],
-  outputs: [{ id: "out", label: "texture", type: "texture" }],
+  outputs: [
+    { id: "out", label: "texture", type: "texture" },
+    { id: "rects", label: "rects", type: "boxes" },
+  ],
   params: [
     { key: "color", label: "Color", type: "color", default: "#f5f0e6" },
     { key: "maxDepth", label: "Depth", type: "range", min: 1, max: 8, step: 1, default: 5 },
@@ -405,7 +456,7 @@ export const featuresGridNode = defineNode<GridState>({
     { key: "labels", label: "Labels", type: "toggle", default: true },
     { key: "labelSize", label: "Font size", type: "range", min: 8, max: 40, step: 1, default: 13 },
     { key: "labelText", label: "Text", type: "text", default: "Element" },
-    { key: "effectChance", label: "Effect cell fraction", type: "range", min: 0, max: 1, step: 0.05, default: 0 },
+    { key: "effectChance", label: "Effect cell fraction", type: "range", min: 0, max: 1, step: 0.05, default: 0.5 },
     {
       key: "effectMinArea",
       label: "Effect min area",
@@ -425,6 +476,24 @@ export const featuresGridNode = defineNode<GridState>({
       default: 1,
     },
     { key: "effectSeed", label: "Effect seed", type: "range", min: 0, max: 9999, step: 1, default: 42 },
+    {
+      key: "rectMatch",
+      label: "Rect match (IoU)",
+      type: "range",
+      min: 0,
+      max: 0.95,
+      step: 0.05,
+      default: 0.35,
+    },
+    {
+      key: "rectHold",
+      label: "Rect hold (frames)",
+      type: "range",
+      min: 0,
+      max: 30,
+      step: 1,
+      default: 3,
+    },
   ],
   createState() {
     const maskCanvas = document.createElement("canvas");
@@ -439,6 +508,7 @@ export const featuresGridNode = defineNode<GridState>({
       maskFrame: -1,
       maskW: 0,
       maskH: 0,
+      tracker: new RectTracker(),
     };
   },
   disposeState(state) {
@@ -447,12 +517,10 @@ export const featuresGridNode = defineNode<GridState>({
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const target = beginDraw(ctx, nodeId, inputs.bg ?? null);
-    const data = inputs.points as PointsValue | null;
-    if (!data || data.points.length === 0) return { out: target };
-
     const state = runtime.state;
     // HMR may keep an older createState() shape without buffer/mask scratch.
     if (!state.buffer) state.buffer = new PixelBuffer();
+    if (!state.tracker) state.tracker = new RectTracker();
     if (!state.maskCanvas) {
       state.maskCanvas = document.createElement("canvas");
       state.maskCanvas.width = 1;
@@ -462,6 +530,13 @@ export const featuresGridNode = defineNode<GridState>({
 
     const width = target.width;
     const height = target.height;
+    const data = inputs.points as PointsValue | null;
+    // With no points there is nothing to split, but the tracker still has to
+    // tick — that is how held rectangles expire and their grains fade out.
+    if (!data || data.points.length === 0) {
+      return { out: target, rects: trackRects(state, [], width, height, params) };
+    }
+
     const minSize = Math.max(8, paramNumber(params, "minSize", 64));
     let cells = buildGrid(
       data.points.map((point) => ({ x: point.x * width, y: point.y * height })),
@@ -494,7 +569,8 @@ export const featuresGridNode = defineNode<GridState>({
       }
     }
 
-    if (cells.length === 0) return { out: target };
+    const rects = trackRects(state, cells, width, height, params);
+    if (cells.length === 0) return { out: target, rects };
 
     // Area window is relative to the largest cell this frame (0 = empty,
     // 1 = that largest cell). Then Effect cell fraction picks among survivors:
@@ -555,6 +631,6 @@ export const featuresGridNode = defineNode<GridState>({
     });
 
     state.overlay.commit(ctx, target);
-    return { out: target };
+    return { out: target, rects };
   },
 });

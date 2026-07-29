@@ -494,6 +494,140 @@ function cornersFeaturesGrid(): SerializedPatch {
   };
 }
 
+/** Points Noise → Features Grid: a moving grid with no tracker in the patch. */
+function noiseGrid(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      IMAGE_SOURCE,
+      {
+        id: "pointsNoise-1",
+        type: "generate.pointsNoise",
+        position: { x: 320, y: 20 },
+        params: {
+          count: 120,
+          layout: "random",
+          frequency: 2.5,
+          octaves: 2,
+          amount: 0.25,
+          animate: true,
+          speed: 0.35,
+          driftX: 0.02,
+          driftY: 0,
+          edges: "wrap",
+          size: 0.7,
+          sizeNoise: 0.4,
+          seed: 11,
+        },
+      },
+      {
+        id: "featuresGrid-1",
+        type: "draw.featuresGrid",
+        position: { x: 660, y: 140 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 6,
+          minSize: 72,
+          stroke: 1,
+          opacity: 1,
+          labels: true,
+          labelSize: 11,
+          labelText: "Element",
+          effectChance: 1,
+          effectMinArea: 0,
+          effectMaxArea: 0.2,
+          effectSeed: 5,
+        },
+      },
+      { ...SCREEN, position: { x: 1000, y: 160 } },
+    ],
+    edges: [
+      { id: "e-bg", source: "image-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "bg" },
+      { id: "e-pts", source: "pointsNoise-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "points" },
+      { id: "e-out", source: "featuresGrid-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
+/**
+ * Video → Features Grid → Granular: the grid's cells drive the sound.
+ *
+ * The Media node starts empty on purpose — drop a video with an audio track on
+ * it and every cell that appears starts looping a grain cut from that track at
+ * the playhead. Media is muted so what you hear is the grains, not the film.
+ */
+function granularGrid(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "video-1",
+        type: "source.media",
+        position: { x: 0, y: 140 },
+        params: { mode: "video", muted: true, mirror: false, fit: "cover" },
+      },
+      {
+        id: "features-1",
+        type: "tracking.features",
+        position: { x: 320, y: 20 },
+        params: { downscale: 3, block: 7, maxCorners: 140, quality: 0.04, minDistance: 22 },
+      },
+      {
+        id: "featuresGrid-1",
+        type: "draw.featuresGrid",
+        position: { x: 660, y: 140 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 6,
+          minSize: 80,
+          stroke: 1,
+          opacity: 1,
+          labels: false,
+          effectChance: 0,
+          // Steadier cells mean steadier voices: a cell has to really go away
+          // before its grain is released.
+          rectMatch: 0.3,
+          rectHold: 6,
+        },
+      },
+      {
+        id: "granular-1",
+        type: "audio.granular",
+        position: { x: 1000, y: 420 },
+        params: {
+          playing: true,
+          master: 0.7,
+          grainMs: 320,
+          crossfadeMs: 40,
+          maxVoices: 8,
+          minScale: 0.04,
+          posMode: "playhead",
+          cutoffLow: 260,
+          cutoffHigh: 9000,
+          sizeMin: 0.06,
+          sizeMax: 0.55,
+          pan: 0.7,
+          attackMs: 120,
+          releaseMs: 400,
+        },
+      },
+      { ...SCREEN, position: { x: 1000, y: 160 } },
+    ],
+    edges: [
+      { id: "e-frame", source: "video-1", sourceHandle: "frame", target: "features-1", targetHandle: "frame" },
+      { id: "e-bg", source: "video-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "bg" },
+      { id: "e-pts", source: "features-1", sourceHandle: "out", target: "featuresGrid-1", targetHandle: "points" },
+      { id: "e-out", source: "featuresGrid-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+      { id: "e-audio", source: "video-1", sourceHandle: "audio", target: "granular-1", targetHandle: "audio" },
+      { id: "e-rects", source: "featuresGrid-1", sourceHandle: "rects", target: "granular-1", targetHandle: "rects" },
+    ],
+  };
+}
+
 /** One image down two paths, recombined — the only shape that exercises Blend. */
 function blendSplit(): SerializedPatch {
   return {
@@ -631,6 +765,20 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
       "Media → Pose → skeleton + Points → Features Grid (effect on small cells)",
     builtin: true,
     build: poseFeaturesGrid,
+  },
+  {
+    id: "noise-grid",
+    label: "Points Noise + Grid",
+    description: "Noise-driven point cloud → Features Grid — animates without a camera",
+    builtin: true,
+    build: noiseGrid,
+  },
+  {
+    id: "granular-grid",
+    label: "Granular Grid",
+    description: "Drop a video: Features Grid cells loop grains of its audio (size → cutoff)",
+    builtin: true,
+    build: granularGrid,
   },
   {
     id: "track-features-points",

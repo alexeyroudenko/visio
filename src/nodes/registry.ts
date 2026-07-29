@@ -8,6 +8,7 @@ import { featuresNode } from "./tracking/features";
 import { houghCirclesNode } from "./tracking/houghCircles";
 import { houghLinesNode } from "./tracking/houghLines";
 import { landmarksToPointsNode } from "./convert/landmarksToPoints";
+import { pointsNoiseNode } from "./generate/pointsNoise";
 import { drawLandmarksNode } from "./draw/landmarks";
 import { drawPointsNode } from "./draw/points";
 import { drawBoxesNode } from "./draw/boxes";
@@ -26,6 +27,7 @@ import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
 import { zoomNode } from "./fx/zoom";
 import { shaderNode } from "./fx/shader";
+import { granularNode } from "./audio/granular";
 import { outputNode } from "./output/output";
 
 declare global {
@@ -45,6 +47,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   houghCirclesNode,
   houghLinesNode,
   landmarksToPointsNode,
+  pointsNoiseNode,
   drawLandmarksNode,
   drawPointsNode,
   drawBoxesNode,
@@ -63,6 +66,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   blockScatterNode,
   zoomNode,
   shaderNode,
+  granularNode,
   outputNode,
 ];
 
@@ -98,6 +102,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   tracking: "Tracking",
   draw: "Draw",
   fx: "FX",
+  audio: "Audio",
   output: "Output",
 };
 
@@ -106,6 +111,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   tracking: "#3d8f6e",
   draw: "#d9822b",
   fx: "#8b74e8",
+  audio: "#2fa4a0",
   output: "#d64545",
 };
 
@@ -118,4 +124,5 @@ export const PORT_COLORS: Record<string, string> = {
   circles: "#6b8afd",
   lines: "#9a9cab",
   number: "#6b6d7a",
+  audio: "#2fa4a0",
 };

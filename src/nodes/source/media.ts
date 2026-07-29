@@ -1,7 +1,13 @@
 import { copyTexture } from "../../engine/gl/quad";
 import type { RenderTarget as RT } from "../../engine/gl/rt";
 import { SourceTexture } from "../../engine/gl/videoTexture";
-import type { EngineContext, FrameValue, NodeRuntime, ParamValues } from "../../engine/types";
+import type {
+  AudioValue,
+  EngineContext,
+  FrameValue,
+  NodeRuntime,
+  ParamValues,
+} from "../../engine/types";
 import { publishMediaInfo } from "../../store/mediaInfoStore";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { fileParam } from "../shared/fileParam";
@@ -158,7 +164,8 @@ function emit(
   state: MediaState,
   target: RT,
   ctx: EngineContext,
-): { out: RT; frame: FrameValue } {
+  audio: AudioValue | null = null,
+): { out: RT; frame: FrameValue; audio: AudioValue | null } {
   state.texture!.upload(state.stage.canvas, state.frameId);
   copyTexture(ctx.gl, state.texture!.texture, target);
   return {
@@ -170,6 +177,24 @@ function emit(
       timestampMs: ctx.timeMs,
       frameId: state.frameId,
     },
+    audio,
+  };
+}
+
+/**
+ * The `audio` port: a pointer to the track plus where its playhead is.
+ * Samples are deliberately left undecoded — pulling a whole file through
+ * `decodeAudioData` for every Media node would cost even with nothing wired up,
+ * so the consumer decodes (once, cached) only when it actually needs them.
+ */
+function audioOut(state: MediaState, video: HTMLVideoElement): AudioValue | null {
+  if (!state.loadedUrl) return null;
+  return {
+    url: state.loadedUrl,
+    buffer: null,
+    timeSec: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+    durationSec: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0,
+    playing: !video.paused,
   };
 }
 
@@ -182,6 +207,7 @@ export const mediaNode = defineNode<MediaState>({
   outputs: [
     { id: "out", label: "texture", type: "texture" },
     { id: "frame", label: "frame", type: "frame" },
+    { id: "audio", label: "audio", type: "audio" },
   ],
   params: [
     {
@@ -555,7 +581,7 @@ function evalVideo(
     mirror,
     zoom,
   });
-  return emit(state, target, ctx);
+  return emit(state, target, ctx, audioOut(state, video));
 }
 
 function evalAudio(
@@ -631,7 +657,7 @@ function evalAudio(
 
   // Silent black frame so the graph still has a texture/frame currency.
   state.stage.draw(video, 0, 0, ctx.width, ctx.height, { mode: "cover", mirror: false });
-  return emit(state, target, ctx);
+  return emit(state, target, ctx, audioOut(state, video));
 }
 
 /** Old patch types → unified Media node. */

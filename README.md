@@ -65,14 +65,15 @@ to be read at module top level and dragged the whole package into the main bundl
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Sources  | Media (camera · image · video · audio)                                                                                           |
-| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), Hough Circles, Hough Lines, Landmarks → Points |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree, **Particles**             |
 | FX       | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**                                                 |
+| Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
 
 
 Ports are typed (`frame`, `texture`, `landmarks`, `points`, `boxes`, `circles`,
-`lines`) — the editor will not connect incompatible ones.
+`lines`, `audio`) — the editor will not connect incompatible ones.
 
 CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
 Sobel run once per node, with no allocations per frame. Each has an
@@ -113,6 +114,33 @@ at 1, 8.9 ms at 4, 4.4 ms at 8.
 picked by a seeded LCG, a 1 px-wide column from the center is stretched across the
 whole cell. Each such cell is a separate pass with `gl.viewport` set to its
 rectangle, so the shader does not iterate cells per pixel.
+
+The **`rects` output** hands the same leaf cells on as normalized `boxes`, which
+is what drives Granular (and plugs into Draw Boxes unchanged). The grid is rebuilt
+from scratch every frame, so identity is reconstructed: `rectTracker.ts` matches
+this frame's cells against the last by intersection-over-union (`Rect match`) and
+carries the id over. `Rect hold` keeps a cell that blinked out reporting its last
+box for a few frames — without it a single dropped tracking point would retrigger
+every grain hanging off the grid.
+
+**Points Noise** — noise displacement for a point cloud, from either end. Wire
+`points` in and it shakes those (landmarks, corners), sampling a 3D value-noise
+field at each point's own position so neighbours move together instead of
+scattering; wire nothing and it generates the cloud itself from a fixed home per
+point (random / grid / ring), which is enough to build and tune a patch before a
+tracker is in it at all. `Count` and `Layout` only apply to that fallback, and a
+connected-but-empty input still counts as driven from outside — a tracker that
+loses everything for a frame must not make 160 synthetic points appear.
+
+`Frequency` sets the scale of the field, `Displacement` how far it pushes,
+`Speed` + `Animate` walk it (off freezes in place rather than snapping to
+wall-clock time), and `Point size` + `Size noise` write into `score` — scaled by
+the incoming score when there is one, so a shaky detection stays small. `Drift
+X/Y` necessarily means two things: generated points have no anchor, so their
+homes slide and the cloud flows across the frame; incoming points do, so there
+drift only moves where the field is *sampled* and the noise flows past points
+that stay put. Like Particles, the phase advances by a fixed `1/fps`, so an
+offline render reproduces what playback showed.
 
 **Particles** — emitted from whatever `points` you feed it (landmarks go through
 Landmarks → Points), then pushed around by gravity, drag and an attraction that
@@ -203,6 +231,36 @@ original; above zero the seed is re-rolled over time.
 **Feedback** keeps its accumulator inside (ping-pong of two FBOs), so trails do not
 need a cycle in the graph. For real cycles a node can declare `delayedInputs` —
 those edges are excluded from topo-sort.
+
+### Audio (approach from [granular-video](../granular-video))
+
+**Granular** turns the picture into the score: one rectangle, one looping voice.
+Wire Features Grid `rects` into it and Media `audio` alongside, and every cell
+that appears cuts a grain out of the source at that instant and loops it for as
+long as the cell is on screen. The chain per voice is
+`bufferSource(loop) → lowpass → gain → pan → master → limiter`.
+
+- **Size sets the cutoff.** The rectangle's perceptual size (`√(w·h)`, normalized)
+maps log-wise onto `Cutoff — biggest` … `Cutoff — smallest`, so a small cell is
+bright and a large one is a rumble; the window itself is set by `Size → min/max`.
+The mapping updates live, so a growing cell audibly closes down.
+- **Loops without clicks.** A plain cut repeats with a step at the seam. `sliceLoop`
+reads one extra crossfade's worth past the slice and folds it back over the head
+with an equal-power curve, so the loop point is continuous in the *original*
+material — the selftest measures both (0.09 crossfaded vs 1.45 for a plain cut).
+- **Identity comes from the grid.** Voices are keyed by `box.id`, so a cell that
+merely moves keeps playing instead of retriggering. Boxes from sources without a
+tracker fall back to their slot index.
+- **Decoding is the consumer's job.** The `audio` port carries a URL, a playhead
+and a duration — not samples. A Media node that decoded its whole file eagerly
+would pay for it even with nothing wired up; `lib/audioBuffers.ts` decodes once
+per URL, on demand, and hands out the buffer synchronously afterwards.
+- The shared `AudioContext` (`lib/audioEngine.ts`) starts suspended under the
+autoplay policy — the node reports *click anywhere to start audio* and resumes on
+the next gesture. Pausing the engine releases every voice, since a paused graph
+stops ticking and nothing would ever tell them to stop.
+
+Mute the Media node to hear the grains alone rather than the film under them.
 
 ## Patches and output
 

@@ -12,7 +12,7 @@ const RESOLUTIONS = [
   { label: "1280×720", width: 1280, height: 720 },
 ];
 
-const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "output"];
+const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "audio", "output"];
 
 export function Toolbar({
   recording,
