@@ -224,6 +224,130 @@ function objectsFeedback(): SerializedPatch {
   };
 }
 
+/** Pose → skeleton + landmarks→points → Features Grid (saved from live session). */
+function poseFeaturesGrid(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "camera-1",
+        type: "source.media",
+        position: { x: 0, y: 140 },
+        params: {
+          mode: "image",
+          file: DEFAULT_IMAGE_FILE,
+          mirror: false,
+          fit: "cover",
+        },
+      },
+      {
+        id: "pose-1",
+        type: "tracking.pose",
+        position: { x: 320, y: -10 },
+        params: { confidence: 0.5, interval: 1, model: "lite", numPoses: 1 },
+      },
+      {
+        id: "landmarks-1",
+        type: "draw.landmarks",
+        position: { x: 640, y: 140 },
+        params: {
+          blend: "normal",
+          boneColor: "#7fe3c0",
+          boneWidth: 1,
+          opacity: 0.2,
+          pointColor: "#f5f0e6",
+          pointSize: 0,
+          scoreFade: true,
+        },
+      },
+      {
+        id: "landmarksToPoints-5",
+        type: "convert.landmarksToPoints",
+        position: { x: 630, y: -52 },
+        params: { minScore: 0.2, subject: -1 },
+      },
+      {
+        id: "featuresGrid-6",
+        type: "draw.featuresGrid",
+        position: { x: 878, y: 57 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 8,
+          minSize: 52,
+          stroke: 1,
+          opacity: 1,
+          labels: false,
+          labelSize: 11,
+          labelText: "Element",
+          effectChance: 1,
+          effectMinArea: 0,
+          effectMaxArea: 0.15,
+          effectSeed: 0,
+        },
+      },
+      {
+        id: "screen-1",
+        type: "output.screen",
+        position: { x: 1147, y: 78 },
+        params: { background: "#000000" },
+      },
+    ],
+    edges: [
+      {
+        id: "e-frame",
+        source: "camera-1",
+        sourceHandle: "frame",
+        target: "pose-1",
+        targetHandle: "frame",
+      },
+      {
+        id: "e-bg",
+        source: "camera-1",
+        sourceHandle: "out",
+        target: "landmarks-1",
+        targetHandle: "bg",
+      },
+      {
+        id: "e-data",
+        source: "pose-1",
+        sourceHandle: "out",
+        target: "landmarks-1",
+        targetHandle: "landmarks",
+      },
+      {
+        id: "e-l2p",
+        source: "pose-1",
+        sourceHandle: "out",
+        target: "landmarksToPoints-5",
+        targetHandle: "landmarks",
+      },
+      {
+        id: "e-points",
+        source: "landmarksToPoints-5",
+        sourceHandle: "points",
+        target: "featuresGrid-6",
+        targetHandle: "points",
+      },
+      {
+        id: "e-grid-bg",
+        source: "landmarks-1",
+        sourceHandle: "out",
+        target: "featuresGrid-6",
+        targetHandle: "bg",
+      },
+      {
+        id: "e-out",
+        source: "featuresGrid-6",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
+
 export const DEFAULT_PRESET_ID = "image-slice-shift";
 
 export const BUILTIN_PRESETS: PatchPreset[] = [
@@ -315,6 +439,14 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawId: "featuresGrid-1",
         drawHandle: "points",
       }),
+  },
+  {
+    id: "pose-features-grid",
+    label: "Pose + Features Grid",
+    description:
+      "Media → Pose → skeleton + Points → Features Grid (effect on small cells)",
+    builtin: true,
+    build: poseFeaturesGrid,
   },
   {
     id: "track-features-points",
