@@ -145,6 +145,7 @@ function ParamControl({
                 name: file.name,
                 url: URL.createObjectURL(file),
                 mime: file.type || undefined,
+                sizeBytes: file.size,
               });
             }}
           />

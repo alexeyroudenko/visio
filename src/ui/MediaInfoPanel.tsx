@@ -1,4 +1,5 @@
 import type { MediaInfo } from "../store/mediaInfoStore";
+import { formatBitrate, formatBytes } from "../lib/mediaMeta";
 
 function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -10,13 +11,35 @@ function formatDuration(sec: number): string {
 export function mediaInfoRows(info: MediaInfo): { label: string; value: string }[] {
   const rows: { label: string; value: string }[] = [];
   rows.push({ label: "Mode", value: info.kind });
-  if (info.width > 0 && info.height > 0) {
-    rows.push({ label: "Size", value: `${info.width}×${info.height}` });
-  }
   if (info.name) rows.push({ label: "File", value: info.name });
+  if (info.width > 0 && info.height > 0) {
+    const aspect = info.aspectRatio ? ` · ${info.aspectRatio}` : "";
+    rows.push({ label: "Size", value: `${info.width}×${info.height}${aspect}` });
+  }
+  if (info.container) rows.push({ label: "Container", value: info.container });
   if (info.mime) rows.push({ label: "MIME", value: info.mime });
-  if (info.codec) rows.push({ label: "Codec", value: info.codec });
+  if (info.videoCodec) rows.push({ label: "Video", value: info.videoCodec });
+  if (info.audioCodec) rows.push({ label: "Audio", value: info.audioCodec });
+  // MIME codecs= fallback when the container sniff has not finished yet.
+  if (!info.videoCodec && !info.audioCodec && info.codec) {
+    rows.push({ label: "Codec", value: info.codec });
+  }
+  if (info.sizeBytes != null && info.sizeBytes > 0) {
+    rows.push({ label: "File size", value: formatBytes(info.sizeBytes) });
+  }
+  if (info.bitrateBps != null && info.bitrateBps > 0) {
+    rows.push({ label: "Bitrate", value: `${formatBitrate(info.bitrateBps)} avg` });
+  }
   if (info.fps != null) rows.push({ label: "FPS", value: String(info.fps) });
+  if (info.sampleRate != null) {
+    const ch =
+      info.channels != null
+        ? ` · ${info.channels} ch`
+        : "";
+    rows.push({ label: "Sample rate", value: `${info.sampleRate} Hz${ch}` });
+  } else if (info.channels != null) {
+    rows.push({ label: "Channels", value: String(info.channels) });
+  }
   if (info.durationSec != null) {
     rows.push({ label: "Duration", value: formatDuration(info.durationSec) });
   }

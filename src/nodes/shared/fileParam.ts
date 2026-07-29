@@ -4,6 +4,8 @@ export interface FileParam {
   url: string;
   /** MIME from the File picker when available. */
   mime?: string;
+  /** Byte length from the File picker when available. */
+  sizeBytes?: number;
 }
 
 export function fileParam(params: Record<string, unknown>, key = "file"): FileParam | null {

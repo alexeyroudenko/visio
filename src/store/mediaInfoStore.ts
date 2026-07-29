@@ -10,6 +10,22 @@ export interface MediaInfo {
   mime?: string | null;
   /** Best-effort codec hint from MIME subtype or track label. */
   codec?: string | null;
+  /** Sniffed container (mp4, webm, …). */
+  container?: string | null;
+  /** Sniffed video codec (H.264, VP9, …). */
+  videoCodec?: string | null;
+  /** Sniffed audio codec (AAC, Opus, …). */
+  audioCodec?: string | null;
+  /** File size in bytes when known. */
+  sizeBytes?: number | null;
+  /** Average bitrate from size ÷ duration, bits/sec. */
+  bitrateBps?: number | null;
+  /** Decoded audio sample rate. */
+  sampleRate?: number | null;
+  /** Decoded audio channel count. */
+  channels?: number | null;
+  /** width/height when both known. */
+  aspectRatio?: string | null;
   fps?: number | null;
   durationSec?: number | null;
   currentTimeSec?: number | null;
@@ -34,6 +50,14 @@ function infoFingerprint(info: MediaInfo | null): string {
     info.name ?? "",
     info.mime ?? "",
     info.codec ?? "",
+    info.container ?? "",
+    info.videoCodec ?? "",
+    info.audioCodec ?? "",
+    info.sizeBytes ?? "",
+    info.bitrateBps ?? "",
+    info.sampleRate ?? "",
+    info.channels ?? "",
+    info.aspectRatio ?? "",
     info.fps ?? "",
     info.durationSec != null ? info.durationSec.toFixed(2) : "",
     info.currentTimeSec != null ? info.currentTimeSec.toFixed(2) : "",

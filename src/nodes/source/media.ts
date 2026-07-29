@@ -9,6 +9,13 @@ import type {
   ParamValues,
 } from "../../engine/types";
 import { publishMediaInfo } from "../../store/mediaInfoStore";
+import {
+  enrichMediaMetaAudio,
+  enrichMediaMetaDuration,
+  ensureMediaMeta,
+  type MediaMeta,
+} from "../../lib/mediaMeta";
+import { ensureAudioBuffer } from "../../lib/audioBuffers";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { fileParam } from "../shared/fileParam";
 import { StageCanvas, type FitMode } from "../shared/stage";
@@ -43,6 +50,77 @@ function codecFromMime(mime: string | null | undefined): string | null {
   const codecs = /codecs=([^;]+)/i.exec(mime);
   if (codecs?.[1]) return codecs[1].replace(/"/g, "").trim();
   return subtype || null;
+}
+
+function aspectOf(width: number, height: number): string | null {
+  if (!(width > 0 && height > 0)) return null;
+  const g = gcd(width, height);
+  return `${width / g}:${height / g}`;
+}
+
+function gcd(a: number, b: number): number {
+  let x = Math.abs(Math.round(a));
+  let y = Math.abs(Math.round(b));
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+}
+
+/** File-head sniff + optional decoded-audio facts for the Inspector rows. */
+function fileMetaFields(
+  url: string | null,
+  mime: string | null | undefined,
+  sizeBytes: number | null | undefined,
+  durationSec: number | null,
+  wantAudio = true,
+): Pick<
+  import("../../store/mediaInfoStore").MediaInfo,
+  | "container"
+  | "videoCodec"
+  | "audioCodec"
+  | "sizeBytes"
+  | "bitrateBps"
+  | "sampleRate"
+  | "channels"
+> {
+  if (!url) {
+    return {
+      container: null,
+      videoCodec: null,
+      audioCodec: null,
+      sizeBytes: sizeBytes ?? null,
+      bitrateBps: null,
+      sampleRate: null,
+      channels: null,
+    };
+  }
+  const meta: MediaMeta = ensureMediaMeta(url, { sizeBytes, mime });
+  if (durationSec != null && durationSec > 0) enrichMediaMetaDuration(url, durationSec);
+
+  if (wantAudio) {
+    // Pull sample-rate / channels once the audio decode cache has them.
+    const audio = ensureAudioBuffer(url);
+    if (audio.buffer) {
+      enrichMediaMetaAudio(url, {
+        sampleRate: audio.buffer.sampleRate,
+        channels: audio.buffer.numberOfChannels,
+      });
+    }
+  }
+
+  const latest = ensureMediaMeta(url);
+  return {
+    container: latest.container,
+    videoCodec: latest.videoCodec,
+    audioCodec: latest.audioCodec,
+    sizeBytes: latest.sizeBytes,
+    bitrateBps: latest.bitrateBps,
+    sampleRate: latest.sampleRate,
+    channels: latest.channels,
+  };
 }
 
 function probeVideoFps(video: HTMLVideoElement): number | null {
@@ -412,14 +490,20 @@ function evalCamera(
     typeof settings?.frameRate === "number" && settings.frameRate > 0
       ? Math.round(settings.frameRate * 1000) / 1000
       : ensureProbedFps(state, "camera");
+  const facing =
+    typeof settings?.facingMode === "string" && settings.facingMode
+      ? settings.facingMode
+      : null;
+  const label = track?.label || "camera";
 
   publishMediaInfo(nodeId, {
     kind: "camera",
     width: video.videoWidth,
     height: video.videoHeight,
-    name: track?.label || "camera",
+    name: facing ? `${label} · ${facing}` : label,
     mime: null,
     codec: null,
+    aspectRatio: aspectOf(video.videoWidth, video.videoHeight),
     fps,
     playing: !video.paused,
   });
@@ -484,6 +568,8 @@ function evalImage(
     name: file?.name ?? null,
     mime,
     codec: codecFromMime(mime),
+    aspectRatio: aspectOf(state.image.naturalWidth, state.image.naturalHeight),
+    ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, null, false),
   });
 
   state.stage.draw(
@@ -568,12 +654,14 @@ function evalVideo(
     name: file?.name ?? null,
     mime,
     codec: codecFromMime(mime),
+    aspectRatio: aspectOf(video.videoWidth, video.videoHeight),
     fps,
     durationSec,
     currentTimeSec,
     currentFrame,
     totalFrames,
     playing: !video.paused,
+    ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, durationSec),
   });
 
   state.stage.draw(video, video.videoWidth, video.videoHeight, ctx.width, ctx.height, {
@@ -653,6 +741,7 @@ function evalAudio(
     currentFrame,
     totalFrames,
     playing: !video.paused,
+    ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, durationSec),
   });
 
   // Silent black frame so the graph still has a texture/frame currency.

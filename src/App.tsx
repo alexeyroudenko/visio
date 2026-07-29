@@ -127,7 +127,12 @@ function GraphCanvas({
           { x: origin.x + offset, y: origin.y + offset },
           {
             mode: kind,
-            file: { name: file.name, url: URL.createObjectURL(file), mime: file.type || undefined },
+            file: {
+              name: file.name,
+              url: URL.createObjectURL(file),
+              mime: file.type || undefined,
+              sizeBytes: file.size,
+            },
             mirror: false,
           },
         );
