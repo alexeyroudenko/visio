@@ -20,6 +20,7 @@ import { particlesNode } from "./draw/particles";
 import { feedbackNode } from "./fx/feedback";
 import { blendNode } from "./fx/blend";
 import { colorNode } from "./fx/color";
+import { colorCorrectionNode } from "./fx/colorCorrection";
 import { pixelSortNode } from "./fx/pixelSort";
 import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
@@ -56,6 +57,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   feedbackNode,
   blendNode,
   colorNode,
+  colorCorrectionNode,
   pixelSortNode,
   sliceShiftNode,
   blockScatterNode,
