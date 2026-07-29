@@ -24,12 +24,19 @@ import { useOfflineRender } from "./ui/useOfflineRender";
 import { useOutputWindow } from "./ui/useOutputWindow";
 import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
+import { sourceMediaStem } from "./lib/mediaName";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
 const LEFT_WIDTH_KEY = "visio.leftWidth";
 const RIGHT_WIDTH_KEY = "visio.rightWidth";
 const SIDE_MIN = 240;
 const SIDE_MAX = 720;
+
+/** True for ~9∶16 output (e.g. 1080×1920) — switches the shell into vertical layout. */
+function isVerticalAspect(width: number, height: number): boolean {
+  if (!(width > 0 && height > width)) return false;
+  return Math.abs(width / height - 9 / 16) < 0.05;
+}
 
 function loadWidth(key: string, fallback: number): number {
   const saved = Number(localStorage.getItem(key));
@@ -89,6 +96,8 @@ interface GraphCanvasProps {
   onNodeClick: NodeMouseHandler<PatchNodeType>;
   onNodeDoubleClick: NodeMouseHandler<PatchNodeType>;
   onPaneClick: () => void;
+  /** Hide the dotted grid so the output backdrop reads through. */
+  vertical?: boolean;
 }
 
 function GraphCanvas({
@@ -101,6 +110,7 @@ function GraphCanvas({
   onNodeClick,
   onNodeDoubleClick,
   onPaneClick,
+  vertical = false,
 }: GraphCanvasProps) {
   const { screenToFlowPosition } = useReactFlow();
   const addNode = useGraphStore((state) => state.addNode);
@@ -132,6 +142,7 @@ function GraphCanvas({
               url: URL.createObjectURL(file),
               mime: file.type || undefined,
               sizeBytes: file.size,
+              fileObj: file,
             },
             mirror: false,
           },
@@ -159,8 +170,11 @@ function GraphCanvas({
       fitView
       proOptions={{ hideAttribution: false }}
       defaultEdgeOptions={{ animated: true, style: { stroke: "#6b8afd", strokeWidth: 1.5 } }}
+      className={vertical ? "react-flow--vertical" : undefined}
     >
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
+      {vertical ? null : (
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2a2f3a" />
+      )}
       <Controls />
     </ReactFlow>
   );
@@ -168,7 +182,13 @@ function GraphCanvas({
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { engineRef, error, paused, togglePause } = useEngine(canvasRef);
+  const width = useGraphStore((state) => state.width);
+  const height = useGraphStore((state) => state.height);
+  const vertical = isVerticalAspect(width, height);
+  const { engineRef, error, paused, togglePause } = useEngine(
+    canvasRef,
+    vertical ? "vertical" : "horizontal",
+  );
   const { recording, toggle } = useRecorder(() => canvasRef.current);
   const { rendering, progress: renderProgress, toggle: toggleRender } = useOfflineRender(engineRef);
   const outputWindow = useOutputWindow(() => canvasRef.current);
@@ -179,8 +199,8 @@ export default function App() {
   const onEdgesChange = useGraphStore((state) => state.onEdgesChange);
   const onConnect = useGraphStore((state) => state.onConnect);
   const select = useGraphStore((state) => state.select);
-  const width = useGraphStore((state) => state.width);
-  const height = useGraphStore((state) => state.height);
+  // Recompute when the graph changes so captions/downloads follow the open file.
+  const mediaStem = sourceMediaStem();
 
   const nodeTypes = useMemo(() => ({ patch: PatchNode }), []);
 
@@ -215,8 +235,16 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const stage = (
+    <>
+      <canvas ref={canvasRef} />
+      {error ? <div className="preview__error">{error}</div> : null}
+      {paused ? <div className="preview__paused">❚❚ paused</div> : null}
+    </>
+  );
+
   return (
-    <div className="app">
+    <div className={`app${vertical ? " app--vertical" : ""}`}>
       <Toolbar
         recording={recording}
         onToggleRecord={toggle}
@@ -228,68 +256,91 @@ export default function App() {
       />
 
       <main className="app__body">
-        <aside className="side side--left" style={{ width: leftWidth }}>
-          <Inspector />
-        </aside>
+        {!vertical ? (
+          <>
+            <aside className="side side--left" style={{ width: leftWidth }}>
+              <Inspector />
+            </aside>
 
-        <div
-          className="splitter"
-          onPointerDown={startLeftResize}
-          onDoubleClick={() => setLeftWidth(300)}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Inspector width"
-          title="Drag · double-click to reset"
-        />
-
-        <section className="editor">
-          <ReactFlowProvider>
-            <GraphCanvas
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onNodeClick={onNodeClick}
-              onNodeDoubleClick={onNodeDoubleClick}
-              onPaneClick={() => select(null)}
+            <div
+              className="splitter"
+              onPointerDown={startLeftResize}
+              onDoubleClick={() => setLeftWidth(300)}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Inspector width"
+              title="Drag · double-click to reset"
             />
-          </ReactFlowProvider>
-        </section>
+          </>
+        ) : null}
 
-        <div
-          className="splitter"
-          onPointerDown={startRightResize}
-          onDoubleClick={() => setRightWidth(380)}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Output width"
-          title="Drag · double-click to reset"
-        />
-
-        <section className="side side--right" style={{ width: rightWidth }}>
-          <div className="preview preview--fill">
-            <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
-              <canvas ref={canvasRef} />
-              {error ? <div className="preview__error">{error}</div> : null}
-              {paused ? <div className="preview__paused">❚❚ paused</div> : null}
-            </div>
-            <div className="preview__bar">
-              <span className="preview__caption">
-                output · {width}×{height}
+        <section className={`editor${vertical ? " editor--vertical" : ""}`}>
+          {vertical ? (
+            <div className="editor__backdrop" aria-hidden>
+              <div
+                className="editor__backdrop-frame"
+                style={{ aspectRatio: `${width} / ${height}` }}
+              >
+                {stage}
+              </div>
+              <span className="editor__backdrop-caption">
+                {mediaStem ? `${mediaStem} · ` : null}
+                vertical · {width}×{height}
               </span>
-              <button type="button" className="button button--small" onClick={outputWindow.open}>
-                Output window
-              </button>
             </div>
+          ) : null}
+
+          <div className="editor__graph">
+            <ReactFlowProvider>
+              <GraphCanvas
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={onNodeClick}
+                onNodeDoubleClick={onNodeDoubleClick}
+                onPaneClick={() => select(null)}
+                vertical={vertical}
+              />
+            </ReactFlowProvider>
           </div>
         </section>
+
+        {!vertical ? (
+          <>
+            <div
+              className="splitter"
+              onPointerDown={startRightResize}
+              onDoubleClick={() => setRightWidth(380)}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Output width"
+              title="Drag · double-click to reset"
+            />
+
+            <section className="side side--right" style={{ width: rightWidth }}>
+              <div className="preview preview--fill">
+                <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
+                  {stage}
+                </div>
+                <div className="preview__bar">
+                  <span className="preview__caption">
+                    output · {width}×{height}
+                  </span>
+                  <button type="button" className="button button--small" onClick={outputWindow.open}>
+                    Output window
+                  </button>
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
       </main>
 
-      <Timeline />
-
-      <AppConsole />
+      {!vertical ? <Timeline /> : null}
+      {!vertical ? <AppConsole /> : null}
     </div>
   );
 }

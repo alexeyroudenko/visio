@@ -6,12 +6,14 @@ import {
   type Modulator,
 } from "../lib/modulators";
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
+import type { FileParam } from "../nodes/shared/fileParam";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
+import { useEffect, useRef } from "react";
 
 /** Resolve `<input accept>` tokens against a File (MIME and/or extension). */
 function fileMatchesAccept(file: File, accept: string): boolean {
@@ -46,6 +48,76 @@ function mediaFileAccept(mode: unknown): string | undefined {
   if (mode === "image") return "image/*";
   if (mode === "audio") return "audio/*";
   return undefined;
+}
+
+/**
+ * File picker that can be re-filled from a restored File (IndexedDB → File →
+ * DataTransfer). Browsers forbid setting the path as a string, but they do
+ * allow assigning a FileList built from a File we already hold.
+ */
+function FileParamControl({
+  spec,
+  value,
+  onChange,
+  acceptOverride,
+}: {
+  spec: ParamSpec;
+  value: unknown;
+  onChange: (next: unknown) => void;
+  acceptOverride?: string;
+}) {
+  const current = (value as FileParam | null) ?? null;
+  const accept = acceptOverride ?? spec.accept;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    const fileObj = current?.fileObj;
+    if (!input || !fileObj) return;
+    // Already showing this file — leave the user's fresh pick alone.
+    if (input.files?.[0]?.name === fileObj.name && input.files[0].size === fileObj.size) {
+      return;
+    }
+    try {
+      const transfer = new DataTransfer();
+      transfer.items.add(fileObj);
+      input.files = transfer.files;
+    } catch {
+      // Some browsers reject programmatic FileList assignment — the hint
+      // below still shows the restored name.
+    }
+  }, [current?.url, current?.fileObj]);
+
+  return (
+    <label className="param">
+      <span className="param__label">{spec.label}</span>
+      <input
+        ref={inputRef}
+        key={accept}
+        type="file"
+        accept={accept}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          if (!fileMatchesAccept(file, accept ?? "")) {
+            event.target.value = "";
+            return;
+          }
+          // The previous blob is not revoked here: mediaMemory still holds
+          // it so switching back to that source type gets the file again,
+          // and it releases the URL once nothing remembers it.
+          onChange({
+            name: file.name,
+            url: URL.createObjectURL(file),
+            mime: file.type || undefined,
+            sizeBytes: file.size,
+            fileObj: file,
+          } satisfies FileParam);
+        }}
+      />
+      {current ? <em className="param__hint">{current.name}</em> : null}
+    </label>
+  );
 }
 
 function ParamControl({
@@ -122,35 +194,13 @@ function ParamControl({
       );
     }
     case "file": {
-      const current = value as { name: string; url: string } | null;
-      const accept = acceptOverride ?? spec.accept;
       return (
-        <label className="param">
-          <span className="param__label">{spec.label}</span>
-          <input
-            key={accept}
-            type="file"
-            accept={accept}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              if (!fileMatchesAccept(file, accept)) {
-                event.target.value = "";
-                return;
-              }
-              // The previous blob is not revoked here: mediaMemory still holds
-              // it so switching back to that source type gets the file again,
-              // and it releases the URL once nothing remembers it.
-              onChange({
-                name: file.name,
-                url: URL.createObjectURL(file),
-                mime: file.type || undefined,
-                sizeBytes: file.size,
-              });
-            }}
-          />
-          {current ? <em className="param__hint">{current.name}</em> : null}
-        </label>
+        <FileParamControl
+          spec={spec}
+          value={value}
+          onChange={onChange}
+          acceptOverride={acceptOverride}
+        />
       );
     }
     case "text": {

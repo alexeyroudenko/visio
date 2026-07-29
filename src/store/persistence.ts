@@ -52,6 +52,7 @@ export interface SerializedPatch {
 /**
  * blob: URLs die with the tab — drop those on save. Public / http(s) file refs
  * (e.g. the bundled default image) are kept so reloads still show media.
+ * Dropped footage is revived separately from IndexedDB (`mediaMemory` hydrate).
  */
 function serializableParams(defType: string, params: Record<string, unknown>): Record<string, unknown> {
   const definition = NODE_DEFS[defType];
@@ -66,7 +67,13 @@ function serializableParams(defType: string, params: Record<string, unknown>): R
         typeof (value as { url?: unknown }).url === "string" &&
         !(value as { url: string }).url.startsWith("blob:")
       ) {
-        clean[spec.key] = value;
+        const file = value as { name: string; url: string; mime?: string; sizeBytes?: number };
+        clean[spec.key] = {
+          name: file.name,
+          url: file.url,
+          ...(file.mime ? { mime: file.mime } : {}),
+          ...(file.sizeBytes != null ? { sizeBytes: file.sizeBytes } : {}),
+        };
       }
       continue;
     }

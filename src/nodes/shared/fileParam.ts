@@ -6,6 +6,11 @@ export interface FileParam {
   mime?: string;
   /** Byte length from the File picker when available. */
   sizeBytes?: number;
+  /**
+   * Transient File for IndexedDB persistence and re-filling the Inspector
+   * input after restore. Never written to localStorage / patch JSON.
+   */
+  fileObj?: File;
 }
 
 export function fileParam(params: Record<string, unknown>, key = "file"): FileParam | null {

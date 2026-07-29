@@ -15,7 +15,7 @@ import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
-import { recallMediaParams, rememberedFile, rememberMedia } from "./mediaMemory";
+import { mediaMemoryReady, recallMediaParams, rememberedFile, rememberMedia } from "./mediaMemory";
 import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
@@ -74,6 +74,7 @@ interface GraphState {
   exportPatch: () => void;
   importPatch: (file: File) => Promise<string | null>;
   resetPatch: () => void;
+  reapplyRememberedMedia: () => void;
   clearActivePreset: () => void;
 }
 
@@ -372,7 +373,28 @@ function createGraphStore() {
       writeActivePresetId(null);
       set({ activePresetId: null });
     },
+    reapplyRememberedMedia() {
+      // After IndexedDB hydrate, blob files that were stripped from the saved
+      // patch need to be written back onto Media nodes.
+      let changed = false;
+      const nodes = get().nodes.map((node) => {
+        if (node.data.defType !== "source.media") return node;
+        const params = recallMediaParams(node.data.params);
+        if (params === node.data.params) return node;
+        changed = true;
+        return { ...node, data: { ...node.data, params } };
+      });
+      if (!changed) return;
+      set({ nodes });
+      appLog("ok", "media", "restored last opened media from disk cache");
+    },
   }));
+
+  // Patch JSON cannot keep blob: files. Once IndexedDB has revived them, push
+  // them back onto any Media node that is missing its footage.
+  void mediaMemoryReady().then(() => {
+    store.getState().reapplyRememberedMedia();
+  });
 
   // Autosave: coalesce bursts (node dragging fires a change per mouse move) and
   // ignore status-only updates, which the engine pushes several times a second.

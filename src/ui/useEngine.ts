@@ -21,7 +21,11 @@ function engineNodeType(defType: string): string {
  * Stats go to a separate store so the React Flow tree is not re-rendered every
  * 500ms (that was resetting in-progress node drags).
  */
-export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
+export function useEngine(
+  canvasRef: RefObject<HTMLCanvasElement | null>,
+  /** Remount the engine when the canvas moves (e.g. horizontal ↔ vertical shell). */
+  layoutKey: string | number = "default",
+) {
   const engineRef = useRef<Engine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -155,7 +159,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
       engine.dispose();
       engineRef.current = null;
     };
-  }, [canvasRef]);
+  }, [canvasRef, layoutKey]);
 
   const togglePause = useCallback(() => {
     const engine = engineRef.current;

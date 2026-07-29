@@ -10,8 +10,9 @@ function formatDuration(sec: number): string {
 /** Rows built from live Media probe (Inspector + node body). */
 export function mediaInfoRows(info: MediaInfo): { label: string; value: string }[] {
   const rows: { label: string; value: string }[] = [];
-  rows.push({ label: "Mode", value: info.kind });
+  // Native filename first — everything else is "what's on it now".
   if (info.name) rows.push({ label: "File", value: info.name });
+  rows.push({ label: "Mode", value: info.kind });
   if (info.width > 0 && info.height > 0) {
     const aspect = info.aspectRatio ? ` · ${info.aspectRatio}` : "";
     rows.push({ label: "Size", value: `${info.width}×${info.height}${aspect}` });

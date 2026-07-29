@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { withSourcePrefix } from "../lib/mediaName";
 import { appLog } from "../store/consoleStore";
 
 const MIME_CANDIDATES = [
@@ -46,7 +47,9 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `visio-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`;
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      // Native media name first, then the capture stamp we used to ship alone.
+      link.download = `${withSourcePrefix(stamp)}.webm`;
       link.click();
       // Give the download a tick to start before dropping the blob.
       setTimeout(() => URL.revokeObjectURL(url), 10_000);

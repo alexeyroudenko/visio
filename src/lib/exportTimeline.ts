@@ -5,6 +5,7 @@ import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "../store/graphStore";
 import { applyKeyframesToNodes, type ParamKeyframes } from "./keyframes";
+import { withSourcePrefix } from "./mediaName";
 import {
   encodeAudioBufferOpus,
   mixRenderAudio,
@@ -368,5 +369,6 @@ export async function exportTimelineVideo(
 export function downloadTimelineRender(blob: Blob): void {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const ext = blob.type.includes("mp4") ? "mp4" : "webm";
-  downloadBlob(blob, `visio-render-${stamp}.${ext}`);
+  // Native media name first, then the render stamp we used to ship alone.
+  downloadBlob(blob, `${withSourcePrefix(`render-${stamp}`)}.${ext}`);
 }
