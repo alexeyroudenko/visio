@@ -24,6 +24,8 @@ interface MediaClip {
   startFrame: number;
   durationFrames: number;
   sync: boolean;
+  /** Inspector Play toggle — free-run when sync is off. */
+  playing: boolean;
   /** Source to decode a waveform from; null for camera and images. */
   url: string | null;
 }
@@ -109,6 +111,7 @@ function collectMediaClips(
       startFrame: 0,
       durationFrames,
       sync: node.data.params.syncTimeline === true,
+      playing: node.data.params.playing !== false,
       url: file?.url ?? null,
     });
   }
@@ -258,8 +261,20 @@ export function Timeline() {
               ))}
             </div>
 
-            <MediaTrack clips={videoClips} pxPerFrame={pxPerFrame} variant="video" />
-            <MediaTrack clips={audioClips} pxPerFrame={pxPerFrame} variant="audio" />
+            <MediaTrack
+              clips={videoClips}
+              pxPerFrame={pxPerFrame}
+              timelineFps={fps}
+              variant="video"
+              mediaById={mediaById}
+            />
+            <MediaTrack
+              clips={audioClips}
+              pxPerFrame={pxPerFrame}
+              timelineFps={fps}
+              variant="audio"
+              mediaById={mediaById}
+            />
 
             <div className="timeline__track">
               {keyframeFrames.map((frame) => {
@@ -311,14 +326,54 @@ export function Timeline() {
   );
 }
 
+function mediaPlayheadOffsetPx(
+  clip: MediaClip,
+  info:
+    | {
+        currentFrame?: number | null;
+        currentTimeSec?: number | null;
+        durationSec?: number | null;
+      }
+    | undefined,
+  timelineFps: number,
+  pxPerFrame: number,
+): number | null {
+  if (clip.sync || !clip.playing || !info) return null;
+
+  // Progress along the clip bar — independent of video vs timeline fps.
+  if (
+    info.currentTimeSec != null &&
+    Number.isFinite(info.currentTimeSec) &&
+    info.durationSec != null &&
+    info.durationSec > 0
+  ) {
+    const ratio = Math.max(0, Math.min(1, info.currentTimeSec / info.durationSec));
+    return clip.startFrame * pxPerFrame + ratio * clip.durationFrames * pxPerFrame;
+  }
+
+  const frame =
+    info.currentTimeSec != null && Number.isFinite(info.currentTimeSec)
+      ? Math.floor(info.currentTimeSec * timelineFps)
+      : info.currentFrame;
+  if (frame == null) return null;
+  return (
+    clip.startFrame * pxPerFrame +
+    Math.max(0, Math.min(frame - clip.startFrame, clip.durationFrames)) * pxPerFrame
+  );
+}
+
 function MediaTrack({
   clips,
   pxPerFrame,
+  timelineFps,
   variant,
+  mediaById,
 }: {
   clips: MediaClip[];
   pxPerFrame: number;
+  timelineFps: number;
   variant: "video" | "audio";
+  mediaById: ReturnType<typeof useMediaInfoStore.getState>["byId"];
 }) {
   const count = Math.max(1, clips.length);
   const slotH = 20 / count;
@@ -345,6 +400,23 @@ function MediaTrack({
             ) : null}
             <span className="timeline__clip-label">{clip.label}</span>
           </div>
+        );
+      })}
+      {clips.map((clip) => {
+        const left = mediaPlayheadOffsetPx(
+          clip,
+          mediaById[clip.id],
+          timelineFps,
+          pxPerFrame,
+        );
+        if (left == null) return null;
+        return (
+          <div
+            key={`${clip.id}-playhead`}
+            className="timeline__media-playhead"
+            style={{ left }}
+            title={clip.label}
+          />
         );
       })}
     </div>

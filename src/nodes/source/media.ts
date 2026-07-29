@@ -59,7 +59,8 @@ function probeVideoFps(video: HTMLVideoElement): number | null {
 }
 
 function ensureProbedFps(state: MediaState, key: string): number | null {
-  if (state.probedFpsUrl === key) return state.probedFps;
+  // Retry while null — first probe often runs before captureStream has a frameRate.
+  if (state.probedFpsUrl === key && state.probedFps != null) return state.probedFps;
   state.probedFpsUrl = key;
   state.probedFps = probeVideoFps(state.video);
   return state.probedFps;
@@ -526,13 +527,13 @@ function evalVideo(
   }
 
   const mime = file?.mime ?? null;
-  const fps = ensureProbedFps(state, state.loadedUrl);
+  const fps = ensureProbedFps(state, state.loadedUrl) ?? ctx.timelineFps;
   const durationSec = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
   const currentTimeSec = Number.isFinite(video.currentTime) ? video.currentTime : null;
   const currentFrame =
-    fps != null && currentTimeSec != null ? Math.floor(currentTimeSec * fps) : null;
+    currentTimeSec != null ? Math.floor(currentTimeSec * fps) : null;
   const totalFrames =
-    fps != null && durationSec != null ? Math.floor(durationSec * fps) : null;
+    durationSec != null ? Math.floor(durationSec * fps) : null;
 
   publishMediaInfo(nodeId, {
     kind: "video",

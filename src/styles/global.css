@@ -1389,6 +1389,29 @@ body.is-resizing {
   box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.55);
 }
 
+/* Free-running media cursor on Video/Audio tracks (Play on, Sync off). */
+.timeline__media-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.85);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.timeline__media-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid #4ade80;
+}
+
 .timeline__key {
   position: absolute;
   top: 8px;
