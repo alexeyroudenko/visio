@@ -163,6 +163,16 @@ those edges are excluded from topo-sort.
   patches written before keyframes existed still load. Keys on file params are
   dropped for the same reason the params are, and a deleted node takes its tracks
   with it.
+- **Modulators.** The ∿ next to any range parameter binds an LFO to it: sine,
+  triangle, saw, square, or smooth value noise, with rate, depth, bias and phase.
+  Depth is a fraction of that parameter's own half-range, and the swing is centred
+  on whatever the value already is — so depth 0 changes nothing, and a modulator on
+  a keyframed parameter rides the curve instead of replacing it. The result is
+  clamped to the parameter's bounds.
+  They run on **timeline time**, not wall clock: an offline render reproduces
+  exactly what playback showed, and scrubbing moves them. The flip side is that a
+  parked playhead means a frozen LFO — press play. Bindings live in the patch, next
+  to keyframes.
 - **Inspector follows the playhead.** An animated parameter shows its value at the
   current frame, because that is what the engine renders — a slider parked at its
   base value while the output moves is just a lie. The ◆ next to each control

@@ -15,8 +15,15 @@ import type {
   LandmarksValue,
   LinesValue,
   NodeDefinition,
+  ParamSpec,
   PointsValue,
 } from "./engine/types";
+import {
+  DEFAULT_MODULATOR,
+  modulatedValue,
+  MODULATOR_SHAPES,
+  waveAt,
+} from "./lib/modulators";
 import { defineNode } from "./nodes/defineNode";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { parsePatch, serializePatch } from "./store/persistence";
@@ -970,6 +977,75 @@ function run(): void {
     "a patch without a timeline still loads",
     parsePatch(JSON.parse(JSON.stringify(patch)))?.timeline === null,
     "timeline field absent → null",
+  );
+
+  // --- 7. modulators --------------------------------------------------------
+  // Every shape has to stay inside -1..1, or depth stops meaning "fraction of
+  // the half-range" and the clamp starts doing the shaping instead.
+  let outOfRange = "";
+  for (const { value: shape } of MODULATOR_SHAPES) {
+    for (let i = 0; i <= 200; i += 1) {
+      const v = waveAt(shape, i / 37);
+      if (!(v >= -1.0001 && v <= 1.0001)) outOfRange = `${shape}=${v.toFixed(3)}`;
+    }
+  }
+  check("every modulator shape stays in -1..1", outOfRange === "", outOfRange || "all shapes");
+
+  const range: ParamSpec = {
+    key: "k",
+    label: "k",
+    type: "range",
+    min: 0,
+    max: 100,
+    step: 1,
+    default: 50,
+  };
+  const mod = { ...DEFAULT_MODULATOR, shape: "sine" as const, rateHz: 1, depth: 0.5, phase: 0 };
+
+  check(
+    "depth 0 leaves the value untouched",
+    modulatedValue(range, 42, { ...mod, depth: 0 }, 3.7) === 42,
+    `got ${modulatedValue(range, 42, { ...mod, depth: 0 }, 3.7)}`,
+  );
+
+  // Sine at t=0 is 0, at a quarter cycle it is +1 → base + depth * half-range.
+  const atZero = modulatedValue(range, 50, mod, 0);
+  const atPeak = modulatedValue(range, 50, mod, 0.25);
+  check(
+    "modulation swings around the base value",
+    Math.abs(atZero - 50) < 0.001 && Math.abs(atPeak - 75) < 0.001,
+    `t=0 → ${atZero.toFixed(2)}, t=0.25 → ${atPeak.toFixed(2)} (expected 50 and 75)`,
+  );
+
+  const clamped = modulatedValue(range, 95, { ...mod, depth: 1 }, 0.25);
+  check("modulation clamps to the parameter range", clamped === 100, `got ${clamped}`);
+
+  const modPatch = serializePatch(
+    [
+      {
+        id: "cam-1",
+        type: "patch",
+        position: { x: 0, y: 0 },
+        data: { defType: "source.media", params: defaultParams("source.media") },
+      },
+    ],
+    [],
+    1920,
+    1080,
+    undefined,
+    {
+      "cam-1:zoom": { ...DEFAULT_MODULATOR, rateHz: 2, depth: 0.8 },
+      "ghost-1:zoom": { ...DEFAULT_MODULATOR },
+    },
+  );
+  const modRound = parsePatch(JSON.parse(JSON.stringify(modPatch)));
+  const modPaths = Object.keys(modRound?.modulators ?? {});
+  check(
+    "modulators round-trip and drop dead nodes",
+    modPaths.length === 1 &&
+      modPaths[0] === "cam-1:zoom" &&
+      modRound!.modulators["cam-1:zoom"]!.rateHz === 2,
+    `paths=${modPaths.join(",") || "none"}`,
   );
 
   render();

@@ -902,6 +902,53 @@ body.is-resizing {
   color: #ffd166;
 }
 
+/* Sits just left of the keyframe diamond, same idea: off by default, lit when bound. */
+.param-mod {
+  position: absolute;
+  top: -2px;
+  right: 14px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--line);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.param-mod:hover {
+  color: var(--muted);
+}
+
+.param-mod--on {
+  color: #7ee0b8;
+}
+
+.modulator {
+  margin: 0 0 var(--control-gap);
+  padding: 6px 8px 2px;
+  border-left: 2px solid #7ee0b8;
+  background: color-mix(in srgb, var(--panel) 85%, #000);
+}
+
+.modulator__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.modulator__title {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modulator .param {
+  margin-bottom: 4px;
+}
+
 .media-info {
   margin: 2px 0 6px;
   padding: 6px 8px;

@@ -15,6 +15,7 @@ import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
+import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
   downloadPatch,
@@ -137,6 +138,7 @@ function createGraphStore() {
   // Startup seeds the store directly instead of going through loadPatch, so the
   // timeline has to be adopted here too or a reload drops every key.
   if (initial.timeline) useTimelineStore.getState().loadTimeline(initial.timeline);
+  useModulatorStore.getState().load(initial.modulators);
   // No `else`: a patch predating keyframes has nothing to restore, and the store
   // already starts empty.
 
@@ -286,6 +288,7 @@ function createGraphStore() {
       // previous document would bind them to whichever new node happened to reuse
       // the id — presets number their nodes the same way every time.
       useTimelineStore.getState().loadTimeline(patch.timeline ?? EMPTY_TIMELINE);
+      useModulatorStore.getState().load(patch.modulators);
       appLog(
         "ok",
         "patch",
@@ -307,7 +310,14 @@ function createGraphStore() {
     },
     exportPatch() {
       const { nodes, edges, width, height } = get();
-      downloadPatch(serializePatch(nodes, edges, width, height, currentTimeline()));
+      downloadPatch(serializePatch(
+        nodes,
+        edges,
+        width,
+        height,
+        currentTimeline(),
+        useModulatorStore.getState().byPath,
+      ));
       appLog("ok", "patch", "exported JSON");
     },
     async importPatch(file) {
@@ -348,7 +358,14 @@ function createGraphStore() {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
       const { nodes, edges, width, height } = store.getState();
-      saveToStorage(serializePatch(nodes, edges, width, height, currentTimeline()));
+      saveToStorage(serializePatch(
+        nodes,
+        edges,
+        width,
+        height,
+        currentTimeline(),
+        useModulatorStore.getState().byPath,
+      ));
     }, 400);
   };
 
@@ -378,6 +395,13 @@ function createGraphStore() {
     savedKeys = state.paramKeyframes;
     savedDuration = state.durationInFrames;
     savedFps = state.fps;
+    scheduleSave();
+  });
+
+  let savedModulators = useModulatorStore.getState().byPath;
+  useModulatorStore.subscribe((state) => {
+    if (state.byPath === savedModulators) return;
+    savedModulators = state.byPath;
     scheduleSave();
   });
 

@@ -1,8 +1,14 @@
 import type { ParamSpec } from "../engine/types";
 import { getValueAtFrame, paramPath } from "../lib/keyframes";
+import {
+  modulatedValue,
+  MODULATOR_SHAPES,
+  type Modulator,
+} from "../lib/modulators";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
+import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
 
@@ -173,6 +179,53 @@ function ParamControl({
   }
 }
 
+/** The knobs of a bound modulator, laid out with the same controls as any param. */
+function ModulatorPanel({
+  modulator,
+  onChange,
+  onRelease,
+}: {
+  modulator: Modulator;
+  onChange: (patch: Partial<Modulator>) => void;
+  onRelease: () => void;
+}) {
+  return (
+    <div className="modulator">
+      <div className="modulator__head">
+        <span className="modulator__title">Modulator</span>
+        <button type="button" className="button button--small" onClick={onRelease}>
+          Release
+        </button>
+      </div>
+      <ParamControl
+        spec={{ key: "shape", label: "Shape", type: "select", options: MODULATOR_SHAPES, default: "sine" }}
+        value={modulator.shape}
+        onChange={(next) => onChange({ shape: next as Modulator["shape"] })}
+      />
+      <ParamControl
+        spec={{ key: "rateHz", label: "Rate Hz", type: "range", min: 0, max: 8, step: 0.05, default: 0.5 }}
+        value={modulator.rateHz}
+        onChange={(next) => onChange({ rateHz: next as number })}
+      />
+      <ParamControl
+        spec={{ key: "depth", label: "Depth", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 }}
+        value={modulator.depth}
+        onChange={(next) => onChange({ depth: next as number })}
+      />
+      <ParamControl
+        spec={{ key: "bias", label: "Bias", type: "range", min: -1, max: 1, step: 0.01, default: 0 }}
+        value={modulator.bias}
+        onChange={(next) => onChange({ bias: next as number })}
+      />
+      <ParamControl
+        spec={{ key: "phase", label: "Phase", type: "range", min: 0, max: 1, step: 0.01, default: 0 }}
+        value={modulator.phase}
+        onChange={(next) => onChange({ phase: next as number })}
+      />
+    </div>
+  );
+}
+
 /** ◆ toggles a key at the playhead; it is filled while one sits exactly there. */
 function KeyToggle({ animated, onFrame, onClick }: {
   animated: boolean;
@@ -213,6 +266,12 @@ export function Inspector() {
   const paramKeyframes = useTimelineStore((state) => state.paramKeyframes);
   const recordParam = useTimelineStore((state) => state.recordParam);
   const removeParamKeyframe = useTimelineStore((state) => state.removeParamKeyframe);
+  const fps = useTimelineStore((state) => state.fps);
+
+  const modulators = useModulatorStore((state) => state.byPath);
+  const bindModulator = useModulatorStore((state) => state.bind);
+  const unbindModulator = useModulatorStore((state) => state.unbind);
+  const updateModulator = useModulatorStore((state) => state.update);
 
   if (!node) {
     return (
@@ -262,9 +321,20 @@ export function Inspector() {
           const keys = paramKeyframes[path];
           const frame = Math.round(currentFrame);
           const animated = !!keys?.length;
-          const value = animated ? getValueAtFrame(frame, base, keys) : base;
+          let value = animated ? getValueAtFrame(frame, base, keys) : base;
           // File params keep blob URLs that cannot be persisted, so they stay live-only.
           const keyable = spec.type !== "file";
+
+          // Show what the engine is actually rendering, modulation included.
+          const modulator = modulators[path];
+          if (modulator && spec.type === "range") {
+            value = modulatedValue(
+              spec,
+              typeof value === "number" ? value : spec.default,
+              modulator,
+              currentFrame / fps,
+            );
+          }
 
           return (
             <div key={spec.key} className="param-block">
@@ -285,6 +355,24 @@ export function Inspector() {
                       recordParam(node.id, spec.key, value);
                     }
                   }}
+                />
+              ) : null}
+              {/* Only a range has the bounds a swing is measured against. */}
+              {spec.type === "range" ? (
+                <button
+                  type="button"
+                  className={`param-mod${modulator ? " param-mod--on" : ""}`}
+                  title={modulator ? "Release this modulator" : "Modulate this parameter"}
+                  onClick={() => (modulator ? unbindModulator(path) : bindModulator(path))}
+                >
+                  ∿
+                </button>
+              ) : null}
+              {modulator ? (
+                <ModulatorPanel
+                  modulator={modulator}
+                  onChange={(patch) => updateModulator(path, patch)}
+                  onRelease={() => unbindModulator(path)}
                 />
               ) : null}
             </div>

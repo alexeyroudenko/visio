@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine } from "../engine/runtime";
 import { applyKeyframesToNodes } from "../lib/keyframes";
+import { applyModulatorsToNodes } from "../lib/modulators";
 import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import { appLog } from "../store/consoleStore";
 import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
+import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 
 function engineNodeType(defType: string): string {
@@ -50,6 +52,18 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
         nodes.map((node) => ({ id: node.id, params: node.data.params })),
         timeline.paramKeyframes,
       );
+      // Modulators ride on top of the keyframed value, and run on timeline time
+      // so an offline render reproduces exactly what playback showed.
+      const defTypeById = new Map(nodes.map((node) => [node.id, node.data.defType]));
+      applyModulatorsToNodes(
+        timeline.currentFrame / timeline.fps,
+        keyed,
+        useModulatorStore.getState().byPath,
+        (nodeId, key) => {
+          const defType = defTypeById.get(nodeId);
+          return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+        },
+      );
 
       engine.setResolution(width, height);
       engine.setTimeline(timeline.currentFrame, timeline.fps, timeline.isPlaying);
@@ -90,6 +104,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
     let prevFrame = useTimelineStore.getState().currentFrame;
     let prevKeys = useTimelineStore.getState().paramKeyframes;
     let prevPlaying = useTimelineStore.getState().isPlaying;
+    let prevModulators = useModulatorStore.getState().byPath;
 
     const unsubGraph = useGraphStore.subscribe((state) => {
       if (
@@ -121,6 +136,12 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
       pushGraph();
     });
 
+    const unsubModulators = useModulatorStore.subscribe((state) => {
+      if (state.byPath === prevModulators) return;
+      prevModulators = state.byPath;
+      pushGraph();
+    });
+
     const statsTimer = window.setInterval(() => {
       useEngineStatsStore.getState().setStats({ ...engine.stats });
     }, 500);
@@ -129,6 +150,7 @@ export function useEngine(canvasRef: RefObject<HTMLCanvasElement | null>) {
       window.clearInterval(statsTimer);
       unsubGraph();
       unsubTimeline();
+      unsubModulators();
       engine.dispose();
       engineRef.current = null;
     };

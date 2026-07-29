@@ -6,6 +6,7 @@ import {
   type ParamKeyframe,
   type ParamKeyframes,
 } from "../lib/keyframes";
+import { parseModulators, type Modulators } from "../lib/modulators";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
@@ -43,6 +44,8 @@ export interface SerializedPatch {
     targetHandle: string;
   }[];
   timeline?: SerializedTimeline;
+  /** Optional for the same reason as `timeline` — older patches simply have none. */
+  modulators?: Modulators;
 }
 
 /**
@@ -101,6 +104,7 @@ export function serializePatch(
   width: number,
   height: number,
   timeline?: SerializedTimeline,
+  modulators?: Modulators,
 ): SerializedPatch {
   return {
     format: FORMAT,
@@ -129,6 +133,7 @@ export function serializePatch(
           },
         }
       : {}),
+    ...(modulators && Object.keys(modulators).length > 0 ? { modulators } : {}),
   };
 }
 
@@ -139,6 +144,7 @@ export interface ParsedPatch {
   height: number;
   /** Absent when the patch predates keyframes — the timeline is then left as is. */
   timeline: SerializedTimeline | null;
+  modulators: Modulators;
 }
 
 /** Drops anything malformed rather than letting one bad key break a load. */
@@ -228,6 +234,7 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
     width: Number(patch.width) || 1080,
     height: Number(patch.height) || 1920,
     timeline: parseTimeline(patch.timeline, ids),
+    modulators: parseModulators(patch.modulators, ids),
   };
 }
 
