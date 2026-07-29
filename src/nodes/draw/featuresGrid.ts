@@ -5,7 +5,7 @@ import type { EngineContext, PointsValue } from "../../engine/types";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { CanvasOverlay } from "../shared/canvasOverlay";
 import { beginDraw } from "../shared/drawTarget";
-import { createLcg } from "../shared/rng";
+import { mulberry32 } from "../shared/rng";
 
 /**
  * Samples one column of the source and stretches it across the cell — the
@@ -148,7 +148,25 @@ export const featuresGridNode = defineNode<GridState>({
     { key: "labelSize", label: "Font size", type: "range", min: 8, max: 40, step: 1, default: 13 },
     { key: "labelText", label: "Text", type: "text", default: "Element" },
     { key: "effectChance", label: "Effect cell fraction", type: "range", min: 0, max: 1, step: 0.05, default: 0 },
-    { key: "effectSeed", label: "Effect seed", type: "range", min: 1, max: 999, step: 1, default: 42 },
+    {
+      key: "effectMinArea",
+      label: "Effect min area",
+      type: "range",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      default: 0,
+    },
+    {
+      key: "effectMaxArea",
+      label: "Effect max area",
+      type: "range",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      default: 1,
+    },
+    { key: "effectSeed", label: "Effect seed", type: "range", min: 0, max: 9999, step: 1, default: 42 },
   ],
   createState() {
     return { overlay: new CanvasOverlay() };
@@ -172,13 +190,34 @@ export const featuresGridNode = defineNode<GridState>({
     );
     if (cells.length === 0) return { out: target };
 
-    // Smear a seeded subset of cells before the strokes go on top.
+    // Area window is relative to the largest cell this frame (0 = empty,
+    // 1 = that largest cell). Then Effect cell fraction picks among survivors:
+    // 1 → every cell in the band, <1 → seeded subset.
     const effectChance = Math.max(0, Math.min(1, paramNumber(params, "effectChance", 0)));
+    let effectMinArea = Math.max(0, Math.min(1, paramNumber(params, "effectMinArea", 0)));
+    let effectMaxArea = Math.max(0, Math.min(1, paramNumber(params, "effectMaxArea", 1)));
+    if (effectMinArea > effectMaxArea) {
+      const swap = effectMinArea;
+      effectMinArea = effectMaxArea;
+      effectMaxArea = swap;
+    }
     const background = inputs.bg;
     if (effectChance > 0 && isRenderTarget(background)) {
-      const rng = createLcg(paramNumber(params, "effectSeed", 42));
-      for (const cell of cells) {
-        if (rng() < effectChance) smearCell(ctx, background, target, cell);
+      let largest = 0;
+      for (const cell of cells) largest = Math.max(largest, cell.w * cell.h);
+      largest = Math.max(1, largest);
+
+      const seed = Math.round(paramNumber(params, "effectSeed", 42));
+      const takeAll = effectChance >= 1 - 1e-6;
+      for (let i = 0; i < cells.length; i += 1) {
+        const cell = cells[i]!;
+        const areaFrac = (cell.w * cell.h) / largest;
+        if (areaFrac < effectMinArea || areaFrac > effectMaxArea) continue;
+        if (!takeAll) {
+          const roll = mulberry32(seed + (i + 1) * 374761 + 17 * 9973)();
+          if (roll >= effectChance) continue;
+        }
+        smearCell(ctx, background, target, cell);
       }
     }
 
