@@ -41,7 +41,7 @@ export const blockScatterNode = defineNode<BlockScatterState>({
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
     { key: "count", label: "Blocks", type: "range", min: 0, max: 400, step: 1, default: 90 },
-    { key: "size", label: "Size", type: "range", min: 2, max: 120, step: 1, default: 34 },
+    { key: "size", label: "Size", type: "range", min: 2, max: 600, step: 1, default: 34 },
     { key: "spread", label: "Spread", type: "range", min: 0, max: 100, step: 1, default: 30 },
     { key: "tint", label: "Color", type: "range", min: 0, max: 100, step: 1, default: 25 },
     { key: "seed", label: "Seed", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
