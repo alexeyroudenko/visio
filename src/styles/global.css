@@ -1358,6 +1358,23 @@ body.is-resizing {
   z-index: 1;
 }
 
+/* Waveform fills the clip; the label rides on top of it. */
+.timeline__wave {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.timeline__clip-label {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
 .timeline__clip--video {
   background: rgba(67, 56, 202, 0.8);
   border-color: #6366f1;

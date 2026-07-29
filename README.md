@@ -228,6 +228,16 @@ those edges are excluded from topo-sort.
   clicking it again removes that key). Dragging a parameter that already has keys
   writes one whether or not ● Record is armed: its base value is overridden by the
   curve, so editing it any other way would appear to do nothing.
+- **Waveforms in the timeline** (approach from [granular-video](../granular-video)).
+  Video and audio clips draw their own waveform: the file is fetched once, decoded
+  through an `OfflineAudioContext` — no autoplay policy to fight, since nothing is
+  played — and reduced to 4096 min/max columns cached per URL. Zooming only
+  re-buckets those columns; it never decodes again. Re-bucketing takes the extreme
+  of each group rather than the average, or a zoomed-out waveform would flatten
+  into a grey bar.
+  Drawing normalises to the file's own loudest peak: a lane is about 20 px tall, so
+  a quiet recording at true scale is a flat line. A file with no decodable audio
+  track just stays a plain block.
 - **Output window** — double-click the Output node (or the button under the preview).
   Opens a separate window with the image: drag it to a projector or second screen;
   double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context

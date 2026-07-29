@@ -18,6 +18,7 @@ import type {
   ParamSpec,
   PointsValue,
 } from "./engine/types";
+import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
   DEFAULT_MODULATOR,
   modulatedValue,
@@ -1193,6 +1194,43 @@ async function run(): Promise<void> {
     "demo presets carry their timeline and modulators",
     demoKeys > 0 && demoMods > 0,
     `keys=${demoKeys} modulators=${demoMods}`,
+  );
+
+  // --- 6c. waveform peaks ---------------------------------------------------
+  // A synthetic buffer with a known envelope: silent first half, full-scale
+  // sine second half. Peaks have to put the energy in the right columns.
+  const rate = 8000;
+  const seconds = 2;
+  const fake = {
+    numberOfChannels: 1,
+    length: rate * seconds,
+    duration: seconds,
+    getChannelData: () => {
+      const out = new Float32Array(rate * seconds);
+      for (let i = out.length / 2; i < out.length; i += 1) {
+        out[i] = Math.sin((i / rate) * Math.PI * 2 * 220);
+      }
+      return out;
+    },
+  } as unknown as AudioBuffer;
+
+  const peaks = computePeaks(fake, 64);
+  const firstHalfEnergy = Math.max(...Array.from(peaks.slice(0, 64)).map(Math.abs));
+  const secondHalfEnergy = Math.max(...Array.from(peaks.slice(64)).map(Math.abs));
+  check(
+    "peaks follow the signal envelope",
+    firstHalfEnergy < 0.01 && secondHalfEnergy > 0.9,
+    `silent half=${firstHalfEnergy.toFixed(3)}, loud half=${secondHalfEnergy.toFixed(3)}`,
+  );
+
+  // Squeezing must keep the extremes — averaging them away is what flattens a
+  // zoomed-out waveform into a grey bar.
+  const squeezed = resamplePeaks(peaks, 8);
+  const keptPeak = Math.max(...Array.from(squeezed).map(Math.abs));
+  check(
+    "resampling keeps transients",
+    squeezed.length === 16 && keptPeak > 0.9,
+    `columns=${squeezed.length / 2} peak=${keptPeak.toFixed(3)}`,
   );
 
   // --- 7. modulators --------------------------------------------------------

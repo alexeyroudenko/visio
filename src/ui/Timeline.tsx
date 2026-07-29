@@ -1,13 +1,15 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getKeyframeMarkerFrames,
   getNextKeyframeFrame,
   getPrevKeyframeFrame,
 } from "../lib/keyframes";
+import { resamplePeaks } from "../lib/peaks";
 import { fileParam } from "../nodes/shared/fileParam";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useTimelineStore } from "../store/timelineStore";
+import { useWaveformStore } from "../store/waveformStore";
 import { PlaybackControls } from "./PlaybackControls";
 
 const TRACKS = [
@@ -22,6 +24,62 @@ interface MediaClip {
   startFrame: number;
   durationFrames: number;
   sync: boolean;
+  /** Source to decode a waveform from; null for camera and images. */
+  url: string | null;
+}
+
+/**
+ * Waveform inside a clip, drawn from cached peaks. Only the column count
+ * changes as the timeline zooms, so the decode happens once per file and this
+ * just re-buckets.
+ */
+function ClipWaveform({ url, label, width, height }: {
+  url: string;
+  label: string;
+  width: number;
+  height: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const entry = useWaveformStore((state) => state.byUrl[url]);
+  const ensure = useWaveformStore((state) => state.ensure);
+
+  useEffect(() => {
+    ensure(url, label);
+  }, [ensure, url, label]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const peaks = entry?.peaks;
+    if (!canvas || !peaks) return;
+
+    const columns = Math.max(1, Math.floor(width));
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(columns * dpr));
+    canvas.height = Math.max(1, Math.floor(height * dpr));
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, columns, height);
+
+    const scaled = resamplePeaks(peaks, columns);
+    const mid = height / 2;
+    // Normalised to the file's own loudest peak: a lane is ~20 px tall, so a
+    // quiet recording drawn at true scale is a flat line. The floor stops near
+    // silence from being amplified into a wall of noise.
+    const gain = 0.9 / Math.max(entry?.peak ?? 1, 0.05);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    for (let x = 0; x < columns; x += 1) {
+      const min = Math.max(-1, scaled[x * 2]! * gain);
+      const max = Math.min(1, scaled[x * 2 + 1]! * gain);
+      const top = mid - max * mid;
+      const bottom = mid - min * mid;
+      ctx.fillRect(x, top, 1, Math.max(1, bottom - top));
+    }
+  }, [entry, width, height]);
+
+  if (!entry?.peaks) return null;
+  return <canvas ref={canvasRef} className="timeline__wave" style={{ width, height }} />;
 }
 
 function collectMediaClips(
@@ -51,6 +109,7 @@ function collectMediaClips(
       startFrame: 0,
       durationFrames,
       sync: node.data.params.syncTimeline === true,
+      url: file?.url ?? null,
     });
   }
   return clips;
@@ -266,21 +325,28 @@ function MediaTrack({
 
   return (
     <div className="timeline__track">
-      {clips.map((clip, index) => (
-        <div
-          key={clip.id}
-          className={`timeline__clip timeline__clip--${variant}${clip.sync ? " timeline__clip--sync" : ""}`}
-          style={{
-            left: clip.startFrame * pxPerFrame,
-            width: Math.max(clip.durationFrames * pxPerFrame, 8),
-            top: 4 + index * (slotH + 2),
-            height: Math.max(slotH, 10),
-          }}
-          title={`${clip.label}${clip.sync ? " · sync" : ""} · ${clip.durationFrames}f`}
-        >
-          {clip.label}
-        </div>
-      ))}
+      {clips.map((clip, index) => {
+        const width = Math.max(clip.durationFrames * pxPerFrame, 8);
+        const height = Math.max(slotH, 10);
+        return (
+          <div
+            key={clip.id}
+            className={`timeline__clip timeline__clip--${variant}${clip.sync ? " timeline__clip--sync" : ""}`}
+            style={{
+              left: clip.startFrame * pxPerFrame,
+              width,
+              top: 4 + index * (slotH + 2),
+              height,
+            }}
+            title={`${clip.label}${clip.sync ? " · sync" : ""} · ${clip.durationFrames}f`}
+          >
+            {clip.url ? (
+              <ClipWaveform url={clip.url} label={clip.label} width={width} height={height} />
+            ) : null}
+            <span className="timeline__clip-label">{clip.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
