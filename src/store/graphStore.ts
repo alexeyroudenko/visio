@@ -15,6 +15,7 @@ import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
+import { recallMediaParams, rememberedFile, rememberMedia } from "./mediaMemory";
 import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
@@ -196,15 +197,13 @@ function createGraphStore() {
     },
     addNode(defType, position, params) {
       const id = nextId(defType, new Set(get().nodes.map((node) => node.id)));
+      const merged = { ...defaultParams(defType), ...params };
+      // A file dropped on the canvas arrives here, not through setParam.
+      if (defType === "source.media") rememberMedia(merged);
       set({
         nodes: [
           ...get().nodes,
-          {
-            id,
-            type: "patch",
-            position,
-            data: { defType, params: { ...defaultParams(defType), ...params } },
-          },
+          { id, type: "patch", position, data: { defType, params: merged } },
         ],
         selectedId: id,
       });
@@ -223,11 +222,18 @@ function createGraphStore() {
     },
     setParam(id, key, value) {
       set({
-        nodes: get().nodes.map((node) =>
-          node.id === id
-            ? { ...node, data: { ...node.data, params: { ...node.data.params, [key]: value } } }
-            : node,
-        ),
+        nodes: get().nodes.map((node) => {
+          if (node.id !== id) return node;
+          const params = { ...node.data.params, [key]: value };
+          if (node.data.defType === "source.media") {
+            // Changing the source type swaps in whatever was last open for it,
+            // so image → video → image gets both files back rather than
+            // stranding one of them.
+            if (key === "mode") params.file = rememberedFile(value);
+            rememberMedia(params);
+          }
+          return { ...node, data: { ...node.data, params } };
+        }),
       });
       // Record-keys mode (cv-reels): every Inspector change lands a key at the
       // playhead. An already-animated param does so regardless — its base value
@@ -286,8 +292,15 @@ function createGraphStore() {
     },
     loadPatch(patch, note) {
       nodeCounter = patch.nodes.length;
+      // Presets ship their own source type and file. Whatever is already open
+      // outranks both — swapping patches should not cost you your footage.
+      const nodes = patch.nodes.map((node) =>
+        node.data.defType === "source.media"
+          ? { ...node, data: { ...node.data, params: recallMediaParams(node.data.params) } }
+          : node,
+      );
       set({
-        nodes: patch.nodes,
+        nodes,
         edges: patch.edges,
         width: patch.width,
         height: patch.height,

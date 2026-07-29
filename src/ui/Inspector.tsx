@@ -138,8 +138,9 @@ function ParamControl({
                 event.target.value = "";
                 return;
               }
-              // Revoke the previous blob so long sessions don't leak.
-              if (current?.url) URL.revokeObjectURL(current.url);
+              // The previous blob is not revoked here: mediaMemory still holds
+              // it so switching back to that source type gets the file again,
+              // and it releases the URL once nothing remembers it.
               onChange({
                 name: file.name,
                 url: URL.createObjectURL(file),

@@ -289,6 +289,15 @@ every preset and checks each edge names a real handle of a matching type: a
 wrong handle name is not an error anywhere, the input simply never arrives.
 Video files are not saved: their `blob:` URLs die with the tab, so the patch
 loads with all connections, but you must pick the file again.
+- **The footage outlives the patch.** Presets ship their own source type and
+file, and loading one used to throw away the video you had just dropped.
+`mediaMemory` remembers the last file per source type plus the type itself, and
+a patch load (preset, import, Reset) applies both over whatever the patch said —
+so you can flip through presets against your own material. Switching type in the
+Inspector swaps its file back in too, so image → video → image gets both back;
+a type you have never opened a file for clears the field instead of leaving a
+video source pointed at a PNG. It also owns the `blob:` URLs, releasing one only
+when no source type still remembers it. Same session only, for the reason above.
 - **Keyframes, fps and duration are part of the patch** — they save, export and
 reload with everything else. The playhead is not: it is where you are looking,
 not what the document says, and saving it would rewrite the patch every frame

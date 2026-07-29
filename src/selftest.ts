@@ -32,6 +32,7 @@ import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { BUILTIN_PRESETS } from "./presets";
+import { recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
@@ -1458,6 +1459,55 @@ async function run(): Promise<void> {
     "nodes without the toggle publish nothing",
     !("pts" in debugStore.byId) && !("out" in debugStore.byId),
     `panels for ${Object.keys(debugStore.byId).join(",") || "none"}`,
+  );
+
+  // --- 6b-ter. media memory -------------------------------------------------
+  // Presets ship their own source type and file. Whatever is already open has
+  // to outrank both, or trying a preset costs you the footage you dropped.
+  const imageFile = { name: "shot.png", url: "test://image-a", mime: "image/png" };
+  const videoFile = { name: "clip.mp4", url: "test://video-a", mime: "video/mp4" };
+  const presetImage = { mode: "image", file: { name: "default-frame.png", url: "test://default" } };
+
+  // Nothing opened yet: a preset must arrive exactly as authored.
+  check(
+    "an untouched session gets the preset as authored",
+    recallMediaParams(presetImage) === presetImage,
+    "params passed through unchanged",
+  );
+
+  rememberMedia({ mode: "image", file: imageFile });
+  const withImage = recallMediaParams(presetImage);
+  check(
+    "the last image beats the preset's own",
+    withImage.mode === "image" && (withImage.file as typeof imageFile).url === imageFile.url,
+    `mode=${String(withImage.mode)} file=${(withImage.file as { name?: string })?.name}`,
+  );
+
+  rememberMedia({ mode: "video", file: videoFile });
+  const ontoImagePreset = recallMediaParams(presetImage);
+  check(
+    "an image preset loads as video when that is what is open",
+    ontoImagePreset.mode === "video" &&
+      (ontoImagePreset.file as typeof videoFile).url === videoFile.url,
+    `mode=${String(ontoImagePreset.mode)} file=${(ontoImagePreset.file as { name?: string })?.name}`,
+  );
+
+  check(
+    "each source type keeps its own file",
+    rememberedFile("image")?.url === imageFile.url &&
+      rememberedFile("video")?.url === videoFile.url &&
+      rememberedFile("camera") === null,
+    `image=${rememberedFile("image")?.name} video=${rememberedFile("video")?.name}`,
+  );
+
+  // Camera is remembered as a type but owns no file, so a preset switched to it
+  // must not be left pointing at the image the preset shipped.
+  rememberMedia({ mode: "camera" });
+  const ontoCamera = recallMediaParams(presetImage);
+  check(
+    "switching to a type with no file clears the preset's",
+    ontoCamera.mode === "camera" && ontoCamera.file === null,
+    `mode=${String(ontoCamera.mode)} file=${JSON.stringify(ontoCamera.file)}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------

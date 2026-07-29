@@ -521,7 +521,7 @@ export class Engine {
     const ctx = this.context(now - this.startTime, deltaSec);
     const gl = this.gl;
     this.displayTarget = null;
-    const debugDue = now - this.debugAt >= DEBUG_INTERVAL_MS;
+    const debugTick = now - this.debugAt >= DEBUG_INTERVAL_MS;
     const stillDebugging = new Set<string>();
 
     for (const id of this.order) {
@@ -539,6 +539,9 @@ export class Engine {
 
       const debug = node.debug === true;
       if (debug) stillDebugging.add(id);
+      // A panel that was just switched on fills in immediately; from then on it
+      // follows the refresh interval.
+      const publish = debug && (debugTick || !this.debugPublished.has(id));
       // Timing the node is only worth two clock reads while someone is looking.
       const startedAt = debug ? performance.now() : 0;
       this.debugExtra = debug ? [] : null;
@@ -564,19 +567,17 @@ export class Engine {
         this.report(id, "error", error instanceof Error ? error.message : String(error));
       }
 
-      if (debug && debugDue) {
+      if (publish) {
         this.publishDebug(id, slot, inputs, performance.now() - startedAt, node.bypass === true);
       }
       this.debugExtra = null;
     }
 
-    if (debugDue) {
-      this.debugAt = now;
-      for (const id of this.debugPublished) {
-        if (!stillDebugging.has(id)) publishNodeDebug(id, null);
-      }
-      this.debugPublished = stillDebugging;
+    for (const id of this.debugPublished) {
+      if (!stillDebugging.has(id)) publishNodeDebug(id, null);
     }
+    this.debugPublished = stillDebugging;
+    if (debugTick) this.debugAt = now;
 
     // Present. Without an Output node the canvas stays black rather than stale.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
