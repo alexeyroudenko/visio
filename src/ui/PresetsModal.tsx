@@ -10,7 +10,7 @@ import {
 } from "../presets";
 import { appLog } from "../store/consoleStore";
 import { serializePatch } from "../store/persistence";
-import { useGraphStore } from "../store/graphStore";
+import { currentTimeline, useGraphStore } from "../store/graphStore";
 
 export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState(DEFAULT_PRESET_ID);
@@ -149,7 +149,11 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
               const label = window.prompt("Name for this preset:", suggested);
               if (label === null) return;
               const { nodes, edges, width, height } = useGraphStore.getState();
-              const id = addUserPreset(label, serializePatch(nodes, edges, width, height));
+              // A preset is a patch, so it carries the animation too.
+              const id = addUserPreset(
+                label,
+                serializePatch(nodes, edges, width, height, currentTimeline()),
+              );
               refresh();
               setSelectedId(id);
               setStatus(`Saved “${label.trim() || "Untitled"}”`);

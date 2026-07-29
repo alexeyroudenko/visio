@@ -10,7 +10,7 @@ import {
 } from "@xyflow/react";
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
-import { paramPath } from "../lib/keyframes";
+import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
@@ -103,10 +103,16 @@ function nextId(defType: string, taken: Set<string>): string {
 }
 
 /** The parts of the timeline that belong to the document, not the session. */
-function currentTimeline(): SerializedTimeline {
+export function currentTimeline(): SerializedTimeline {
   const { fps, durationInFrames, paramKeyframes } = useTimelineStore.getState();
   return { fps, durationInFrames, keyframes: paramKeyframes };
 }
+
+const EMPTY_TIMELINE: SerializedTimeline = {
+  fps: DEFAULT_FPS,
+  durationInFrames: DEFAULT_DURATION_FRAMES,
+  keyframes: {},
+};
 
 function patchFromPreset(id: string): ParsedPatch | null {
   const preset = getPreset(id) ?? getPreset(DEFAULT_PRESET_ID);
@@ -131,6 +137,8 @@ function createGraphStore() {
   // Startup seeds the store directly instead of going through loadPatch, so the
   // timeline has to be adopted here too or a reload drops every key.
   if (initial.timeline) useTimelineStore.getState().loadTimeline(initial.timeline);
+  // No `else`: a patch predating keyframes has nothing to restore, and the store
+  // already starts empty.
 
   const store = create<GraphState>((set, get) => ({
     nodes: initial.nodes,
@@ -274,9 +282,10 @@ function createGraphStore() {
         selectedId: null,
         statuses: {},
       });
-      // Patches from before keyframes carry no timeline; leave the current one
-      // alone rather than silently wiping keys the user is still working on.
-      if (patch.timeline) useTimelineStore.getState().loadTimeline(patch.timeline);
+      // A patch load replaces the timeline outright. Carrying keys over from the
+      // previous document would bind them to whichever new node happened to reuse
+      // the id — presets number their nodes the same way every time.
+      useTimelineStore.getState().loadTimeline(patch.timeline ?? EMPTY_TIMELINE);
       appLog(
         "ok",
         "patch",
@@ -322,7 +331,6 @@ function createGraphStore() {
       clearStorage();
       const fresh = patchFromPreset(DEFAULT_PRESET_ID);
       if (!fresh) return;
-      useTimelineStore.getState().clearKeyframes();
       get().loadPatch(fresh, "reset to default preset");
       writeActivePresetId(DEFAULT_PRESET_ID);
       set({ activePresetId: DEFAULT_PRESET_ID });
