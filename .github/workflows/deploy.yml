@@ -30,14 +30,15 @@ jobs:
         env:
           AA_SSH_KEY: ${{ secrets.AA_SSH_KEY }}
           AA_SSH_HOST: ${{ secrets.AA_SSH_HOST }}
+          AA_SSH_USER: ${{ secrets.AA_SSH_USER }}
         run: |
           mkdir -p ~/.ssh
           # Strip CR in case the secret was uploaded from Windows
-          printf '%s\n' "$AA_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          printenv AA_SSH_KEY | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$AA_SSH_HOST" >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=10 \
-            "${{ secrets.AA_SSH_USER }}@${AA_SSH_HOST}" 'echo ssh-ok'
+            "${AA_SSH_USER}@${AA_SSH_HOST}" 'echo ssh-ok'
 
       - name: Sync to /var/www/AA/visio
         env:
