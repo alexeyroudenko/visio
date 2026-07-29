@@ -33,11 +33,12 @@ jobs:
           AA_SSH_USER: ${{ secrets.AA_SSH_USER }}
         run: |
           mkdir -p ~/.ssh
-          # Strip CR in case the secret was uploaded from Windows
-          printenv AA_SSH_KEY | tr -d '\r' > ~/.ssh/deploy_key
+          # Secret is base64(private key) — avoids multiline/CRLF corruption from Windows uploads
+          printenv AA_SSH_KEY | tr -d ' \n\r\t' | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
           ssh-keyscan -H "$AA_SSH_HOST" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=10 \
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 \
             "${AA_SSH_USER}@${AA_SSH_HOST}" 'echo ssh-ok'
 
       - name: Sync to /var/www/AA/visio
