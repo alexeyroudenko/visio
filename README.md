@@ -250,9 +250,13 @@ those edges are excluded from topo-sort.
 
 ## Deploy
 
+Manual (same target as CI):
+
 ```bash
 ../deploy.sh visio ./dist --build "cd visio && npm run build"
 ```
+
+CI: push to `main` (or Actions → **Deploy** → Run workflow) builds and rsyncs to `/var/www/AA/visio/` on `aa.arthew0.online`. Secrets: `AA_SSH_KEY`, `AA_SSH_HOST`, `AA_SSH_USER`.
 
 Live: https://visio.aa.arthew0.online/  
 (New subdomain needs LE expand: `certbot --cert-name aa.arthew0.online --expand -d … -d visio.aa.arthew0.online`.)

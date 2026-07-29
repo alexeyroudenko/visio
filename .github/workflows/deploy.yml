@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-visio
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup SSH
+        env:
+          AA_SSH_KEY: ${{ secrets.AA_SSH_KEY }}
+          AA_SSH_HOST: ${{ secrets.AA_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AA_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$AA_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync to /var/www/AA/visio
+        env:
+          AA_SSH_HOST: ${{ secrets.AA_SSH_HOST }}
+          AA_SSH_USER: ${{ secrets.AA_SSH_USER }}
+        run: |
+          REMOTE="${AA_SSH_USER}@${AA_SSH_HOST}"
+          REMOTE_DIR="/var/www/AA/visio"
+          rsync -avz --delete --chmod=D755,F644 \
+            -e "ssh -i $HOME/.ssh/deploy_key -o BatchMode=yes" \
+            dist/ "${REMOTE}:${REMOTE_DIR}/"
+          ssh -i "$HOME/.ssh/deploy_key" -o BatchMode=yes "$REMOTE" \
+            "chmod -R a+rX '${REMOTE_DIR}'; if [[ -x /var/www/AA/generate-index.sh ]]; then bash /var/www/AA/generate-index.sh; fi"
+
+      - name: Verify live URL
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L 'https://visio.aa.arthew0.online/')"
+          echo "HTTP ${code}"
+          case "$code" in
+            200|301|302) ;;
+            *) echo "Unexpected status: ${code}" >&2; exit 1 ;;
+          esac
