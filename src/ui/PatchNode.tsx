@@ -5,6 +5,7 @@ import { useGraphStore, type PatchNode as PatchNodeType } from "../store/graphSt
 import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useNodeDebugStore } from "../store/nodeDebugStore";
 import { InfoRows, MediaInfoPanel } from "./MediaInfoPanel";
+import { LevelMeters } from "./LevelMeters";
 
 const STATUS_DOT: Record<string, string> = {
   idle: "#6b7280",
@@ -102,6 +103,7 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
       </div>
 
       {mediaInfo ? <MediaInfoPanel info={mediaInfo} compact /> : null}
+      {data.defType === "audio.granular" ? <LevelMeters nodeId={id} /> : null}
       {debugOn ? (
         <InfoRows
           rows={debugRows ?? [{ label: "debug", value: "waiting for a frame…" }]}

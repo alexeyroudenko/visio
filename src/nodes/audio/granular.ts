@@ -2,6 +2,7 @@ import type { AudioValue, BoxesValue } from "../../engine/types";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
 import { audioContext } from "../../lib/audioEngine";
 import { publishGrains, type GrainMark } from "../../store/grainStore";
+import { clearLevels, publishLevels } from "../../store/levelStore";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 
 /**
@@ -43,11 +44,10 @@ interface GranularState {
   dryStartedAt: number;
   dryOffsetSec: number;
   limiter: DynamicsCompressorNode | null;
-  /**
-   * Sits inline on the mix purely so the debug panel can show that sound is
-   * actually leaving the node — "8 grains" is not the same as "8 grains audible".
-   */
-  meter: AnalyserNode | null;
+  /** Pass-through analyser on the grains bus — feeds the Grn column. */
+  grainsMeter: AnalyserNode | null;
+  /** Pass-through analyser on the dry bus — feeds the Src column. */
+  sourceMeter: AnalyserNode | null;
   meterBuffer: Float32Array<ArrayBuffer> | null;
   /** The context the chain above belongs to — rebuilt if HMR swaps it out. */
   ctx: AudioContext | null;
@@ -56,8 +56,10 @@ interface GranularState {
 }
 
 /** Peak of the last analyser window, as a 0..1 level plus a coarse dBFS. */
-function readLevel(state: GranularState): { peak: number; db: number } {
-  const meter = state.meter;
+function readPeak(
+  meter: AnalyserNode | null,
+  state: GranularState,
+): { peak: number; db: number } {
   if (!meter) return { peak: 0, db: -Infinity };
   if (!state.meterBuffer || state.meterBuffer.length !== meter.fftSize) {
     state.meterBuffer = new Float32Array(meter.fftSize);
@@ -152,11 +154,12 @@ function ensureChain(state: GranularState): {
     !state.grainsGain ||
     !state.sourceGain ||
     !state.limiter ||
-    !state.meter
+    !state.grainsMeter ||
+    !state.sourceMeter
   ) {
     stopDry(state);
-    // HMR may leave an older `master` bus still wired to the destination.
-    const legacy = state as GranularState & { master?: GainNode | null };
+    // HMR may leave an older `master` / single-meter bus still wired.
+    const legacy = state as GranularState & { master?: GainNode | null; meter?: AnalyserNode | null };
     if (legacy.master) {
       try {
         legacy.master.disconnect();
@@ -165,17 +168,28 @@ function ensureChain(state: GranularState): {
       }
       legacy.master = null;
     }
+    if (legacy.meter) {
+      try {
+        legacy.meter.disconnect();
+      } catch {
+        /* already gone */
+      }
+      legacy.meter = null;
+    }
     state.grainsGain?.disconnect();
     state.sourceGain?.disconnect();
-    state.meter?.disconnect();
+    state.grainsMeter?.disconnect();
+    state.sourceMeter?.disconnect();
     state.limiter?.disconnect();
     state.ctx = ctx;
     state.grainsGain = ctx.createGain();
     state.grainsGain.gain.value = 0;
     state.sourceGain = ctx.createGain();
     state.sourceGain.gain.value = 0;
-    state.meter = ctx.createAnalyser();
-    state.meter.fftSize = 1024;
+    state.grainsMeter = ctx.createAnalyser();
+    state.grainsMeter.fftSize = 1024;
+    state.sourceMeter = ctx.createAnalyser();
+    state.sourceMeter.fftSize = 1024;
     state.meterBuffer = null;
     state.limiter = ctx.createDynamicsCompressor();
     // A safety net, not an effect: a dozen loops stacking up would otherwise
@@ -184,12 +198,11 @@ function ensureChain(state: GranularState): {
     state.limiter.ratio.value = 12;
     state.limiter.attack.value = 0.003;
     state.limiter.release.value = 0.15;
-    // The meter is inline rather than a side tap: an analyser only runs when it
-    // reaches the destination, and a dangling one would read silence forever.
-    // Grains and dry both land here — dry is mixed after granulation, not into it.
-    state.grainsGain.connect(state.meter);
-    state.sourceGain.connect(state.meter);
-    state.meter.connect(state.limiter).connect(ctx.destination);
+    // Each bus has its own analyser so the Src / Grn columns can move apart.
+    // Analysers are pass-through — they sit inline before the shared limiter.
+    state.grainsGain.connect(state.grainsMeter).connect(state.limiter);
+    state.sourceGain.connect(state.sourceMeter).connect(state.limiter);
+    state.limiter.connect(ctx.destination);
   }
   return { ctx, grainsGain: state.grainsGain, sourceGain: state.sourceGain };
 }
@@ -336,7 +349,8 @@ export const granularNode = defineNode<GranularState>({
       dryStartedAt: 0,
       dryOffsetSec: 0,
       limiter: null,
-      meter: null,
+      grainsMeter: null,
+      sourceMeter: null,
       meterBuffer: null,
       ctx: null,
       reported: null,
@@ -347,11 +361,13 @@ export const granularNode = defineNode<GranularState>({
     stopDry(state);
     state.grainsGain?.disconnect();
     state.sourceGain?.disconnect();
-    state.meter?.disconnect();
+    state.grainsMeter?.disconnect();
+    state.sourceMeter?.disconnect();
     state.limiter?.disconnect();
     state.grainsGain = null;
     state.sourceGain = null;
-    state.meter = null;
+    state.grainsMeter = null;
+    state.sourceMeter = null;
     state.limiter = null;
     state.ctx = null;
   },
@@ -375,6 +391,7 @@ export const granularNode = defineNode<GranularState>({
     if (!audio) {
       releaseAll(state);
       stopDry(state);
+      clearLevels(nodeId);
       engine.report(nodeId, "idle", "wire an audio source");
       if (debug) engine.debugRows(nodeId, [{ label: "source", value: "not connected" }]);
       return {};
@@ -387,6 +404,7 @@ export const granularNode = defineNode<GranularState>({
     if (!decoded) {
       releaseAll(state);
       stopDry(state);
+      clearLevels(nodeId);
       const entry = ensureAudioBuffer(audio.url);
       if (entry.status === "error") {
         engine.report(nodeId, "error", entry.message ?? "no decodable audio track");
@@ -554,6 +572,13 @@ export const granularNode = defineNode<GranularState>({
     }
     publishGrains(audio.url, marks);
 
+    const sourceLevelPeak = readPeak(state.sourceMeter, state);
+    const grainsLevelPeak = readPeak(state.grainsMeter, state);
+    publishLevels(nodeId, {
+      source: sourceLevelPeak.peak,
+      grains: grainsLevelPeak.peak,
+    });
+
     engine.report(
       nodeId,
       playing ? "ready" : "idle",
@@ -569,7 +594,8 @@ export const granularNode = defineNode<GranularState>({
         lowest = Math.min(lowest, voice.filter.frequency.value);
         highest = Math.max(highest, voice.filter.frequency.value);
       }
-      const meter = readLevel(state);
+      const fmt = (peak: number, db: number) =>
+        peak > 0.0005 ? `${peak.toFixed(3)} (${db.toFixed(1)} dB)` : "silent";
       engine.debugRows(nodeId, [
         { label: "audio ctx", value: `${ctx.state} @ ${Math.round(ctx.sampleRate / 1000)}k` },
         { label: "buffer", value: `${trackSec.toFixed(1)}s · ${decoded.numberOfChannels}ch` },
@@ -578,14 +604,8 @@ export const granularNode = defineNode<GranularState>({
           label: "cutoff",
           value: state.voices.size > 0 ? `${Math.round(lowest)}–${Math.round(highest)} Hz` : "—",
         },
-        // The one row that says the grains are audible rather than merely alive.
-        {
-          label: "out level",
-          value:
-            meter.peak > 0.0005
-              ? `${meter.peak.toFixed(3)} (${meter.db.toFixed(1)} dB)`
-              : "silent",
-        },
+        { label: "src level", value: fmt(sourceLevelPeak.peak, sourceLevelPeak.db) },
+        { label: "grn level", value: fmt(grainsLevelPeak.peak, grainsLevelPeak.db) },
         { label: "grains", value: grainsGain.gain.value.toFixed(2) },
         { label: "source", value: sourceGain.gain.value.toFixed(2) },
       ]);

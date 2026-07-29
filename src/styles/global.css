@@ -1093,6 +1093,58 @@ body.is-resizing {
   min-width: 220px;
 }
 
+/* VU columns on Granular — Source (dry) vs Grains. */
+.level-meters {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 6px 10px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.level-meters__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.level-meters__track {
+  position: relative;
+  width: 12px;
+  height: 48px;
+  background: color-mix(in srgb, var(--panel) 40%, #000);
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.level-meters__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  border-radius: 0;
+  transition: none;
+}
+
+.level-meters__bar--source {
+  background: linear-gradient(to top, #3d8f6e, #7fe3c0);
+}
+
+.level-meters__bar--grains {
+  background: linear-gradient(to top, #2fa4a0, #8fd6ff);
+}
+
+.level-meters__label {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
 .node--selected {
   box-shadow: 0 0 0 1px var(--accent);
 }
