@@ -21,8 +21,26 @@ export function fileParam(params: Record<string, unknown>, key = "file"): FilePa
   return null;
 }
 
+function publicFile(name: string): FileParam {
+  return {
+    name,
+    url: `${import.meta.env.BASE_URL}${name}`,
+    mime: "image/png",
+  };
+}
+
 /** Bundled starter still — served from Vite `public/`. */
-export const DEFAULT_IMAGE_FILE: FileParam = {
-  name: "default-frame.png",
-  url: `${import.meta.env.BASE_URL}default-frame.png`,
-};
+export const DEFAULT_IMAGE_FILE: FileParam = publicFile("default-frame.png");
+
+/** Full-body still for pose / hands / skeleton tracking demos. */
+export const POSE_IMAGE_FILE: FileParam = publicFile("default-pose.png");
+
+/** Close-up still for face-mesh tracking demos. */
+export const FACE_IMAGE_FILE: FileParam = publicFile("default-face.png");
+
+/** Stock images shown in the Media inspector library. */
+export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] = [
+  { file: DEFAULT_IMAGE_FILE, label: "Frame" },
+  { file: POSE_IMAGE_FILE, label: "Pose" },
+  { file: FACE_IMAGE_FILE, label: "Face" },
+];

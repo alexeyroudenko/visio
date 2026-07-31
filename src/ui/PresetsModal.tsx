@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   addUserPreset,
+  builtinPreviewUrl,
   DEFAULT_PRESET_ID,
   downloadUserPresets,
   getPreset,
@@ -12,10 +13,17 @@ import { appLog } from "../store/consoleStore";
 import { serializePatch } from "../store/persistence";
 import { currentTimeline, useGraphStore } from "../store/graphStore";
 
+function presetThumb(preset: PatchPreset): string | null {
+  if (preset.preview) return preset.preview;
+  if (preset.builtin) return builtinPreviewUrl(preset.id);
+  return null;
+}
+
 export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState(DEFAULT_PRESET_ID);
   const [presets, setPresets] = useState<PatchPreset[]>(() => listPresets());
   const [status, setStatus] = useState<string | null>(null);
+  const [brokenThumbs, setBrokenThumbs] = useState<Record<string, true>>({});
   const fileRef = useRef<HTMLInputElement | null>(null);
   const loadPreset = useGraphStore((state) => state.loadPreset);
   const exportPatch = useGraphStore((state) => state.exportPatch);
@@ -38,6 +46,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
       active && list.some((preset) => preset.id === active) ? active : DEFAULT_PRESET_ID;
     setSelectedId(next);
     setStatus(null);
+    setBrokenThumbs({});
   }, [open]);
 
   useEffect(() => {
@@ -88,6 +97,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
             {presets.map((preset) => {
               const saved = preset.builtin !== true;
               const active = preset.id === selected?.id;
+              const thumb = brokenThumbs[preset.id] ? null : presetThumb(preset);
               return (
                 <div
                   key={preset.id}
@@ -95,24 +105,6 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                   role="option"
                   aria-selected={active}
                 >
-                  <button
-                    type="button"
-                    className="preset-list__item"
-                    title="Click to select · double-click to load"
-                    onClick={() => {
-                      setSelectedId(preset.id);
-                      setStatus(null);
-                    }}
-                    onDoubleClick={() => applyLoad(preset)}
-                  >
-                    <span className="preset-list__mark" aria-hidden="true">
-                      {saved ? "✓" : ""}
-                    </span>
-                    <span className="preset-list__text">
-                      <span className="preset-list__label">{preset.label}</span>
-                      <span className="preset-list__desc">{preset.description}</span>
-                    </span>
-                  </button>
                   {saved ? (
                     <button
                       type="button"
@@ -134,9 +126,41 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                         appLog("info", "preset", `deleted “${preset.label}”`);
                       }}
                     >
-                      Delete
+                      ✕
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="preset-list__item"
+                    title={`${preset.label} — click to select · double-click to load`}
+                    onClick={() => {
+                      setSelectedId(preset.id);
+                      setStatus(null);
+                    }}
+                    onDoubleClick={() => applyLoad(preset)}
+                  >
+                    <span className="preset-list__thumb" aria-hidden="true">
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt=""
+                          loading="lazy"
+                          onError={() =>
+                            setBrokenThumbs((prev) => ({ ...prev, [preset.id]: true }))
+                          }
+                        />
+                      ) : (
+                        <span className="preset-list__thumb-empty" />
+                      )}
+                    </span>
+                    <span className="preset-list__text">
+                      <span className="preset-list__label">
+                        {saved ? <span className="preset-list__mark">✓ </span> : null}
+                        {preset.label}
+                      </span>
+                      <span className="preset-list__desc">{preset.description}</span>
+                    </span>
+                  </button>
                 </div>
               );
             })}

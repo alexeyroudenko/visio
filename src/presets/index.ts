@@ -1,5 +1,10 @@
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
-import { DEFAULT_IMAGE_FILE } from "../nodes/shared/fileParam";
+import {
+  DEFAULT_IMAGE_FILE,
+  FACE_IMAGE_FILE,
+  POSE_IMAGE_FILE,
+  type FileParam,
+} from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 
 export interface PatchPreset {
@@ -8,7 +13,14 @@ export interface PatchPreset {
   description: string;
   /** Built-in presets cannot be removed from the list. */
   builtin?: boolean;
+  /** Thumbnail under `public/presets/` (shown in the presets picker). */
+  preview?: string;
   build: () => SerializedPatch;
+}
+
+/** Default preview path for a builtin preset id. */
+export function builtinPreviewUrl(id: string): string {
+  return `presets/${id}.jpg`;
 }
 
 const USER_PRESETS_KEY = "visio.userPresets.v1";
@@ -27,6 +39,8 @@ type SourceKind = "camera" | "image";
 /** Camera/image → tracker → draw overlay → output. */
 function trackingViz(opts: {
   source: SourceKind;
+  /** Still used when `source` is image (defaults to the road frame). */
+  imageFile?: FileParam;
   trackType: string;
   trackId: string;
   drawType: string;
@@ -37,7 +51,12 @@ function trackingViz(opts: {
   const sourceId = opts.source === "camera" ? "camera-1" : "image-1";
   const sourceParams =
     opts.source === "image"
-      ? { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" }
+      ? {
+          mode: "image",
+          file: opts.imageFile ?? DEFAULT_IMAGE_FILE,
+          mirror: false,
+          fit: "cover",
+        }
       : { mode: "camera", mirror: true, fit: "cover" };
 
   return {
@@ -238,7 +257,7 @@ function poseFeaturesGrid(): SerializedPatch {
         position: { x: 0, y: 140 },
         params: {
           mode: "image",
-          file: DEFAULT_IMAGE_FILE,
+          file: POSE_IMAGE_FILE,
           mirror: false,
           fit: "cover",
         },
@@ -497,7 +516,7 @@ function cornersFeaturesGrid(): SerializedPatch {
 /**
  * Features Tracking — Shi–Tomasi + PyrLK motion lines
  * (https://alexeyroudenko.net/ru/projects/features-tracking/).
- * Camera for live motion; drop a video on Media if preferred.
+ * Image starter; switch Media to camera/video for live motion trails.
  */
 function featuresTracking(): SerializedPatch {
   return {
@@ -509,7 +528,12 @@ function featuresTracking(): SerializedPatch {
         id: "camera-1",
         type: "source.media",
         position: { x: 0, y: 140 },
-        params: { mode: "camera", mirror: true, fit: "cover" },
+        params: {
+          mode: "image",
+          file: DEFAULT_IMAGE_FILE,
+          mirror: false,
+          fit: "cover",
+        },
       },
       {
         id: "featuresTrack-1",
@@ -641,12 +665,8 @@ function noiseGrid(): SerializedPatch {
 }
 
 /**
- * Video → Features Grid → Granular: the grid's cells drive the sound.
- *
- * The Media node starts empty on purpose — drop a video with an audio track on
- * it and every cell that appears starts looping a grain cut from that track at
- * the playhead. Media stays muted; Granular's Source fader brings the dry
- * track back in after the grains bus.
+ * Features Grid (+ Granular): starts on the default still so the graph shows
+ * something; drop a video with audio on Media when you want grains.
  */
 function granularGrid(): SerializedPatch {
   return {
@@ -658,7 +678,13 @@ function granularGrid(): SerializedPatch {
         id: "video-1",
         type: "source.media",
         position: { x: 0, y: 140 },
-        params: { mode: "video", muted: true, mirror: false, fit: "cover" },
+        params: {
+          mode: "image",
+          file: DEFAULT_IMAGE_FILE,
+          muted: true,
+          mirror: false,
+          fit: "cover",
+        },
       },
       {
         id: "features-1",
@@ -770,11 +796,12 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "track-pose",
     label: "Pose + Skeleton",
-    description: "Camera → Pose → Draw Skeleton → output",
+    description: "Pose still → Pose → Draw Skeleton → output",
     builtin: true,
     build: () =>
       trackingViz({
-        source: "camera",
+        source: "image",
+        imageFile: POSE_IMAGE_FILE,
         trackType: "tracking.pose",
         trackId: "pose-1",
         drawType: "draw.landmarks",
@@ -785,11 +812,12 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "track-hands",
     label: "Hands + Skeleton",
-    description: "Camera → Hands → Draw Skeleton → output",
+    description: "Pose still → Hands → Draw Skeleton → output",
     builtin: true,
     build: () =>
       trackingViz({
-        source: "camera",
+        source: "image",
+        imageFile: POSE_IMAGE_FILE,
         trackType: "tracking.hands",
         trackId: "hands-1",
         drawType: "draw.landmarks",
@@ -800,11 +828,12 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "track-face",
     label: "Face Mesh + Skeleton",
-    description: "Camera → Face Mesh → Draw Skeleton → output",
+    description: "Face still → Face Mesh → Draw Skeleton → output",
     builtin: true,
     build: () =>
       trackingViz({
-        source: "camera",
+        source: "image",
+        imageFile: FACE_IMAGE_FILE,
         trackType: "tracking.face",
         trackId: "face-1",
         drawType: "draw.landmarks",
@@ -853,7 +882,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     id: "pose-features-grid",
     label: "Pose + Features Grid",
     description:
-      "Media → Pose → skeleton + Points → Features Grid (effect on small cells)",
+      "Pose still → Pose → skeleton + Points → Features Grid (effect on small cells)",
     builtin: true,
     build: poseFeaturesGrid,
   },
@@ -867,7 +896,8 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "granular-grid",
     label: "Granular Grid",
-    description: "Drop a video: Features Grid cells loop grains of its audio (size → cutoff)",
+    description:
+      "Still → Features Grid; drop a video for grain audio (size → cutoff)",
     builtin: true,
     build: granularGrid,
   },
@@ -890,7 +920,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     id: "features-tracking",
     label: "Features Tracking",
     description:
-      "Camera → Shi–Tomasi + PyrLK → long-lived motion lines (FeaturesTracking)",
+      "Image → Shi–Tomasi + PyrLK → motion lines (switch to camera/video for live trails)",
     builtin: true,
     build: featuresTracking,
   },

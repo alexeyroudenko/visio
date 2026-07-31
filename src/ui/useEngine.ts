@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine } from "../engine/runtime";
+import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
 import { applyKeyframesToNodes } from "../lib/keyframes";
 import { applyModulatorsToNodes } from "../lib/modulators";
 import { NODE_DEFS } from "../nodes/registry";
@@ -47,6 +48,7 @@ export function useEngine(
     engine.setDefinitions(NODE_DEFS);
     engine.onStatus((statuses) => useGraphStore.getState().setStatuses(statuses));
     engineRef.current = engine;
+    bindPresetPreviewCapture(canvas);
 
     const pushGraph = () => {
       const { width, height, nodes, edges } = useGraphStore.getState();
@@ -156,6 +158,7 @@ export function useEngine(
       unsubGraph();
       unsubTimeline();
       unsubModulators();
+      bindPresetPreviewCapture(null);
       engine.dispose();
       engineRef.current = null;
     };

@@ -1,5 +1,5 @@
 import { copyTexture } from "../../engine/gl/quad";
-import type { RenderTarget as RT } from "../../engine/gl/rt";
+import { clearTarget, type RenderTarget as RT } from "../../engine/gl/rt";
 import { SourceTexture } from "../../engine/gl/videoTexture";
 import type {
   AudioValue,
@@ -531,32 +531,43 @@ function evalImage(
     state.loadedUrl = file.url;
     state.imageReady = false;
     state.frameId = 0;
+    state.drawKey = "";
+    // Drop the cached upload so the next still always hits the GPU.
+    if (state.texture) {
+      state.texture.dispose();
+      state.texture = null;
+    }
     ctx.report(nodeId, "loading", file.name);
-    state.image.onload = () => {
+    // Fresh element so a slow decode cannot keep painting the previous still.
+    const image = new Image();
+    image.decoding = "async";
+    state.image = image;
+    image.onload = () => {
+      if (state.loadedUrl !== file.url) return;
       state.imageReady = true;
       state.frameId += 1;
       ctx.report(nodeId, "ready", file.name);
     };
-    state.image.onerror = () => {
+    image.onerror = () => {
+      if (state.loadedUrl !== file.url) return;
       state.imageReady = false;
       ctx.report(nodeId, "error", "failed to open image");
     };
-    state.image.src = file.url;
+    image.src = file.url;
   }
 
   if (!state.loadedUrl) {
     if (runtime.status === "idle") ctx.report(nodeId, "idle", "drop an image file");
     publishClear(nodeId);
+    clearTarget(ctx.gl, target, 0, 0, 0, 0);
     return { out: target, frame: null };
   }
   if (!state.imageReady || state.image.naturalWidth === 0) {
+    // Don't keep the previous still on screen while the next file is decoding —
+    // preset-preview capture (and scrubbing library images) would otherwise
+    // grab a frame from the last Media file.
+    clearTarget(ctx.gl, target, 0, 0, 0, 0);
     return { out: target, frame: null };
-  }
-
-  const drawKey = `${fit}:${mirror}:${zoom}:${ctx.width}x${ctx.height}`;
-  if (drawKey !== state.drawKey) {
-    state.drawKey = drawKey;
-    state.frameId += 1;
   }
 
   const mime = file?.mime ?? null;
@@ -570,6 +581,14 @@ function evalImage(
     aspectRatio: aspectOf(state.image.naturalWidth, state.image.naturalHeight),
     ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, null, false),
   });
+
+  // Include the file URL so swapping library stills always re-uploads the GL texture
+  // (frameId-gated upload would otherwise keep painting the previous image).
+  const drawKey = `${fit}:${mirror}:${zoom}:${ctx.width}x${ctx.height}:${state.loadedUrl}`;
+  if (drawKey !== state.drawKey) {
+    state.drawKey = drawKey;
+    state.frameId += 1;
+  }
 
   state.stage.draw(
     state.image,

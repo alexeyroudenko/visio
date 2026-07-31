@@ -41,6 +41,8 @@ declare global {
   interface Window {
     /** Survives Vite HMR — reloading a module must not lose the open footage. */
     __visioMediaMemory?: MediaMemory;
+    /** Preset-preview capture: keep each patch's authored Media file. */
+    __visioPreferAuthoredMedia?: boolean;
   }
 }
 
@@ -147,10 +149,19 @@ export function rememberedFile(mode: unknown): RememberedFile | null {
  * the one the preset shipped with, and the remembered file over its file.
  * Returns the input untouched when there is nothing to say, so a first-run
  * session gets exactly the preset as authored.
+ *
+ * When `preferAuthoredMedia` is on (preset-preview capture), skip recall so
+ * each preset keeps the still it was built with.
  */
 export function recallMediaParams(
   params: Record<string, unknown>,
 ): Record<string, unknown> {
+  if (
+    preferAuthoredMedia ||
+    (typeof window !== "undefined" && window.__visioPreferAuthoredMedia)
+  ) {
+    return params;
+  }
   const patchMode = asMode(params.mode) ?? "image";
   const mode = memory.mode ?? patchMode;
   const file = rememberedFile(mode);
@@ -162,6 +173,14 @@ export function recallMediaParams(
   // is the point, or a video source would be left pointing at a PNG.
   else if (mode !== patchMode) next.file = null;
   return next;
+}
+
+/** Capture / export: use each patch's own Media file instead of session memory. */
+let preferAuthoredMedia = false;
+
+export function setPreferAuthoredMedia(next: boolean): void {
+  preferAuthoredMedia = next;
+  if (typeof window !== "undefined") window.__visioPreferAuthoredMedia = next;
 }
 
 /** Drop a remembered mode's file from memory + IndexedDB. */

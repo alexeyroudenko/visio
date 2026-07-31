@@ -6,7 +6,7 @@ import {
   type Modulator,
 } from "../lib/modulators";
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
-import type { FileParam } from "../nodes/shared/fileParam";
+import { BUNDLED_IMAGE_FILES, type FileParam } from "../nodes/shared/fileParam";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
@@ -71,6 +71,23 @@ function FileParamControl({
   const accept =
     acceptOverride ?? (spec.type === "file" ? spec.accept : undefined) ?? "";
   const inputRef = useRef<HTMLInputElement>(null);
+  const showLibrary = (() => {
+    const tokens = accept
+      .split(",")
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean);
+    if (tokens.length === 0) return false;
+    // Only the image-source Media picker — not the mixed camera default accept.
+    return tokens.every(
+      (token) =>
+        token === "image/*" ||
+        token.startsWith("image/") ||
+        token === ".png" ||
+        token === ".jpg" ||
+        token === ".jpeg" ||
+        token === ".webp",
+    );
+  })();
 
   useEffect(() => {
     const input = inputRef.current;
@@ -91,34 +108,60 @@ function FileParamControl({
   }, [current?.url, current?.fileObj]);
 
   return (
-    <label className="param">
-      <span className="param__label">{spec.label}</span>
-      <input
-        ref={inputRef}
-        key={accept}
-        type="file"
-        accept={accept}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-          if (!fileMatchesAccept(file, accept ?? "")) {
-            event.target.value = "";
-            return;
-          }
-          // The previous blob is not revoked here: mediaMemory still holds
-          // it so switching back to that source type gets the file again,
-          // and it releases the URL once nothing remembers it.
-          onChange({
-            name: file.name,
-            url: URL.createObjectURL(file),
-            mime: file.type || undefined,
-            sizeBytes: file.size,
-            fileObj: file,
-          } satisfies FileParam);
-        }}
-      />
-      {current ? <em className="param__hint">{current.name}</em> : null}
-    </label>
+    <div className="param param--file">
+      <label className="param">
+        <span className="param__label">{spec.label}</span>
+        <input
+          ref={inputRef}
+          key={accept}
+          type="file"
+          accept={accept}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (!fileMatchesAccept(file, accept ?? "")) {
+              event.target.value = "";
+              return;
+            }
+            // The previous blob is not revoked here: mediaMemory still holds
+            // it so switching back to that source type gets the file again,
+            // and it releases the URL once nothing remembers it.
+            onChange({
+              name: file.name,
+              url: URL.createObjectURL(file),
+              mime: file.type || undefined,
+              sizeBytes: file.size,
+              fileObj: file,
+            } satisfies FileParam);
+          }}
+        />
+        {current ? <em className="param__hint">{current.name}</em> : null}
+      </label>
+      {showLibrary ? (
+        <div className="media-library" aria-label="Stock images">
+          <span className="param__label">Library</span>
+          <div className="media-library__row">
+            {BUNDLED_IMAGE_FILES.map(({ file, label }) => {
+              const active =
+                current?.name === file.name ||
+                (typeof current?.url === "string" && current.url.endsWith(file.name));
+              return (
+                <button
+                  key={file.name}
+                  type="button"
+                  className={`media-library__item${active ? " media-library__item--active" : ""}`}
+                  title={file.name}
+                  onClick={() => onChange({ ...file })}
+                >
+                  <img src={file.url} alt="" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
