@@ -31,6 +31,8 @@ interface SliceState {
   lut: WebGLTexture | null;
   lutHeight: number;
   slices: Slice[];
+  /** Previous playhead — edge-detect return to frame 0 for reset. */
+  lastTimelineFrame: number;
 }
 
 /**
@@ -50,13 +52,25 @@ export const sliceShiftNode = defineNode<SliceState>({
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
     { key: "count", label: "Bands", type: "range", min: 0, max: 120, step: 1, default: 28 },
-    { key: "maxH", label: "Thickness", type: "range", min: 1, max: 80, step: 1, default: 22 },
+    { key: "maxH", label: "Thickness", type: "range", min: 1, max: 320, step: 1, default: 22 },
     { key: "amount", label: "Shift", type: "range", min: 0, max: 100, step: 1, default: 35 },
     { key: "animate", label: "Animate", type: "toggle", default: false },
+    {
+      key: "resetAtFirst",
+      label: "Reset animation at first frame",
+      type: "toggle",
+      default: false,
+    },
     { key: "seed", label: "Seed", type: "range", min: 0, max: 9999, step: 1, default: 1234 },
   ],
   createState() {
-    return { shifts: new Float32Array(0), lut: null, lutHeight: 0, slices: [] };
+    return {
+      shifts: new Float32Array(0),
+      lut: null,
+      lutHeight: 0,
+      slices: [],
+      lastTimelineFrame: 0,
+    };
   },
   disposeState(state, ctx) {
     if (state.lut) ctx.gl.deleteTexture(state.lut);
@@ -107,14 +121,24 @@ export const sliceShiftNode = defineNode<SliceState>({
         if (slices.length > count) slices.length = count;
 
         const speed = (amount / 100) * width * 0.05;
+        const resetAtFirst = paramBool(params, "resetAtFirst", false);
+        const frame = ctx.timelineFrame;
+        // Only on the edge into frame 0 (loop / scrub / offline start) — not
+        // every tick while the playhead sits at 0 (the usual idle state).
+        const hitFirst =
+          resetAtFirst &&
+          frame <= 0 &&
+          (state.lastTimelineFrame > 0 || ctx.timelineForceSync);
         for (const slice of slices) {
-          slice.offset += slice.direction * speed;
+          if (hitFirst) slice.offset = 0;
+          else slice.offset += slice.direction * speed;
           fillBand(
             Math.floor(slice.startF * height),
             1 + Math.floor(slice.heightF * maxH),
             slice.offset,
           );
         }
+        state.lastTimelineFrame = frame;
       } else {
         // Static: the seed alone decides every band.
         const rnd = mulberry32(paramNumber(params, "seed", 1234) + 5 * 9973);

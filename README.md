@@ -65,7 +65,7 @@ to be read at module top level and dragged the whole package into the main bundl
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Sources  | Media (camera · image · video · audio)                                                                                           |
-| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree, **Particles**             |
 | FX       | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**                                                 |
 | Audio    | **Granular**                                                                                                                     |
@@ -91,6 +91,12 @@ of stale frames. Results therefore arrive a frame or two late and the node keeps
 showing the previous ones, which is the same deal as the throttle. The gradients
 are copied before being posted, because `GrayFrame` reuses its arrays and posting
 transfers ownership. Turning the toggle off runs the identical functions inline.
+
+**Features Tracking** — [FeaturesTracking](https://alexeyroudenko.net/ru/projects/features-tracking/)
+pipeline in-browser: Shi–Tomasi corners each few frames, pyramidal Lucas–Kanade
+(`calcOpticalFlowPyrLK`) between frames, forward–backward error cull, then only
+tracks that lived `Min age` frames (default 50) emit motion-line segments. Wire
+`out` → Draw Lines (and optionally `points` → Draw Points).
 
 **Draw Points** supports three styles, like tracking layers in cv-reels:
 `point` · `ring (detection)` — a ring with radius from score between min/max plus a

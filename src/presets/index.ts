@@ -494,6 +494,95 @@ function cornersFeaturesGrid(): SerializedPatch {
   };
 }
 
+/**
+ * Features Tracking — Shi–Tomasi + PyrLK motion lines
+ * (https://alexeyroudenko.net/ru/projects/features-tracking/).
+ * Camera for live motion; drop a video on Media if preferred.
+ */
+function featuresTracking(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "camera-1",
+        type: "source.media",
+        position: { x: 0, y: 140 },
+        params: { mode: "camera", mirror: true, fit: "cover" },
+      },
+      {
+        id: "featuresTrack-1",
+        type: "tracking.featuresTrack",
+        position: { x: 320, y: 40 },
+        params: {
+          downscale: 4,
+          maxCorners: 120,
+          quality: 0.08,
+          minDistance: 14,
+          winSize: 15,
+          maxLevel: 2,
+          minAge: 50,
+          maxTrail: 64,
+          maxTracks: 150,
+          detectInterval: 5,
+          fbError: 2,
+        },
+      },
+      {
+        id: "drawLines-1",
+        type: "draw.lines",
+        position: { x: 640, y: 140 },
+        params: {
+          color: "#f5f0e6",
+          width: 1.5,
+          extend: 1,
+          opacity: 0.95,
+          scoreFade: true,
+          endpoints: false,
+          blend: "normal",
+        },
+      },
+      {
+        id: "screen-1",
+        type: "output.screen",
+        position: { x: 960, y: 180 },
+        params: { background: "#000000" },
+      },
+    ],
+    edges: [
+      {
+        id: "e-frame",
+        source: "camera-1",
+        sourceHandle: "frame",
+        target: "featuresTrack-1",
+        targetHandle: "frame",
+      },
+      {
+        id: "e-bg",
+        source: "camera-1",
+        sourceHandle: "out",
+        target: "drawLines-1",
+        targetHandle: "bg",
+      },
+      {
+        id: "e-lines",
+        source: "featuresTrack-1",
+        sourceHandle: "out",
+        target: "drawLines-1",
+        targetHandle: "lines",
+      },
+      {
+        id: "e-out",
+        source: "drawLines-1",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
+
 /** Points Noise → Features Grid: a moving grid with no tracker in the patch. */
 function noiseGrid(): SerializedPatch {
   return {
@@ -796,6 +885,14 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawId: "points-1",
         drawHandle: "points",
       }),
+  },
+  {
+    id: "features-tracking",
+    label: "Features Tracking",
+    description:
+      "Camera → Shi–Tomasi + PyrLK → long-lived motion lines (FeaturesTracking)",
+    builtin: true,
+    build: featuresTracking,
   },
   {
     id: "track-hough-circles",
