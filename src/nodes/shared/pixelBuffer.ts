@@ -79,8 +79,8 @@ export class PixelBuffer {
    * The cost is latency — what comes back is the frame the readback started on,
    * so the caller is always one behind. Returns null until the first has landed.
    *
-   * Two buffers, so issuing the next readback never touches the one currently
-   * being copied out of.
+   * One slot by design: a second would pipeline issue+retire without waiting
+   * for a free slot, but doubles the lag for no throughput anyone needs here.
    */
   readAsync(gl: WebGL2RenderingContext, source: RenderTarget): ImageData | null {
     const { width, height } = source;

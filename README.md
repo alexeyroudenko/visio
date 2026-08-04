@@ -110,11 +110,14 @@ blended on top) — text has no cheap WebGL equivalent. Everything else is GPU.
 `Use content edge` hugs the silhouette instead of the canvas: cells touching a
 border are trimmed to the outermost content pixel in their own band. The mask
 behind it is built at 480 px wide from the Media `frame` when one is wired up,
-and otherwise from a readback of the background — either way it describes the
+and otherwise from a **downscaled** readback of the background (GPU blit to
+480-wide, then `readPixels` — never the full frame). Either way it describes the
 *background*, which changes far slower than the cells riding on it, so it is
-cached and rebuilt on `Edge mask every N frames`. Trimming itself still runs
-every frame; only the mask is throttled. At 1080×1920 that is 24 ms per frame
-at 1, 8.9 ms at 4, 4.4 ms at 8.
+cached and rebuilt on `Edge mask every N frames` (default 4). Without a `frame`
+input the interval is floored at 4 even if the dial is lower — that path is the
+stall. Trimming itself still runs every frame; only the mask is throttled. At
+1080×1920 the old full-frame fallback was 24 ms per frame at interval 1; with
+the downscale + throttle it stays in the single-digit ms range.
 
 `Effect cell fraction` + `Effect seed` enable smear from the original: for cells
 picked by a seeded LCG, a 1 px-wide column from the center is stretched across the

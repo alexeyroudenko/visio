@@ -1,5 +1,5 @@
 import { getProgram } from "../../engine/gl/program";
-import { bindTexture, drawFullscreen, FULLSCREEN_VS } from "../../engine/gl/quad";
+import { bindTexture, copyTexture, drawFullscreen, FULLSCREEN_VS } from "../../engine/gl/quad";
 import { isRenderTarget, type RenderTarget } from "../../engine/gl/rt";
 import type {
   BoxesValue,
@@ -220,10 +220,14 @@ function buildContentMaskFromImage(
   return { data: mask, sw, sh, scaleX: width / sw, scaleY: height / sh };
 }
 
-/** Prefer Media `frame` (2D canvas). Fall back to reading the bg texture. */
+/**
+ * Prefer Media `frame` (2D canvas). Fall back to a GPU-downscaled readback of
+ * the bg texture — never `readPixels` the full frame just to sample a 480-wide mask.
+ */
 function buildContentMask(
   ctx: EngineContext,
   state: GridState,
+  nodeId: string,
   width: number,
   height: number,
   background: unknown,
@@ -243,9 +247,11 @@ function buildContentMask(
   if (!isRenderTarget(background)) return null;
   if (!state.buffer) state.buffer = new PixelBuffer();
 
-  const full = state.buffer.read(ctx.gl, background);
+  const small = ctx.target(nodeId, "edgeMask", sw, sh);
+  copyTexture(ctx.gl, background.texture, small);
+  const pixels = state.buffer.read(ctx.gl, small);
   state.buffer.syncToCanvas();
-  mctx.drawImage(state.buffer.element, 0, 0, full.width, full.height, 0, 0, sw, sh);
+  mctx.drawImage(state.buffer.element, 0, 0, pixels.width, pixels.height, 0, 0, sw, sh);
   return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
 }
 
@@ -456,7 +462,7 @@ export const featuresGridNode = defineNode<GridState>({
       min: 1,
       max: 8,
       step: 1,
-      default: 1,
+      default: 4,
     },
     { key: "labels", label: "Labels", type: "toggle", default: true },
     { key: "labelSize", label: "Font size", type: "range", min: 8, max: 40, step: 1, default: 13 },
@@ -557,14 +563,19 @@ export const featuresGridNode = defineNode<GridState>({
       // Trimming stays per-frame — it is cheap and the cells move every frame.
       // Only the mask behind it is throttled. A resolution change invalidates it
       // outright, since its scale factors are tied to the frame it was built for.
-      const edgeInterval = Math.max(1, Math.round(paramNumber(params, "edgeInterval", 1)));
+      // Cheap path: Media `frame` → canvas. Expensive path: GPU readback of bg —
+      // that only runs when `frame` is unwired, and is floored at every 4th frame
+      // even if the dial is at 1 (full-frame stalls are not worth a sharper silhouette).
+      const hasFrame = !!(frame?.element && frame.width > 0 && frame.height > 0);
+      let edgeInterval = Math.max(1, Math.round(paramNumber(params, "edgeInterval", 4)));
+      if (!hasFrame) edgeInterval = Math.max(edgeInterval, 4);
       const stale =
         state.maskFrame < 0 ||
         state.maskW !== width ||
         state.maskH !== height ||
         ctx.frameCount - state.maskFrame >= edgeInterval;
       if (stale) {
-        state.mask = buildContentMask(ctx, state, width, height, background, frame);
+        state.mask = buildContentMask(ctx, state, nodeId, width, height, background, frame);
         state.maskFrame = ctx.frameCount;
         state.maskW = width;
         state.maskH = height;

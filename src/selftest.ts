@@ -988,6 +988,43 @@ async function run(): Promise<void> {
     `x=10 → ${sortedRow[10]}, x=200 → ${sortedRow[200]}, ascending=${ascending}`,
   );
 
+  // Async PBO path: first tick issues the readback (null), later ticks land
+  // pixels one frame behind — sort must still flip the ramp.
+  engine.setGraph(
+    [
+      { id: "grad", type: "test.gradient", params: { reverse: true } },
+      {
+        id: "fx",
+        type: "fx.pixelSort",
+        params: {
+          ...defaultParams("fx.pixelSort"),
+          thresh: 20,
+          vert: false,
+          interval: 1,
+          asyncRead: true,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "grad", sourceHandle: "out", target: "fx", targetHandle: "src" },
+      { id: "b", source: "fx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  engine.tick();
+  engine.tick();
+  const asyncSortedRow = readRow(Math.round(HEIGHT / 2));
+  let asyncAscending = true;
+  for (let x = 2; x < 220; x += 1) {
+    if (asyncSortedRow[x] > asyncSortedRow[x + 1] + 1) asyncAscending = false;
+  }
+  check(
+    "pixel sort async readback still reorders by luminance",
+    asyncAscending && asyncSortedRow[10] < asyncSortedRow[200],
+    `x=10 → ${asyncSortedRow[10]}, x=200 → ${asyncSortedRow[200]}, ascending=${asyncAscending}`,
+  );
+
   // --- 4d. custom shader node ----------------------------------------------
   const runShader = (source: string) => {
     engine.setGraph(
