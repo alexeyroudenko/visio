@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (37 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (85 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 lazy MediaPipe import). Dev-only page: it is not built into `dist`.
@@ -319,16 +319,18 @@ during playback. The `timeline` field is optional rather than a format bump, so
 patches written before keyframes existed still load. Keys on file params are
 dropped for the same reason the params are, and a deleted node takes its tracks
 with it.
-- **Modulators.** The ∿ next to any range parameter binds an LFO to it: sine,
-triangle, saw, square, or smooth value noise, with rate, depth, bias and phase.
-Depth is a fraction of that parameter's own half-range, and the swing is centred
-on whatever the value already is — so depth 0 changes nothing, and a modulator on
-a keyframed parameter rides the curve instead of replacing it. The result is
-clamped to the parameter's bounds.
-They run on **timeline time**, not wall clock: an offline render reproduces
-exactly what playback showed, and scrubbing moves them. The flip side is that a
-parked playhead means a frozen LFO — press play. Bindings live in the patch, next
-to keyframes.
+- **Modulators.** The ∿ next to any range parameter binds a drive to it. Source
+**LFO** offers sine, triangle, saw, square, or smooth value noise, with rate,
+depth, bias and phase. Source **Audio** reads an FFT band from the first Media
+video/audio buffer at the timeline playhead (low / mid / high presets, or custom
+lo–hi Hz) — the same −1..1 slot the LFO wave would fill. Depth is a fraction of
+that parameter's own half-range, and the swing is centred on whatever the value
+already is — so depth 0 changes nothing, and a modulator on a keyframed parameter
+rides the curve instead of replacing it. The result is clamped to the parameter's
+bounds. They run on **timeline time**, not wall clock: an offline render
+reproduces exactly what playback showed, and scrubbing moves them. The flip side
+is that a parked playhead means a frozen drive — press play. Bindings live in the
+patch, next to keyframes.
 - **Inspector follows the playhead.** An animated parameter shows its value at the
 current frame, because that is what the engine renders — a slider parked at its
 base value while the output moves is just a lie. The ◆ next to each control
@@ -373,8 +375,6 @@ Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)
 
 ## What’s next
 
-- Audio as a modulation source — the modulator layer takes any per-frame value,
-so an FFT band would plug in where the LFO does
 - Modulator routing from the graph itself, so one source can drive several params
 - A worker for Pixel Sort, the last transform still sorting on the main thread
 - Corners (Shi–Tomasi) could share the Hough worker; it already has the gradients
