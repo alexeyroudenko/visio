@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine } from "../engine/runtime";
+import { audioModulatorSamples } from "../lib/audioModSamples";
 import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
 import { applyKeyframesToNodes } from "../lib/keyframes";
 import { applyModulatorsToNodes } from "../lib/modulators";
@@ -61,14 +62,25 @@ export function useEngine(
       // Modulators ride on top of the keyframed value, and run on timeline time
       // so an offline render reproduces exactly what playback showed.
       const defTypeById = new Map(nodes.map((node) => [node.id, node.data.defType]));
+      const modulators = useModulatorStore.getState().byPath;
+      const timelineSec = timeline.currentFrame / timeline.fps;
+      const samples = audioModulatorSamples(
+        modulators,
+        nodes.map((node) => ({
+          id: node.id,
+          params: keyed.get(node.id) ?? node.data.params,
+        })),
+        timelineSec,
+      );
       applyModulatorsToNodes(
-        timeline.currentFrame / timeline.fps,
+        timelineSec,
         keyed,
-        useModulatorStore.getState().byPath,
+        modulators,
         (nodeId, key) => {
           const defType = defTypeById.get(nodeId);
           return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
         },
+        (path) => samples.get(path),
       );
 
       engine.setResolution(width, height);
@@ -153,8 +165,16 @@ export function useEngine(
       useEngineStatsStore.getState().setStats({ ...engine.stats });
     }, 500);
 
+    // Audio modulators need a steady push even when the timeline is parked:
+    // decode may finish mid-session, and free-running Media still moves energy.
+    const audioTimer = window.setInterval(() => {
+      const mods = useModulatorStore.getState().byPath;
+      if (Object.values(mods).some((m) => m.source === "audio")) pushGraph();
+    }, 1000 / 30);
+
     return () => {
       window.clearInterval(statsTimer);
+      window.clearInterval(audioTimer);
       unsubGraph();
       unsubTimeline();
       unsubModulators();

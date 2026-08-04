@@ -19,6 +19,12 @@ import type {
   PointsValue,
 } from "./engine/types";
 import { bandEnergy, bandDrive } from "./lib/audioBands";
+import { primeAudioBuffer } from "./lib/audioBuffers";
+import {
+  audioModulatorSamples,
+  mediaPlayheadSec,
+  pickAudioMedia,
+} from "./lib/audioModSamples";
 import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
   applyModulatorsToNodes,
@@ -1528,6 +1534,42 @@ async function run(): Promise<void> {
     "bandDrive maps energy into -1..1",
     drive > 0 && drive <= 1 && Math.abs(drive - (onBand * 2 - 1)) < 1e-12,
     `drive=${drive.toFixed(3)} from energy=${onBand.toFixed(3)}`,
+  );
+
+  // Media → band sample resolution used by useEngine.pushGraph.
+  const picked = pickAudioMedia([
+    { id: "img", params: { mode: "image", file: { name: "a.png", url: "test://a.png" } } },
+    { id: "vid", params: { mode: "video", file: { name: "a.mp4", url: "test://a.mp4" } } },
+    { id: "aud", params: { mode: "audio", file: { name: "a.wav", url: "test://tone440" } } },
+  ]);
+  check(
+    "pickAudioMedia prefers audio mode over video",
+    picked?.id === "aud",
+    `got ${picked?.id ?? "null"}`,
+  );
+  check(
+    "mediaPlayheadSec wraps by duration with speed",
+    Math.abs(mediaPlayheadSec({ speed: 2 }, 3, 4) - 2) < 1e-9,
+    `got ${mediaPlayheadSec({ speed: 2 }, 3, 4)}`,
+  );
+  primeAudioBuffer("test://tone440", tone440);
+  const sampleMap = audioModulatorSamples(
+    {
+      "fx:amount": {
+        ...DEFAULT_MODULATOR,
+        source: "audio",
+        bandLoHz: 400,
+        bandHiHz: 500,
+      },
+    },
+    [{ id: "aud", params: { mode: "audio", file: { name: "a.wav", url: "test://tone440" } } }],
+    0.5,
+  );
+  const sample = sampleMap.get("fx:amount");
+  check(
+    "audioModulatorSamples drives from Media buffer at playhead",
+    typeof sample === "number" && sample > 0,
+    `sample=${sample}`,
   );
 
   // --- 6b-bis. node debug panels -------------------------------------------

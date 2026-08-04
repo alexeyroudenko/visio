@@ -69,3 +69,8 @@ export function ensureAudioBuffer(url: string, label?: string): AudioBufferEntry
 export function forgetAudioBuffer(url: string): void {
   cache.delete(url);
 }
+
+/** Selftest / offline: plant a ready buffer without fetching. */
+export function primeAudioBuffer(url: string, buffer: AudioBuffer): void {
+  cache.set(url, { status: "ready", buffer, message: null });
+}
