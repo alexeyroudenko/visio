@@ -18,6 +18,7 @@ import type {
   ParamSpec,
   PointsValue,
 } from "./engine/types";
+import { bandEnergy, bandDrive } from "./lib/audioBands";
 import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
   applyModulatorsToNodes,
@@ -34,7 +35,7 @@ import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
 import { BUILTIN_PRESETS } from "./presets";
-import { recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
+import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
@@ -1495,6 +1496,40 @@ async function run(): Promise<void> {
     `columns=${squeezed.length / 2} peak=${keptPeak.toFixed(3)}`,
   );
 
+  // --- 6c-bis. FFT band energy (audio modulator feed) -----------------------
+  // Pure 440 Hz sine for 1 s — on-band high, off-band near silence, same call
+  // twice must match (timeline / offline render lockstep).
+  const toneRate = 44100;
+  const toneLen = toneRate;
+  const tone440 = {
+    numberOfChannels: 1,
+    length: toneLen,
+    duration: 1,
+    sampleRate: toneRate,
+    getChannelData: () => {
+      const out = new Float32Array(toneLen);
+      for (let i = 0; i < toneLen; i += 1) {
+        out[i] = Math.sin((i / toneRate) * Math.PI * 2 * 440);
+      }
+      return out;
+    },
+  } as unknown as AudioBuffer;
+  const onBand = bandEnergy(tone440, 0.5, 400, 500);
+  const onBandAgain = bandEnergy(tone440, 0.5, 400, 500);
+  const offBand = bandEnergy(tone440, 0.5, 2000, 3000);
+  const silentBand = bandEnergy(fake, 0.25, 200, 300);
+  check(
+    "FFT band energy peaks on the tone frequency",
+    onBand > 0.5 && offBand < 0.15 && Math.abs(onBand - onBandAgain) < 1e-12,
+    `on=${onBand.toFixed(3)} off=${offBand.toFixed(3)} silent@fake=${silentBand.toFixed(3)}`,
+  );
+  const drive = bandDrive(tone440, 0.5, 400, 500);
+  check(
+    "bandDrive maps energy into -1..1",
+    drive > 0 && drive <= 1 && Math.abs(drive - (onBand * 2 - 1)) < 1e-12,
+    `drive=${drive.toFixed(3)} from energy=${onBand.toFixed(3)}`,
+  );
+
   // --- 6b-bis. node debug panels -------------------------------------------
   // The panel is built by the runtime from the ports it already has, so any
   // node gets one for free — and it must cost nothing while the toggle is off.
@@ -1541,6 +1576,7 @@ async function run(): Promise<void> {
   const presetImage = { mode: "image", file: { name: "default-frame.png", url: "test://default" } };
 
   // Nothing opened yet: a preset must arrive exactly as authored.
+  clearMediaMemory();
   check(
     "an untouched session gets the preset as authored",
     recallMediaParams(presetImage) === presetImage,

@@ -183,6 +183,17 @@ export function setPreferAuthoredMedia(next: boolean): void {
   if (typeof window !== "undefined") window.__visioPreferAuthoredMedia = next;
 }
 
+/** Drop every remembered mode/file (selftest / session reset). */
+export function clearMediaMemory(): void {
+  for (const key of Object.keys(memory.files) as FileMode[]) {
+    const previous = memory.files[key];
+    delete memory.files[key];
+    if (previous) release(previous.url);
+  }
+  memory.mode = null;
+  writeStoredMode(null);
+}
+
 /** Drop a remembered mode's file from memory + IndexedDB. */
 export function forgetMediaFile(mode: unknown): void {
   const key = asFileMode(mode);
