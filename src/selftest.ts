@@ -968,13 +968,20 @@ async function run(): Promise<void> {
   );
 
   // Pixel sort: feed a descending ramp so an ascending sort visibly flips it.
+  // Inline (worker: false) so a single tick has the answer.
   engine.setGraph(
     [
       { id: "grad", type: "test.gradient", params: { reverse: true } },
       {
         id: "fx",
         type: "fx.pixelSort",
-        params: { ...defaultParams("fx.pixelSort"), thresh: 20, vert: false, interval: 1 },
+        params: {
+          ...defaultParams("fx.pixelSort"),
+          thresh: 20,
+          vert: false,
+          interval: 1,
+          worker: false,
+        },
       },
       { id: "out", type: "output.screen", params: { background: "#000000" } },
     ],
@@ -1011,6 +1018,7 @@ async function run(): Promise<void> {
           vert: false,
           interval: 1,
           asyncRead: true,
+          worker: false,
         },
       },
       { id: "out", type: "output.screen", params: { background: "#000000" } },
@@ -1032,6 +1040,46 @@ async function run(): Promise<void> {
     "pixel sort async readback still reorders by luminance",
     asyncAscending && asyncSortedRow[10] < asyncSortedRow[200],
     `x=10 → ${asyncSortedRow[10]}, x=200 → ${asyncSortedRow[200]}, ascending=${asyncAscending}`,
+  );
+
+  // Worker path: sort lands a frame later — poll like Hough.
+  engine.setGraph(
+    [
+      { id: "grad", type: "test.gradient", params: { reverse: true } },
+      {
+        id: "fx",
+        type: "fx.pixelSort",
+        params: {
+          ...defaultParams("fx.pixelSort"),
+          thresh: 20,
+          vert: false,
+          interval: 1,
+          worker: true,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "grad", sourceHandle: "out", target: "fx", targetHandle: "src" },
+      { id: "b", source: "fx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  let workerAscending = false;
+  let workerSortedRow = readRow(Math.round(HEIGHT / 2));
+  for (let i = 0; i < 60; i += 1) {
+    engine.tick();
+    await new Promise((resolve) => setTimeout(resolve, 16));
+    workerSortedRow = readRow(Math.round(HEIGHT / 2));
+    workerAscending = true;
+    for (let x = 2; x < 220; x += 1) {
+      if (workerSortedRow[x]! > workerSortedRow[x + 1]! + 1) workerAscending = false;
+    }
+    if (workerAscending && workerSortedRow[10]! < workerSortedRow[200]!) break;
+  }
+  check(
+    "pixel sort on the worker reorders by luminance",
+    workerAscending && workerSortedRow[10]! < workerSortedRow[200]!,
+    `x=10 → ${workerSortedRow[10]}, x=200 → ${workerSortedRow[200]}, ascending=${workerAscending}`,
   );
 
   // --- 4d. custom shader node ----------------------------------------------
@@ -1275,6 +1323,67 @@ async function run(): Promise<void> {
     workerBest
       ? `x=${workerBest.x.toFixed(2)} y=${workerBest.y.toFixed(2)} r=${workerBest.r.toFixed(3)}`
       : "nothing came back",
+  );
+
+  // --- 5b2. Corners on the shared Hough worker -----------------------------
+  engine.setGraph(
+    [
+      { id: "src", type: "test.frame", params: {} },
+      {
+        id: "cn",
+        type: "tracking.features",
+        params: {
+          ...defaultParams("tracking.features"),
+          downscale: 2,
+          maxCorners: 80,
+          quality: 0.05,
+          minDistance: 8,
+          interval: 1,
+          worker: false,
+        },
+      },
+    ],
+    [{ id: "a", source: "src", sourceHandle: "frame", target: "cn", targetHandle: "frame" }],
+  );
+  engine.tick();
+  const inlineCorners =
+    (houghDebug.outputs.get("cn")?.out as PointsValue | undefined)?.points ?? [];
+  check(
+    "Corners finds points on the synthetic frame (inline)",
+    inlineCorners.length > 0,
+    `points=${inlineCorners.length}`,
+  );
+
+  engine.setGraph(
+    [
+      { id: "src", type: "test.frame", params: {} },
+      {
+        id: "cnw",
+        type: "tracking.features",
+        params: {
+          ...defaultParams("tracking.features"),
+          downscale: 2,
+          maxCorners: 80,
+          quality: 0.05,
+          minDistance: 8,
+          interval: 1,
+          worker: true,
+        },
+      },
+    ],
+    [{ id: "a", source: "src", sourceHandle: "frame", target: "cnw", targetHandle: "frame" }],
+  );
+  let workerCorners: PointsValue["points"] = [];
+  for (let i = 0; i < 60 && workerCorners.length === 0; i += 1) {
+    engine.tick();
+    await new Promise((resolve) => setTimeout(resolve, 16));
+    workerCorners =
+      (houghDebug.outputs.get("cnw")?.out as PointsValue | undefined)?.points ?? [];
+  }
+  check(
+    "Corners on the Hough worker finds points",
+    workerCorners.length > 0,
+    `points=${workerCorners.length}`,
   );
 
   // --- 5c. Features Tracking points (not gated on minAge) ------------------

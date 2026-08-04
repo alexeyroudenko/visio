@@ -1,20 +1,28 @@
 import type { FrameValue, PointsValue } from "../../engine/types";
-import { defineNode, paramNumber } from "../defineNode";
+import { defineNode, paramBool, paramNumber } from "../defineNode";
 import { GrayFrame } from "../shared/grayscale";
 import { paramsKey } from "../shared/paramsKey";
+import {
+  detectShiTomasi,
+  pointsFromCorners,
+  type CornerOptions,
+} from "./cornerAlgorithms";
+import { HoughJob } from "./houghClient";
 
 interface FeaturesState {
   frame: GrayFrame;
   lastFrameId: number;
   lastResult: PointsValue;
   paramsFingerprint: string;
+  job: HoughJob | null;
 }
 
 const EMPTY: PointsValue = { points: [] };
 
 /**
  * Shi–Tomasi corners (the goodFeaturesToTrack idea) over a downscaled
- * grayscale copy of the frame. Ported from the cv-reels tracker.
+ * grayscale copy of the frame. Shares the Hough worker — gradients are the
+ * same Sobel buffers circles/lines already post.
  */
 export const featuresNode = defineNode<FeaturesState>({
   type: "tracking.features",
@@ -29,9 +37,20 @@ export const featuresNode = defineNode<FeaturesState>({
     { key: "maxCorners", label: "Max points", type: "range", min: 10, max: 600, step: 10, default: 200 },
     { key: "quality", label: "Quality", type: "range", min: 0.01, max: 0.5, step: 0.01, default: 0.08 },
     { key: "minDistance", label: "Min distance", type: "range", min: 2, max: 60, step: 1, default: 12 },
+    { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 1 },
+    { key: "worker", label: "Run in worker", type: "toggle", default: true },
   ],
   createState() {
-    return { frame: new GrayFrame(), lastFrameId: -1, lastResult: EMPTY, paramsFingerprint: "" };
+    return {
+      frame: new GrayFrame(),
+      lastFrameId: -1,
+      lastResult: EMPTY,
+      paramsFingerprint: "",
+      job: null,
+    };
+  },
+  disposeState(state) {
+    state.job?.dispose();
   },
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const state = runtime.state;
@@ -45,9 +64,23 @@ export const featuresNode = defineNode<FeaturesState>({
     if (fingerprint !== state.paramsFingerprint) {
       state.paramsFingerprint = fingerprint;
       state.lastFrameId = -1;
+      state.job?.cancel();
     }
 
+    const interval = Math.max(1, Math.round(paramNumber(params, "interval", 1)));
     if (frame.frameId === state.lastFrameId) return { out: state.lastResult };
+    if (state.lastFrameId >= 0 && ctx.frameCount % interval !== 0) {
+      return { out: state.lastResult };
+    }
+
+    const useWorker = paramBool(params, "worker", true);
+    if (!state.job) {
+      state.job = new HoughJob(nodeId, (response) => {
+        if (response.kind === "corners") state.lastResult = response.value;
+      });
+    }
+    if (useWorker && state.job.busy) return { out: state.lastResult };
+
     state.lastFrameId = frame.frameId;
     ctx.report(nodeId, "ready", null);
 
@@ -55,71 +88,28 @@ export const featuresNode = defineNode<FeaturesState>({
     state.frame.update(frame, factor);
     const { width, height, gradX, gradY } = state.frame;
 
-    const block = Math.max(3, Math.round(paramNumber(params, "block", 7)) | 1);
-    const half = block >> 1;
-    const responses: { x: number; y: number; score: number }[] = [];
-
-    for (let y = half + 1; y < height - half - 1; y += half) {
-      for (let x = half + 1; x < width - half - 1; x += half) {
-        let sumXX = 0;
-        let sumYY = 0;
-        let sumXY = 0;
-        for (let dy = -half; dy <= half; dy += 1) {
-          for (let dx = -half; dx <= half; dx += 1) {
-            const i = (y + dy) * width + (x + dx);
-            const ix = gradX[i];
-            const iy = gradY[i];
-            sumXX += ix * ix;
-            sumYY += iy * iy;
-            sumXY += ix * iy;
-          }
-        }
-        const trace = sumXX + sumYY;
-        const det = sumXX * sumYY - sumXY * sumXY;
-        const disc = trace * trace - 4 * det;
-        if (disc < 0) continue;
-        // Smaller eigenvalue of the structure tensor — the Shi–Tomasi score.
-        const lambdaMin = (trace - Math.sqrt(disc)) / (2 * block * block);
-        if (lambdaMin > 0) responses.push({ x, y, score: lambdaMin });
-      }
-    }
-
-    if (responses.length === 0) {
-      state.lastResult = EMPTY;
-      return { out: EMPTY };
-    }
-
-    responses.sort((a, b) => b.score - a.score);
-    const maxScore = responses[0].score;
-    const minScore = maxScore * paramNumber(params, "quality", 0.08);
-    const maxCorners = Math.round(paramNumber(params, "maxCorners", 200));
-    // Distance is a UI value in output pixels; compare in downscaled space.
-    const minDist = paramNumber(params, "minDistance", 12) / factor;
-    const minDistSq = minDist * minDist;
-
-    const kept: { x: number; y: number; score: number }[] = [];
-    for (const candidate of responses) {
-      if (candidate.score < minScore) break;
-      if (kept.length >= maxCorners) break;
-      let tooClose = false;
-      for (const other of kept) {
-        const dx = other.x - candidate.x;
-        const dy = other.y - candidate.y;
-        if (dx * dx + dy * dy < minDistSq) {
-          tooClose = true;
-          break;
-        }
-      }
-      if (!tooClose) kept.push(candidate);
-    }
-
-    state.lastResult = {
-      points: kept.map((point) => ({
-        x: point.x / width,
-        y: point.y / height,
-        score: point.score / maxScore,
-      })),
+    const options: CornerOptions = {
+      block: Math.max(3, Math.round(paramNumber(params, "block", 7)) | 1),
+      maxCorners: Math.round(paramNumber(params, "maxCorners", 200)),
+      quality: paramNumber(params, "quality", 0.08),
+      // Distance is a UI value in output pixels; compare in downscaled space.
+      minDistance: paramNumber(params, "minDistance", 12) / factor,
     };
+
+    if (useWorker) {
+      const posted = state.job.submit({
+        kind: "corners",
+        gradX: gradX.slice(),
+        gradY: gradY.slice(),
+        width,
+        height,
+        options,
+      });
+      if (posted) return { out: state.lastResult };
+    }
+
+    const hits = detectShiTomasi(gradX, gradY, width, height, options);
+    state.lastResult = pointsFromCorners(hits, width, height);
     return { out: state.lastResult };
   },
 });

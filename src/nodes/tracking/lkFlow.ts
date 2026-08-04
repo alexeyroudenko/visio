@@ -3,16 +3,13 @@
  * Shi–Tomasi corner detection helpers shared by Features Tracking.
  */
 
+export type { CornerHit } from "./cornerAlgorithms";
+export { detectShiTomasi } from "./cornerAlgorithms";
+
 export interface PyramidLevel {
   data: Float32Array;
   width: number;
   height: number;
-}
-
-export interface CornerHit {
-  x: number;
-  y: number;
-  score: number;
 }
 
 /** Bilinear sample; returns 0 outside the image. */
@@ -206,83 +203,4 @@ export function forwardBackwardOk(
   const edx = back.x - x;
   const edy = back.y - y;
   return edx * edx + edy * edy <= maxError * maxError;
-}
-
-/** Shi–Tomasi corners on a GrayFrame-style buffer (smaller eigenvalue score). */
-export function detectShiTomasi(
-  gradX: Float32Array,
-  gradY: Float32Array,
-  width: number,
-  height: number,
-  opts: {
-    block: number;
-    maxCorners: number;
-    quality: number;
-    minDistance: number;
-    /** Existing points to avoid (same pixel space). */
-    avoid?: { x: number; y: number }[];
-  },
-): CornerHit[] {
-  const block = Math.max(3, opts.block | 1);
-  const half = block >> 1;
-  const responses: CornerHit[] = [];
-
-  for (let y = half + 1; y < height - half - 1; y += half) {
-    for (let x = half + 1; x < width - half - 1; x += half) {
-      let sumXX = 0;
-      let sumYY = 0;
-      let sumXY = 0;
-      for (let dy = -half; dy <= half; dy += 1) {
-        for (let dx = -half; dx <= half; dx += 1) {
-          const i = (y + dy) * width + (x + dx);
-          const ix = gradX[i]!;
-          const iy = gradY[i]!;
-          sumXX += ix * ix;
-          sumYY += iy * iy;
-          sumXY += ix * iy;
-        }
-      }
-      const trace = sumXX + sumYY;
-      const det = sumXX * sumYY - sumXY * sumXY;
-      const disc = trace * trace - 4 * det;
-      if (disc < 0) continue;
-      const lambdaMin = (trace - Math.sqrt(disc)) / (2 * block * block);
-      if (lambdaMin > 0) responses.push({ x, y, score: lambdaMin });
-    }
-  }
-
-  if (responses.length === 0) return [];
-
-  responses.sort((a, b) => b.score - a.score);
-  const maxScore = responses[0]!.score;
-  const minScore = maxScore * opts.quality;
-  const minDistSq = opts.minDistance * opts.minDistance;
-  const kept: CornerHit[] = [];
-  const avoid = opts.avoid ?? [];
-
-  for (const candidate of responses) {
-    if (candidate.score < minScore) break;
-    if (kept.length >= opts.maxCorners) break;
-    let tooClose = false;
-    for (const other of kept) {
-      const dx = other.x - candidate.x;
-      const dy = other.y - candidate.y;
-      if (dx * dx + dy * dy < minDistSq) {
-        tooClose = true;
-        break;
-      }
-    }
-    if (tooClose) continue;
-    for (const other of avoid) {
-      const dx = other.x - candidate.x;
-      const dy = other.y - candidate.y;
-      if (dx * dx + dy * dy < minDistSq) {
-        tooClose = true;
-        break;
-      }
-    }
-    if (!tooClose) kept.push(candidate);
-  }
-
-  return kept;
 }

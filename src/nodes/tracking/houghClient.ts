@@ -5,9 +5,9 @@ let workerFailed = false;
 const listeners = new Map<string, (response: HoughResponse) => void>();
 
 /**
- * One worker for every Hough node in the patch. The transforms are short jobs,
- * and a node only ever has one in flight, so a pool would add plumbing without
- * adding throughput.
+ * One worker for every Hough / Corners node in the patch. The transforms are
+ * short jobs, and a node only ever has one in flight, so a pool would add
+ * plumbing without adding throughput.
  */
 function ensureWorker(): Worker | null {
   if (worker || workerFailed) return worker;

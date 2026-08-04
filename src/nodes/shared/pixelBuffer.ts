@@ -189,6 +189,16 @@ export class PixelBuffer {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
+  /**
+   * Replace CPU pixels (e.g. after a worker sort) so `writePixels` can upload.
+   * The caller's words are copied — ownership stays with the PixelBuffer.
+   */
+  setWords(words: Uint32Array, width: number, height: number): void {
+    this.ensureSize(width, height);
+    this.pixelWords.set(words);
+    if (!this.imageData) this.imageData = new ImageData(this.pixels, width, height);
+  }
+
   dispose(gl?: WebGL2RenderingContext): void {
     this.texture?.dispose();
     this.texture = null;

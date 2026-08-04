@@ -82,12 +82,14 @@ CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
 Sobel run once per node, with no allocations per frame. Each has an
 “every N frames” throttle — Hough is expensive; every 2–3 frames it is barely noticeable.
 
-**Hough runs in a worker** (`Run in worker`, on by default). The split follows what
-can actually move: reading the frame and downscaling it needs a canvas and stays on
-the main thread, while turning gradients into edges and edges into shapes is pure
-arithmetic and goes to `hough.worker.ts`. On a busy 1080×1920 frame at downscale 2
-that takes the per-tick main-thread cost from 139 ms to 0.1 ms — the remaining
-spikes are the frame read and Sobel, which cannot leave.
+**Hough + Corners run in a worker** (`Run in worker`, on by default). The split
+follows what can actually move: reading the frame and downscaling it needs a canvas
+and stays on the main thread, while turning gradients into edges/shapes (or
+Shi–Tomasi corners) is pure arithmetic and goes to `hough.worker.ts`. Corners posts
+the same Sobel buffers circles/lines already use — only the structure-tensor loop
+moves. On a busy 1080×1920 frame at downscale 2 that takes the per-tick
+main-thread cost from 139 ms to 0.1 ms — the remaining spikes are the frame read
+and Sobel, which cannot leave.
 
 One job per node is in flight at a time; queueing more would only build a backlog
 of stale frames. Results therefore arrive a frame or two late and the node keeps
@@ -222,6 +224,10 @@ ordered by a stable counting sort with no comparisons at all. Pixels move as 32-
 words, and every buffer is preallocated, so a frame costs no allocations. That is
 roughly an order of magnitude off a comparator sort that recomputes luminance on
 every comparison.
+`Run in worker` (default on) posts a copy of those words to `pixelSort.worker.ts` so
+the counting sort does not block the main thread; the node keeps the previous texture
+until the sorted buffer lands, same latency model as Hough. Toggle it off for a
+single-tick deterministic path (selftests do).
 Sorted bytes go straight into the target texture with `texSubImage2D` — the 2D-canvas
 roundtrip the drawing nodes need would be three extra full-frame copies here.
 That leaves the readback. `readPixels` blocks until the GPU has drained every
@@ -376,6 +382,4 @@ Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)
 ## What’s next
 
 - Modulator routing from the graph itself, so one source can drive several params
-- A worker for Pixel Sort, the last transform still sorting on the main thread
-- Corners (Shi–Tomasi) could share the Hough worker; it already has the gradients
 
