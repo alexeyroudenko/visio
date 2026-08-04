@@ -1,8 +1,11 @@
 import type { ParamSpec } from "../engine/types";
 import { getValueAtFrame, paramPath } from "../lib/keyframes";
 import {
+  AUDIO_BAND_PRESETS,
+  matchAudioBandPreset,
   modulatedValue,
   MODULATOR_SHAPES,
+  MODULATOR_SOURCES,
   type Modulator,
 } from "../lib/modulators";
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
@@ -306,6 +309,9 @@ function ModulatorPanel({
   onChange: (patch: Partial<Modulator>) => void;
   onRelease: () => void;
 }) {
+  const isAudio = modulator.source === "audio";
+  const bandPreset = matchAudioBandPreset(modulator.bandLoHz ?? 20, modulator.bandHiHz ?? 200);
+
   return (
     <div className="modulator">
       <div className="modulator__head">
@@ -315,32 +321,158 @@ function ModulatorPanel({
         </button>
       </div>
       <ParamControl
-        spec={{ key: "shape", label: "Shape", type: "select", options: MODULATOR_SHAPES, default: "sine" }}
-        value={modulator.shape}
-        onChange={(next) => onChange({ shape: next as Modulator["shape"] })}
+        spec={{
+          key: "source",
+          label: "Source",
+          type: "select",
+          options: MODULATOR_SOURCES,
+          default: "lfo",
+        }}
+        value={modulator.source}
+        onChange={(next) => onChange({ source: next as Modulator["source"] })}
       />
-      <div className="modulator__knobs">
-        <ParamControl
-          spec={{ key: "rateHz", label: "Rate Hz", type: "range", min: 0, max: 8, step: 0.05, default: 0.5 }}
-          value={modulator.rateHz}
-          onChange={(next) => onChange({ rateHz: next as number })}
-        />
-        <ParamControl
-          spec={{ key: "depth", label: "Depth", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 }}
-          value={modulator.depth}
-          onChange={(next) => onChange({ depth: next as number })}
-        />
-        <ParamControl
-          spec={{ key: "bias", label: "Bias", type: "range", min: -1, max: 1, step: 0.01, default: 0 }}
-          value={modulator.bias}
-          onChange={(next) => onChange({ bias: next as number })}
-        />
-        <ParamControl
-          spec={{ key: "phase", label: "Phase", type: "range", min: 0, max: 1, step: 0.01, default: 0 }}
-          value={modulator.phase}
-          onChange={(next) => onChange({ phase: next as number })}
-        />
-      </div>    </div>
+      {isAudio ? (
+        <>
+          <ParamControl
+            spec={{
+              key: "bandPreset",
+              label: "Band",
+              type: "select",
+              options: AUDIO_BAND_PRESETS.map(({ value, label }) => ({ value, label })),
+              default: "low",
+            }}
+            value={bandPreset}
+            onChange={(next) => {
+              const preset = AUDIO_BAND_PRESETS.find((p) => p.value === next);
+              if (!preset || preset.value === "custom") return;
+              onChange({ bandLoHz: preset.lo, bandHiHz: preset.hi });
+            }}
+          />
+          <div className="modulator__knobs">
+            <ParamControl
+              spec={{
+                key: "bandLoHz",
+                label: "Band lo Hz",
+                type: "range",
+                min: 20,
+                max: 8000,
+                step: 10,
+                default: 20,
+              }}
+              value={modulator.bandLoHz ?? 20}
+              onChange={(next) => onChange({ bandLoHz: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "bandHiHz",
+                label: "Band hi Hz",
+                type: "range",
+                min: 20,
+                max: 16000,
+                step: 10,
+                default: 200,
+              }}
+              value={modulator.bandHiHz ?? 200}
+              onChange={(next) => onChange({ bandHiHz: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "depth",
+                label: "Depth",
+                type: "range",
+                min: 0,
+                max: 1,
+                step: 0.01,
+                default: 0.5,
+              }}
+              value={modulator.depth}
+              onChange={(next) => onChange({ depth: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "bias",
+                label: "Bias",
+                type: "range",
+                min: -1,
+                max: 1,
+                step: 0.01,
+                default: 0,
+              }}
+              value={modulator.bias}
+              onChange={(next) => onChange({ bias: next as number })}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <ParamControl
+            spec={{
+              key: "shape",
+              label: "Shape",
+              type: "select",
+              options: MODULATOR_SHAPES,
+              default: "sine",
+            }}
+            value={modulator.shape}
+            onChange={(next) => onChange({ shape: next as Modulator["shape"] })}
+          />
+          <div className="modulator__knobs">
+            <ParamControl
+              spec={{
+                key: "rateHz",
+                label: "Rate Hz",
+                type: "range",
+                min: 0,
+                max: 8,
+                step: 0.05,
+                default: 0.5,
+              }}
+              value={modulator.rateHz}
+              onChange={(next) => onChange({ rateHz: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "depth",
+                label: "Depth",
+                type: "range",
+                min: 0,
+                max: 1,
+                step: 0.01,
+                default: 0.5,
+              }}
+              value={modulator.depth}
+              onChange={(next) => onChange({ depth: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "bias",
+                label: "Bias",
+                type: "range",
+                min: -1,
+                max: 1,
+                step: 0.01,
+                default: 0,
+              }}
+              value={modulator.bias}
+              onChange={(next) => onChange({ bias: next as number })}
+            />
+            <ParamControl
+              spec={{
+                key: "phase",
+                label: "Phase",
+                type: "range",
+                min: 0,
+                max: 1,
+                step: 0.01,
+                default: 0,
+              }}
+              value={modulator.phase}
+              onChange={(next) => onChange({ phase: next as number })}
+            />
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

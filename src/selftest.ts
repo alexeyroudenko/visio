@@ -1871,8 +1871,43 @@ async function run(): Promise<void> {
     "modulators round-trip and drop dead nodes",
     modPaths.length === 1 &&
       modPaths[0] === "cam-1:zoom" &&
-      modRound!.modulators["cam-1:zoom"]!.rateHz === 2,
-    `paths=${modPaths.join(",") || "none"}`,
+      modRound!.modulators["cam-1:zoom"]!.rateHz === 2 &&
+      modRound!.modulators["cam-1:zoom"]!.source === "lfo",
+    `paths=${modPaths.join(",") || "none"} source=${modRound!.modulators["cam-1:zoom"]?.source}`,
+  );
+
+  const audioPatch = serializePatch(
+    [
+      {
+        id: "cam-1",
+        type: "patch",
+        position: { x: 0, y: 0 },
+        data: { defType: "source.media", params: defaultParams("source.media") },
+      },
+    ],
+    [],
+    1920,
+    1080,
+    undefined,
+    {
+      "cam-1:zoom": {
+        ...DEFAULT_MODULATOR,
+        source: "audio",
+        bandLoHz: 200,
+        bandHiHz: 2000,
+        depth: 0.7,
+      },
+    },
+  );
+  const audioRound = parsePatch(JSON.parse(JSON.stringify(audioPatch)));
+  const audioModSaved = audioRound?.modulators["cam-1:zoom"];
+  check(
+    "audio modulator band persists in the patch",
+    audioModSaved?.source === "audio" &&
+      audioModSaved.bandLoHz === 200 &&
+      audioModSaved.bandHiHz === 2000 &&
+      audioModSaved.depth === 0.7,
+    JSON.stringify(audioModSaved ?? null),
   );
 
   render();

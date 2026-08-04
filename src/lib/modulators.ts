@@ -54,6 +54,21 @@ export const DEFAULT_MODULATOR: Modulator = {
   bandHiHz: 200,
 };
 
+/** Named FFT bands for the Inspector — values land in bandLoHz / bandHiHz. */
+export const AUDIO_BAND_PRESETS: { value: string; label: string; lo: number; hi: number }[] = [
+  { value: "low", label: "low (20–200 Hz)", lo: 20, hi: 200 },
+  { value: "mid", label: "mid (200–2k Hz)", lo: 200, hi: 2000 },
+  { value: "high", label: "high (2k–8k Hz)", lo: 2000, hi: 8000 },
+  { value: "custom", label: "custom", lo: 20, hi: 200 },
+];
+
+export function matchAudioBandPreset(loHz: number, hiHz: number): string {
+  const hit = AUDIO_BAND_PRESETS.find(
+    (p) => p.value !== "custom" && p.lo === loHz && p.hi === hiHz,
+  );
+  return hit?.value ?? "custom";
+}
+
 /** Smooth value noise: random per whole cycle, cosine-eased in between. */
 function valueNoise(turns: number): number {
   const cell = Math.floor(turns);
