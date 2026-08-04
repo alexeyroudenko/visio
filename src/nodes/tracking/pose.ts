@@ -39,16 +39,16 @@ export const poseNode = createLandmarkerNode({
       min: 0.1,
       max: 0.9,
       step: 0.05,
-      default: 0.5,
+      default: 0.1,
     },
   ],
   toOptions(params) {
-    const confidence = paramNumber(params, "confidence", 0.5);
+    const confidence = paramNumber(params, "confidence", 0.1);
     return {
       numPoses: Math.round(paramNumber(params, "numPoses", 1)),
       minPoseDetectionConfidence: confidence,
       minPosePresenceConfidence: confidence,
-      minTrackingConfidence: Math.max(0.2, confidence - 0.1),
+      minTrackingConfidence: Math.max(0.05, confidence - 0.05),
     };
   },
   async create(fileset, params) {
@@ -56,14 +56,14 @@ export const poseNode = createLandmarkerNode({
     if (connections.length === 0) connections = toConnections(PoseLandmarker.POSE_CONNECTIONS);
 
     const model = paramString(params, "model", "lite");
-    const confidence = paramNumber(params, "confidence", 0.5);
+    const confidence = paramNumber(params, "confidence", 0.1);
     return PoseLandmarker.createFromOptions(fileset as never, {
       baseOptions: { modelAssetPath: MODELS[model] ?? MODELS.lite, delegate: "GPU" },
       runningMode: "VIDEO",
       numPoses: Math.round(paramNumber(params, "numPoses", 1)),
       minPoseDetectionConfidence: confidence,
       minPosePresenceConfidence: confidence,
-      minTrackingConfidence: Math.max(0.2, confidence - 0.1),
+      minTrackingConfidence: Math.max(0.05, confidence - 0.05),
     });
   },
   extract(result) {

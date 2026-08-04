@@ -146,7 +146,7 @@ export const featuresTrackNode = defineNode<FeaturesTrackState>({
       return { out: state.lastLines, points: state.lastPoints };
     }
     state.lastFrameId = frame.frameId;
-    ctx.report(nodeId, "ready", null);
+    // Cleared again after emit with a track count.
 
     const factor = Math.max(2, Math.round(paramNumber(params, "downscale", 4)));
     state.frame.update(frame, factor);
@@ -264,13 +264,17 @@ export const featuresTrackNode = defineNode<FeaturesTrackState>({
     const points: PointsValue["points"] = [];
 
     for (const track of state.tracks) {
-      if (track.age < minAge) continue;
-      const ageScore = Math.min(1, track.age / (minAge * 2));
+      // Points show every live track. Min age only gates motion lines — otherwise a
+      // still Media frame (frameId stuck) or the first ~50 video ticks report
+      // `points ×0` even though Shi–Tomasi already found corners.
+      const ageScore = Math.min(1, Math.max(0.15, track.age / Math.max(1, minAge * 2)));
       points.push({
         x: track.x / width,
         y: track.y / height,
         score: ageScore,
       });
+
+      if (track.age < minAge) continue;
 
       const hist = track.history;
       for (let i = 1; i < hist.length; i += 1) {
@@ -290,6 +294,11 @@ export const featuresTrackNode = defineNode<FeaturesTrackState>({
 
     state.lastLines = { lines };
     state.lastPoints = { points };
+    ctx.report(
+      nodeId,
+      "ready",
+      `${state.tracks.length} tracks · ${points.length} pts · ${lines.length} segs`,
+    );
     return { out: state.lastLines, points: state.lastPoints };
   },
 });

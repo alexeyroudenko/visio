@@ -1268,6 +1268,39 @@ async function run(): Promise<void> {
       : "nothing came back",
   );
 
+  // --- 5c. Features Tracking points (not gated on minAge) ------------------
+  engine.setGraph(
+    [
+      { id: "src", type: "test.frame", params: {} },
+      {
+        id: "ft",
+        type: "tracking.featuresTrack",
+        params: {
+          ...defaultParams("tracking.featuresTrack"),
+          downscale: 2,
+          maxCorners: 80,
+          quality: 0.05,
+          minDistance: 8,
+          minAge: 50,
+          detectInterval: 1,
+        },
+      },
+    ],
+    [{ id: "a", source: "src", sourceHandle: "frame", target: "ft", targetHandle: "frame" }],
+  );
+  engine.tick();
+  const ftOut = (houghDebug.outputs.get("ft") ?? {}) as {
+    points?: PointsValue;
+    out?: LinesValue;
+  };
+  const ftPoints = ftOut.points?.points ?? [];
+  const ftLines = ftOut.out?.lines ?? [];
+  check(
+    "Features Tracking emits points on first detect (ignores minAge)",
+    ftPoints.length > 0,
+    `points=${ftPoints.length} lines=${ftLines.length} (lines may be 0 until age≥minAge)`,
+  );
+
   engine.dispose();
 
   // --- 6. patch serialization ---------------------------------------------

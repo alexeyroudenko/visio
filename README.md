@@ -98,8 +98,10 @@ transfers ownership. Turning the toggle off runs the identical functions inline.
 **Features Tracking** — [FeaturesTracking](https://alexeyroudenko.net/ru/projects/features-tracking/)
 pipeline in-browser: Shi–Tomasi corners each few frames, pyramidal Lucas–Kanade
 (`calcOpticalFlowPyrLK`) between frames, forward–backward error cull, then only
-tracks that lived `Min age` frames (default 50) emit motion-line segments. Wire
-`out` → Draw Lines (and optionally `points` → Draw Points).
+tracks that lived `Min age` frames (default 50) emit **motion-line** segments.
+The `points` port lists every live track immediately (a still Media frame never
+bumps `frameId`, so gating points on age left them stuck at zero). Wire `out` →
+Draw Lines (and optionally `points` → Draw Points / Connectors).
 
 **Draw Points** supports three styles, like tracking layers in cv-reels:
 `point` · `ring (detection)` — a ring with radius from score between min/max plus a

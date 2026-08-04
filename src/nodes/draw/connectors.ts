@@ -23,7 +23,7 @@ export const connectorsNode = defineNode<ConnectorsState>({
   ],
   outputs: [{ id: "out", label: "texture", type: "texture" }],
   params: [
-    { key: "color", label: "Color", type: "color", default: "#f5f0e6" },
+    { key: "color", label: "Color", type: "color", default: "#ffffff" },
     {
       key: "maxDist",
       label: "Max distance",
@@ -77,7 +77,7 @@ export const connectorsNode = defineNode<ConnectorsState>({
       }
     }
 
-    const color = hexToRgb(paramString(params, "color", "#f5f0e6"));
+    const color = hexToRgb(paramString(params, "color", "#ffffff"));
     const blend = paramString(params, "blend", "normal") as BlendMode;
     drawSegments(ctx.gl, batch.segmentBatch(), { color, blend });
 
