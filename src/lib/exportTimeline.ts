@@ -4,7 +4,9 @@ import type { Engine } from "../engine/runtime";
 import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "../store/graphStore";
+import { audioModulatorSamples } from "./audioModSamples";
 import { applyKeyframesToNodes, type ParamKeyframes } from "./keyframes";
+import { applyModulatorsToNodes, type Modulators } from "./modulators";
 import { withSourcePrefix } from "./mediaName";
 import {
   encodeAudioBufferOpus,
@@ -89,6 +91,8 @@ export interface ExportTimelineOptions {
   timelineFps: number;
   durationInFrames: number;
   paramKeyframes: ParamKeyframes;
+  /** LFO + audio modulators — applied after keyframes so Render matches playback. */
+  modulators?: Modulators;
   /** Called with the timeline frame shown in the UI playhead. */
   onFrame?: (timelineFrame: number) => void;
   onProgress?: (progress: number) => void;
@@ -100,6 +104,7 @@ interface RenderPassContext {
   nodes: PatchNode[];
   graphEdges: ReturnType<typeof toGraphEdges>;
   paramKeyframes: ParamKeyframes;
+  modulators: Modulators;
   timelineFps: number;
   outputFps: number;
   outputFrames: number;
@@ -128,6 +133,27 @@ async function renderOneFrame(ctx: RenderPassContext, outputIndex: number): Prom
     timelineFrame,
     ctx.nodes.map((node) => ({ id: node.id, params: node.data.params })),
     ctx.paramKeyframes,
+  );
+
+  const timelineSec = timelineFrame / Math.max(1, ctx.timelineFps);
+  const samples = audioModulatorSamples(
+    ctx.modulators,
+    ctx.nodes.map((node) => ({
+      id: node.id,
+      params: keyed.get(node.id) ?? node.data.params,
+    })),
+    timelineSec,
+  );
+  const defTypeById = new Map(ctx.nodes.map((node) => [node.id, node.data.defType]));
+  applyModulatorsToNodes(
+    timelineSec,
+    keyed,
+    ctx.modulators,
+    (nodeId, key) => {
+      const defType = defTypeById.get(nodeId);
+      return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+    },
+    (path) => samples.get(path),
   );
 
   ctx.engine.setTimeline(timelineFrame, ctx.timelineFps, false);
@@ -295,6 +321,7 @@ export async function exportTimelineVideo(
     timelineFps,
     durationInFrames,
     paramKeyframes,
+    modulators = {},
     onFrame,
     onProgress,
     signal,
@@ -318,6 +345,7 @@ export async function exportTimelineVideo(
     nodes,
     graphEdges: toGraphEdges(edges),
     paramKeyframes,
+    modulators,
     timelineFps,
     outputFps,
     outputFrames,

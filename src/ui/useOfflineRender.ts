@@ -4,6 +4,7 @@ import type { Engine } from "../engine/runtime";
 import { downloadTimelineRender, exportTimelineVideo } from "../lib/exportTimeline";
 import { appLog } from "../store/consoleStore";
 import { useGraphStore } from "../store/graphStore";
+import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 
 /**
@@ -25,6 +26,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
 
     const timeline = useTimelineStore.getState();
     const { nodes, edges, width, height } = useGraphStore.getState();
+    const modulators = useModulatorStore.getState().byPath;
     const savedFrame = timeline.currentFrame;
 
     timeline.pause();
@@ -52,6 +54,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         timelineFps: timeline.fps,
         durationInFrames: timeline.durationInFrames,
         paramKeyframes: timeline.paramKeyframes,
+        modulators,
         signal: controller.signal,
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);
