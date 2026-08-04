@@ -1,7 +1,10 @@
 # visio
 
-Node environment in the browser: **image, video, or camera → tracking → WebGL graphics with feedback**. Drop an image/video onto the graph to create a source node.
-A simplified cables.gl for one job — visualizing tracking data in real time.
+Node environment in the browser: **image, video, camera, or audio → tracking →
+WebGL graphics → granular audio**. Drop a file onto the graph to create a Media
+source. A simplified cables.gl for one job — visualizing tracking data in real
+time, and letting the picture drive the sound when you wire Features Grid
+`rects` into **Granular**.
 
 ```bash
 npm install
