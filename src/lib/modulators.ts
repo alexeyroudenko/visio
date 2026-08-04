@@ -5,9 +5,13 @@ import { parseParamPath } from "./keyframes";
 
 export type ModulatorShape = "sine" | "triangle" | "saw" | "square" | "noise";
 
+/** Where the −1..1 drive comes from. `audio` needs a sample each apply. */
+export type ModulatorSource = "lfo" | "audio";
+
 export interface Modulator {
+  source: ModulatorSource;
   shape: ModulatorShape;
-  /** Cycles per second of timeline time. */
+  /** Cycles per second of timeline time. Ignored when `source` is `audio`. */
   rateHz: number;
   /** Swing as a fraction of the parameter's own half-range. */
   depth: number;
@@ -15,9 +19,21 @@ export interface Modulator {
   bias: number;
   /** Starting point in the cycle, 0..1 — lets two modulators run out of step. */
   phase: number;
+  /**
+   * FFT band lower edge in Hz (audio source). Defaults applied at parse time;
+   * the band helper reads these in later steps.
+   */
+  bandLoHz?: number;
+  /** FFT band upper edge in Hz (audio source). */
+  bandHiHz?: number;
 }
 
 export type Modulators = Record<ParamPath, Modulator>;
+
+export const MODULATOR_SOURCES: { value: ModulatorSource; label: string }[] = [
+  { value: "lfo", label: "LFO" },
+  { value: "audio", label: "Audio" },
+];
 
 export const MODULATOR_SHAPES: { value: ModulatorShape; label: string }[] = [
   { value: "sine", label: "sine" },
@@ -28,11 +44,14 @@ export const MODULATOR_SHAPES: { value: ModulatorShape; label: string }[] = [
 ];
 
 export const DEFAULT_MODULATOR: Modulator = {
+  source: "lfo",
   shape: "sine",
   rateHz: 0.5,
   depth: 0.5,
   bias: 0,
   phase: 0,
+  bandLoHz: 20,
+  bandHiHz: 200,
 };
 
 /** Smooth value noise: random per whole cycle, cosine-eased in between. */
@@ -65,20 +84,41 @@ export function waveAt(shape: ModulatorShape, turns: number): number {
 }
 
 /**
+ * Resolve the −1..1 drive for a modulator. LFO uses the wave; audio uses the
+ * supplied sample (missing sample → 0 so the param sits at base+bias).
+ */
+export function modulatorDrive(
+  modulator: Modulator,
+  timeSec: number,
+  sample?: number,
+): number {
+  if (modulator.source === "audio") {
+    return typeof sample === "number" && Number.isFinite(sample)
+      ? Math.min(1, Math.max(-1, sample))
+      : 0;
+  }
+  const turns = timeSec * modulator.rateHz + modulator.phase;
+  return waveAt(modulator.shape, turns);
+}
+
+/**
  * Modulation swings around whatever the parameter already is — its own value,
  * or the one keyframes resolved for this frame. Depth 0 therefore leaves it
  * exactly alone, and a modulator layered on an animated parameter rides the
  * curve instead of replacing it.
+ *
+ * `sample` is the −1..1 audio drive when `modulator.source === "audio"`.
  */
 export function modulatedValue(
   spec: Extract<ParamSpec, { type: "range" }>,
   base: number,
   modulator: Modulator,
   timeSec: number,
+  sample?: number,
 ): number {
   const half = (spec.max - spec.min) / 2;
-  const turns = timeSec * modulator.rateHz + modulator.phase;
-  const swing = waveAt(modulator.shape, turns) * modulator.depth * half;
+  const drive = modulatorDrive(modulator, timeSec, sample);
+  const swing = drive * modulator.depth * half;
   const value = base + swing + modulator.bias * half;
   return Math.min(spec.max, Math.max(spec.min, value));
 }
@@ -87,12 +127,16 @@ export function modulatedValue(
  * Overlay modulated values on params that already went through keyframes.
  * Only `range` params can be modulated — a swing needs bounds to be a fraction
  * of, and there is nothing sensible to interpolate on a file or a select.
+ *
+ * `sampleAt` supplies a −1..1 sample per path for `source: "audio"` modulators.
+ * Paths without a sample sit at base+bias (drive 0) until media is ready.
  */
 export function applyModulatorsToNodes(
   timeSec: number,
   keyed: Map<string, Record<string, unknown>>,
   modulators: Modulators,
   specOf: (nodeId: string, key: string) => ParamSpec | undefined,
+  sampleAt?: (path: ParamPath) => number | undefined,
 ): Map<string, Record<string, unknown>> {
   for (const [path, modulator] of Object.entries(modulators)) {
     const parsed = parseParamPath(path);
@@ -102,7 +146,8 @@ export function applyModulatorsToNodes(
     const spec = specOf(parsed.nodeId, parsed.key);
     if (!spec || spec.type !== "range") continue;
     const base = typeof params[parsed.key] === "number" ? (params[parsed.key] as number) : spec.default;
-    params[parsed.key] = modulatedValue(spec, base, modulator, timeSec);
+    const sample = sampleAt?.(path);
+    params[parsed.key] = modulatedValue(spec, base, modulator, timeSec, sample);
   }
   return keyed;
 }
@@ -118,14 +163,20 @@ export function parseModulators(raw: unknown, nodeIds: Set<string>): Modulators 
     const shape = MODULATOR_SHAPES.some((s) => s.value === m.shape)
       ? (m.shape as ModulatorShape)
       : DEFAULT_MODULATOR.shape;
+    const source = MODULATOR_SOURCES.some((s) => s.value === m.source)
+      ? (m.source as ModulatorSource)
+      : DEFAULT_MODULATOR.source;
     const num = (v: unknown, fallback: number) =>
       typeof v === "number" && Number.isFinite(v) ? v : fallback;
     out[path] = {
+      source,
       shape,
       rateHz: Math.max(0, num(m.rateHz, DEFAULT_MODULATOR.rateHz)),
       depth: Math.max(0, Math.min(1, num(m.depth, DEFAULT_MODULATOR.depth))),
       bias: Math.max(-1, Math.min(1, num(m.bias, DEFAULT_MODULATOR.bias))),
       phase: num(m.phase, DEFAULT_MODULATOR.phase),
+      bandLoHz: Math.max(0, num(m.bandLoHz, DEFAULT_MODULATOR.bandLoHz ?? 20)),
+      bandHiHz: Math.max(0, num(m.bandHiHz, DEFAULT_MODULATOR.bandHiHz ?? 200)),
     };
   }
   return out;

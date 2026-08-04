@@ -20,9 +20,11 @@ import type {
 } from "./engine/types";
 import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
+  applyModulatorsToNodes,
   DEFAULT_MODULATOR,
   modulatedValue,
   MODULATOR_SHAPES,
+  parseModulators,
   waveAt,
 } from "./lib/modulators";
 import { defineNode } from "./nodes/defineNode";
@@ -1726,6 +1728,46 @@ async function run(): Promise<void> {
 
   const clamped = modulatedValue(range, 95, { ...mod, depth: 1 }, 0.25);
   check("modulation clamps to the parameter range", clamped === 100, `got ${clamped}`);
+
+  // Audio source plugs a −1..1 sample where the LFO wave would go.
+  const audioMod = { ...DEFAULT_MODULATOR, source: "audio" as const, depth: 0.5, bias: 0 };
+  const audioPeak = modulatedValue(range, 50, audioMod, 0, 1);
+  const audioTrough = modulatedValue(range, 50, audioMod, 0, -1);
+  const audioMissing = modulatedValue(range, 50, audioMod, 0);
+  check(
+    "audio sample ±1 swings depth * half-range around base",
+    Math.abs(audioPeak - 75) < 0.001 &&
+      Math.abs(audioTrough - 25) < 0.001 &&
+      Math.abs(audioMissing - 50) < 0.001,
+    `+1→${audioPeak}, -1→${audioTrough}, missing→${audioMissing} (expected 75 / 25 / 50)`,
+  );
+
+  const modKeyed = new Map<string, Record<string, unknown>>([["n1", { k: 50 }]]);
+  applyModulatorsToNodes(
+    0,
+    modKeyed,
+    { "n1:k": audioMod },
+    () => range,
+    (path) => (path === "n1:k" ? 1 : undefined),
+  );
+  check(
+    "applyModulatorsToNodes uses sampleAt for audio source",
+    modKeyed.get("n1")!.k === 75,
+    `got ${modKeyed.get("n1")!.k}`,
+  );
+
+  const parsedAudio = parseModulators(
+    { "n1:k": { source: "audio", depth: 0.4, bandLoHz: 100, bandHiHz: 800 } },
+    new Set(["n1"]),
+  );
+  check(
+    "parseModulators keeps audio source and band edges",
+    parsedAudio["n1:k"]?.source === "audio" &&
+      parsedAudio["n1:k"]?.bandLoHz === 100 &&
+      parsedAudio["n1:k"]?.bandHiHz === 800 &&
+      parsedAudio["n1:k"]?.depth === 0.4,
+    JSON.stringify(parsedAudio["n1:k"] ?? null),
+  );
 
   const modPatch = serializePatch(
     [

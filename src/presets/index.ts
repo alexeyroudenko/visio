@@ -1140,6 +1140,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         {
           modulators: {
             "sliceShift-1:count": {
+              source: "lfo",
               shape: "sine",
               rateHz: 0.25,
               depth: 0.8,
@@ -1147,6 +1148,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
               phase: 0,
             },
             "sliceShift-1:amount": {
+              source: "lfo",
               shape: "triangle",
               rateHz: 0.4,
               depth: 0.5,
