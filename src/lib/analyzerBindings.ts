@@ -1,5 +1,5 @@
 /**
- * Soft-bind Audio Analyzer RMS onto another node's range params.
+ * Soft-bind Audio Analyzer band level onto another node's range params.
  *
  * Binding is not a graph wire — the analyzer stores target node/param ids and
  * this pass writes the mapped value into the keyed param map before the engine
@@ -9,9 +9,9 @@
 import type { ParamSpec } from "../engine/types";
 import { fileParam } from "../nodes/shared/fileParam";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
+import { bandEnergy } from "./audioBands";
 import { ensureAudioBuffer } from "./audioBuffers";
 import { mediaPlayheadSec } from "./audioModSamples";
-import { rmsAt } from "./audioRms";
 
 export const ANALYZER_NODE_TYPE = "audio.analyzer";
 
@@ -123,8 +123,13 @@ function playheadForMedia(
   return mediaPlayheadSec(params, timelineSec, durationSec);
 }
 
+function numParam(params: Record<string, unknown>, key: string, fallback: number): number {
+  const value = params[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 /**
- * Compute RMS for each analyzer, write `out`, and push onto bound target params.
+ * Compute band level for each analyzer, write `out`, and push onto bound targets.
  */
 export function applyAnalyzerBindings(
   timelineSec: number,
@@ -140,14 +145,11 @@ export function applyAnalyzerBindings(
     const params = keyed.get(analyzer.id) ?? { ...analyzer.params };
     keyed.set(analyzer.id, params);
 
-    const gain =
-      typeof params.gain === "number" && Number.isFinite(params.gain) ? params.gain : 1;
-    const smoothing =
-      typeof params.smoothing === "number" && Number.isFinite(params.smoothing)
-        ? params.smoothing
-        : 0.7;
-    const depth =
-      typeof params.depth === "number" && Number.isFinite(params.depth) ? params.depth : 1;
+    const gain = numParam(params, "gain", 1);
+    const smoothing = numParam(params, "smoothing", 0.7);
+    const depth = numParam(params, "depth", 1);
+    const loHz = numParam(params, "bandLoHz", 20);
+    const hiHz = numParam(params, "bandHiHz", 8000);
     const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
     const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
 
@@ -163,7 +165,7 @@ export function applyAnalyzerBindings(
           timelineSec,
           entry.buffer.duration,
         );
-        raw = rmsAt(entry.buffer, timeSec);
+        raw = bandEnergy(entry.buffer, timeSec, loHz, hiHz);
       }
     }
 

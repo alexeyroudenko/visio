@@ -1,37 +1,55 @@
 import type { AudioValue } from "../../engine/types";
 import { finalizeAnalyzerOut } from "../../lib/analyzerBindings";
+import { bandEnergy } from "../../lib/audioBands";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
-import { rmsAt } from "../../lib/audioRms";
 import { defineNode, paramNumber, paramString } from "../defineNode";
 
 interface AnalyzerState {
-  /** Last raw RMS before gain — debug only. */
+  /** Last raw band level before gain — debug only. */
   raw: number;
 }
 
 /**
- * Listens to an `audio` wire, measures RMS, exposes it as number port `out`
- * and as the live `out` param. Optional soft-bind: pick another node + range
- * param in the Inspector and RMS drives that value each frame (smoothing /
- * depth applied in the analyzer-bindings pass).
+ * Listens to an `audio` wire, measures band energy (FFT, lo..hi Hz), exposes it
+ * as number port `out` and as the live `out` param. Optional soft-bind: pick
+ * another node + range param in the Inspector and the level drives that value
+ * each frame (smoothing / depth applied in the analyzer-bindings pass).
  */
 export const analyzerNode = defineNode<AnalyzerState>({
   type: "audio.analyzer",
   label: "Audio Analyzer",
   category: "audio",
   description:
-    "RMS level from an audio input — bind Out to another node's range param (e.g. Points Noise displacement).",
+    "Band level from an audio input — set Min/Max Hz, then bind Out to another node's range param.",
   inputs: [{ id: "audio", label: "audio", type: "audio" }],
   outputs: [{ id: "out", label: "out", type: "number" }],
   params: [
     {
       key: "out",
-      label: "Out (RMS)",
+      label: "Out",
       type: "range",
       min: 0,
       max: 1,
       step: 0.001,
       default: 0,
+    },
+    {
+      key: "bandLoHz",
+      label: "Min Hz",
+      type: "range",
+      min: 20,
+      max: 8000,
+      step: 10,
+      default: 20,
+    },
+    {
+      key: "bandHiHz",
+      label: "Max Hz",
+      type: "range",
+      min: 20,
+      max: 8000,
+      step: 10,
+      default: 8000,
     },
     {
       key: "gain",
@@ -79,13 +97,15 @@ export const analyzerNode = defineNode<AnalyzerState>({
   evaluate({ inputs, params, runtime, nodeId, ctx, debug }) {
     const audio = inputs.audio as AudioValue | null | undefined;
     const gain = paramNumber(params, "gain", 2);
+    const loHz = paramNumber(params, "bandLoHz", 20);
+    const hiHz = paramNumber(params, "bandHiHz", 8000);
 
     let raw = 0;
     if (audio?.url) {
       const entry = ensureAudioBuffer(audio.url);
       const buffer = audio.buffer ?? entry.buffer;
       if (buffer) {
-        raw = rmsAt(buffer, audio.timeSec);
+        raw = bandEnergy(buffer, audio.timeSec, loHz, hiHz);
       } else if (entry.status === "loading") {
         ctx.report(nodeId, "loading", "decoding audio…");
       } else if (entry.status === "error") {
@@ -103,6 +123,7 @@ export const analyzerNode = defineNode<AnalyzerState>({
       const target = paramString(params, "targetNode", "");
       const key = paramString(params, "targetParam", "");
       ctx.debugRows(nodeId, [
+        { label: "band", value: `${Math.round(loHz)}–${Math.round(hiHz)} Hz` },
         { label: "raw", value: raw.toFixed(3) },
         { label: "out", value: level.toFixed(3) },
         { label: "bind", value: target && key ? `${target}.${key}` : "—" },
@@ -110,7 +131,7 @@ export const analyzerNode = defineNode<AnalyzerState>({
     }
 
     if (audio?.url && runtime.status !== "ready") {
-      ctx.report(nodeId, "ready", `rms ${level.toFixed(2)}`);
+      ctx.report(nodeId, "ready", `out ${level.toFixed(2)}`);
     }
 
     return { out: level };

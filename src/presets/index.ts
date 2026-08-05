@@ -697,6 +697,8 @@ function audioAnalyzerNoise(): SerializedPatch {
         position: { x: 300, y: 20 },
         params: {
           out: 0,
+          bandLoHz: 20,
+          bandHiHz: 200,
           gain: 2.5,
           smoothing: 0.65,
           depth: 1,
@@ -765,6 +767,156 @@ function audioAnalyzerNoise(): SerializedPatch {
         sourceHandle: "out",
         target: "featuresGrid-1",
         targetHandle: "bg",
+      },
+      {
+        id: "e-pts",
+        source: "pointsNoise-1",
+        sourceHandle: "out",
+        target: "featuresGrid-1",
+        targetHandle: "points",
+      },
+      {
+        id: "e-out",
+        source: "featuresGrid-1",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
+
+/**
+ * Corners → Points Noise (displacement from Analyzer RMS) → Features Grid.
+ * Default still + default track; analyzer soft-binds to Noise Displacement.
+ */
+function audioNoiseGrid(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "audio-1",
+        type: "source.media",
+        position: { x: 0, y: 0 },
+        params: {
+          mode: "audio",
+          file: DEFAULT_AUDIO_FILE,
+          playing: true,
+          muted: false,
+          volume: 1,
+          speed: 1,
+          syncTimeline: false,
+          mirror: false,
+          fit: "cover",
+        },
+      },
+      {
+        id: "analyzer-1",
+        type: "audio.analyzer",
+        position: { x: 300, y: 0 },
+        params: {
+          out: 0,
+          bandLoHz: 20,
+          bandHiHz: 200,
+          gain: 2.5,
+          smoothing: 0.65,
+          depth: 1,
+          targetNode: "pointsNoise-1",
+          targetParam: "amount",
+        },
+      },
+      {
+        id: "image-1",
+        type: "source.media",
+        position: { x: 0, y: 260 },
+        params: { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover", zoom: 1 },
+      },
+      {
+        id: "features-1",
+        type: "tracking.features",
+        position: { x: 300, y: 260 },
+        params: { downscale: 3, block: 7, maxCorners: 180, quality: 0.03, minDistance: 18 },
+      },
+      {
+        id: "pointsNoise-1",
+        type: "generate.pointsNoise",
+        position: { x: 620, y: 240 },
+        params: {
+          count: 160,
+          layout: "random",
+          frequency: 2.8,
+          octaves: 2,
+          amount: 0.05,
+          animate: true,
+          speed: 0.3,
+          driftX: 0.01,
+          driftY: 0,
+          edges: "clamp",
+          size: 0.75,
+          sizeNoise: 0.3,
+          seed: 7,
+        },
+      },
+      {
+        id: "featuresGrid-1",
+        type: "draw.featuresGrid",
+        position: { x: 940, y: 260 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 7,
+          minSize: 56,
+          stroke: 1,
+          opacity: 1,
+          labels: false,
+          labelSize: 11,
+          labelText: "Element",
+          effectChance: 1,
+          effectMinArea: 0,
+          effectMaxArea: 0.18,
+          effectSeed: 3,
+          useContentEdge: true,
+          edgeInterval: 3,
+        },
+      },
+      { ...SCREEN, position: { x: 1260, y: 280 } },
+    ],
+    edges: [
+      {
+        id: "e-audio",
+        source: "audio-1",
+        sourceHandle: "audio",
+        target: "analyzer-1",
+        targetHandle: "audio",
+      },
+      {
+        id: "e-frame",
+        source: "image-1",
+        sourceHandle: "frame",
+        target: "features-1",
+        targetHandle: "frame",
+      },
+      {
+        id: "e-corners",
+        source: "features-1",
+        sourceHandle: "out",
+        target: "pointsNoise-1",
+        targetHandle: "points",
+      },
+      {
+        id: "e-bg",
+        source: "image-1",
+        sourceHandle: "out",
+        target: "featuresGrid-1",
+        targetHandle: "bg",
+      },
+      {
+        id: "e-mask",
+        source: "image-1",
+        sourceHandle: "frame",
+        target: "featuresGrid-1",
+        targetHandle: "frame",
       },
       {
         id: "e-pts",
@@ -1020,6 +1172,14 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
       "Default track → Analyzer RMS bound to Points Noise displacement → Features Grid",
     builtin: true,
     build: audioAnalyzerNoise,
+  },
+  {
+    id: "audio-noise-grid",
+    label: "Audio Noise Grid",
+    description:
+      "Corners → Points Noise (RMS → Displacement) → Features Grid — default track + still",
+    builtin: true,
+    build: audioNoiseGrid,
   },
   {
     id: "granular-grid",

@@ -569,6 +569,10 @@ function AnalyzerBindPanel({
 
   const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
   const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
+  const loHz = typeof params.bandLoHz === "number" ? params.bandLoHz : 20;
+  const hiHz = typeof params.bandHiHz === "number" ? params.bandHiHz : 8000;
+  const bandPreset =
+    loHz === 20 && hiHz === 8000 ? "full" : matchAudioBandPreset(loHz, hiHz);
 
   const nodeOptions = nodes
     .filter((n) => n.id !== nodeId)
@@ -589,12 +593,38 @@ function AnalyzerBindPanel({
   return (
     <div className="analyzer-bind">
       <div className="param">
-        <span className="param__label">Out (RMS)</span>
+        <span className="param__label">Out</span>
         <div className="analyzer-bind__meter" title={level.toFixed(3)}>
           <div className="analyzer-bind__fill" style={{ width: `${Math.round(level * 100)}%` }} />
           <span className="analyzer-bind__value">{level.toFixed(3)}</span>
         </div>
       </div>
+      <label className="param">
+        <span className="param__label">Band</span>
+        <select
+          value={bandPreset}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (next === "full") {
+              onChange("bandLoHz", 20);
+              onChange("bandHiHz", 8000);
+              return;
+            }
+            const preset = AUDIO_BAND_PRESETS.find((p) => p.value === next);
+            if (!preset || preset.value === "custom") return;
+            onChange("bandLoHz", preset.lo);
+            onChange("bandHiHz", preset.hi);
+          }}
+        >
+          <option value="full">full (20–8k Hz)</option>
+          {AUDIO_BAND_PRESETS.filter((p) => p.value !== "custom").map((preset) => (
+            <option key={preset.value} value={preset.value}>
+              {preset.label}
+            </option>
+          ))}
+          <option value="custom">custom</option>
+        </select>
+      </label>
       <label className="param">
         <span className="param__label">Bind to node</span>
         <select
