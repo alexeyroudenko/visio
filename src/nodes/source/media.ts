@@ -16,7 +16,7 @@ import {
 } from "../../lib/mediaMeta";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
-import { fileParam } from "../shared/fileParam";
+import { DEFAULT_AUDIO_FILE, fileParam } from "../shared/fileParam";
 import { StageCanvas, type FitMode } from "../shared/stage";
 type MediaMode = "camera" | "image" | "video" | "audio";
 
@@ -738,7 +738,7 @@ function evalAudio(
   state.video.autoplay = false;
   state.video.loop = true;
   const video = state.video;
-  const file = fileParam(params);
+  const file = fileParam(params) ?? DEFAULT_AUDIO_FILE;
 
   if (file && file.url !== state.loadedUrl) {
     state.loadedUrl = file.url;

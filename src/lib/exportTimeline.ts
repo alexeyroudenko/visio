@@ -4,6 +4,7 @@ import type { Engine } from "../engine/runtime";
 import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "../store/graphStore";
+import { applyAnalyzerBindings } from "./analyzerBindings";
 import { audioModulatorSamples } from "./audioModSamples";
 import { applyKeyframesToNodes, type ParamKeyframes } from "./keyframes";
 import { applyModulatorsToNodes, type Modulators } from "./modulators";
@@ -154,6 +155,20 @@ async function renderOneFrame(ctx: RenderPassContext, outputIndex: number): Prom
       return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
     },
     (path) => samples.get(path),
+  );
+  applyAnalyzerBindings(
+    timelineSec,
+    keyed,
+    ctx.nodes.map((node) => ({
+      id: node.id,
+      defType: node.data.defType,
+      params: keyed.get(node.id) ?? node.data.params,
+    })),
+    ctx.graphEdges,
+    (nodeId, key) => {
+      const defType = defTypeById.get(nodeId);
+      return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+    },
   );
 
   ctx.engine.setTimeline(timelineFrame, ctx.timelineFps, false);

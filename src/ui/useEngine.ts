@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine } from "../engine/runtime";
+import { applyAnalyzerBindings, graphHasAnalyzerBindings } from "../lib/analyzerBindings";
 import { audioModulatorSamples } from "../lib/audioModSamples";
 import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
 import { applyKeyframesToNodes } from "../lib/keyframes";
@@ -81,6 +82,22 @@ export function useEngine(
           return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
         },
         (path) => samples.get(path),
+      );
+      // Analyzer soft-binds run after modulators so a bound param can still ride
+      // an LFO base — the analyzer out replaces the keyed value when set.
+      applyAnalyzerBindings(
+        timelineSec,
+        keyed,
+        nodes.map((node) => ({
+          id: node.id,
+          defType: node.data.defType,
+          params: keyed.get(node.id) ?? node.data.params,
+        })),
+        edges,
+        (nodeId, key) => {
+          const defType = defTypeById.get(nodeId);
+          return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+        },
       );
 
       engine.setResolution(width, height);
@@ -165,11 +182,16 @@ export function useEngine(
       useEngineStatsStore.getState().setStats({ ...engine.stats });
     }, 500);
 
-    // Audio modulators need a steady push even when the timeline is parked:
-    // decode may finish mid-session, and free-running Media still moves energy.
+    // Audio modulators / analyzer binds need a steady push even when the
+    // timeline is parked: decode may finish mid-session, and free-running
+    // Media still moves energy.
     const audioTimer = window.setInterval(() => {
       const mods = useModulatorStore.getState().byPath;
-      if (Object.values(mods).some((m) => m.source === "audio")) pushGraph();
+      if (Object.values(mods).some((m) => m.source === "audio")) {
+        pushGraph();
+        return;
+      }
+      if (graphHasAnalyzerBindings(useGraphStore.getState().nodes)) pushGraph();
     }, 1000 / 30);
 
     return () => {

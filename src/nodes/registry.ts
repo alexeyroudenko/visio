@@ -29,6 +29,7 @@ import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
 import { zoomNode } from "./fx/zoom";
 import { shaderNode } from "./fx/shader";
+import { analyzerNode } from "./audio/analyzer";
 import { granularNode } from "./audio/granular";
 import { outputNode } from "./output/output";
 
@@ -70,6 +71,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   blockScatterNode,
   zoomNode,
   shaderNode,
+  analyzerNode,
   granularNode,
   outputNode,
 ];

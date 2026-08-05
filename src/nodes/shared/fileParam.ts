@@ -38,9 +38,21 @@ export const POSE_IMAGE_FILE: FileParam = publicFile("default-pose.png");
 /** Close-up still for face-mesh tracking demos. */
 export const FACE_IMAGE_FILE: FileParam = publicFile("default-face.png");
 
+/** Bundled starter audio — served from Vite `public/`. */
+export const DEFAULT_AUDIO_FILE: FileParam = {
+  name: "default-audio.mp3",
+  url: `${import.meta.env.BASE_URL}default-audio.mp3`,
+  mime: "audio/mpeg",
+};
+
 /** Stock images shown in the Media inspector library. */
 export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] = [
   { file: DEFAULT_IMAGE_FILE, label: "Frame" },
   { file: POSE_IMAGE_FILE, label: "Pose" },
   { file: FACE_IMAGE_FILE, label: "Face" },
+];
+
+/** Stock audio shown in the Media inspector library (audio mode). */
+export const BUNDLED_AUDIO_FILES: readonly { file: FileParam; label: string }[] = [
+  { file: DEFAULT_AUDIO_FILE, label: "Track" },
 ];

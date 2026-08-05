@@ -1,5 +1,6 @@
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
 import {
+  DEFAULT_AUDIO_FILE,
   DEFAULT_IMAGE_FILE,
   FACE_IMAGE_FILE,
   POSE_IMAGE_FILE,
@@ -665,6 +666,125 @@ function noiseGrid(): SerializedPatch {
 }
 
 /**
+ * Default audio → Analyzer (RMS) soft-bound to Points Noise displacement →
+ * Features Grid. Audio plays free-running; analyzer binding follows the playhead.
+ */
+function audioAnalyzerNoise(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "audio-1",
+        type: "source.media",
+        position: { x: 0, y: 40 },
+        params: {
+          mode: "audio",
+          file: DEFAULT_AUDIO_FILE,
+          playing: true,
+          muted: false,
+          volume: 1,
+          speed: 1,
+          syncTimeline: false,
+          mirror: false,
+          fit: "cover",
+        },
+      },
+      {
+        id: "analyzer-1",
+        type: "audio.analyzer",
+        position: { x: 300, y: 20 },
+        params: {
+          out: 0,
+          gain: 2.5,
+          smoothing: 0.65,
+          depth: 1,
+          targetNode: "pointsNoise-1",
+          targetParam: "amount",
+        },
+      },
+      {
+        id: "image-1",
+        type: "source.media",
+        position: { x: 0, y: 280 },
+        params: { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover", zoom: 1 },
+      },
+      {
+        id: "pointsNoise-1",
+        type: "generate.pointsNoise",
+        position: { x: 300, y: 280 },
+        params: {
+          count: 140,
+          layout: "random",
+          frequency: 2.8,
+          octaves: 2,
+          amount: 0.05,
+          animate: true,
+          speed: 0.3,
+          driftX: 0.015,
+          driftY: 0,
+          edges: "wrap",
+          size: 0.75,
+          sizeNoise: 0.35,
+          seed: 7,
+        },
+      },
+      {
+        id: "featuresGrid-1",
+        type: "draw.featuresGrid",
+        position: { x: 640, y: 260 },
+        params: {
+          color: "#f5f0e6",
+          maxDepth: 6,
+          minSize: 64,
+          stroke: 1,
+          opacity: 1,
+          labels: true,
+          labelSize: 11,
+          labelText: "Element",
+          effectChance: 1,
+          effectMinArea: 0,
+          effectMaxArea: 0.22,
+          effectSeed: 5,
+        },
+      },
+      { ...SCREEN, position: { x: 980, y: 280 } },
+    ],
+    edges: [
+      {
+        id: "e-audio",
+        source: "audio-1",
+        sourceHandle: "audio",
+        target: "analyzer-1",
+        targetHandle: "audio",
+      },
+      {
+        id: "e-bg",
+        source: "image-1",
+        sourceHandle: "out",
+        target: "featuresGrid-1",
+        targetHandle: "bg",
+      },
+      {
+        id: "e-pts",
+        source: "pointsNoise-1",
+        sourceHandle: "out",
+        target: "featuresGrid-1",
+        targetHandle: "points",
+      },
+      {
+        id: "e-out",
+        source: "featuresGrid-1",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
+
+/**
  * Features Grid (+ Granular): starts on the default still so the graph shows
  * something; drop a video with audio on Media when you want grains.
  */
@@ -892,6 +1012,14 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description: "Noise-driven point cloud → Features Grid — animates without a camera",
     builtin: true,
     build: noiseGrid,
+  },
+  {
+    id: "audio-analyzer-noise",
+    label: "Audio Analyzer → Noise",
+    description:
+      "Default track → Analyzer RMS bound to Points Noise displacement → Features Grid",
+    builtin: true,
+    build: audioAnalyzerNoise,
   },
   {
     id: "granular-grid",

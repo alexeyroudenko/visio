@@ -1,4 +1,5 @@
 import type { ParamSpec } from "../engine/types";
+import { getAnalyzerOut } from "../lib/analyzerBindings";
 import { getValueAtFrame, paramPath } from "../lib/keyframes";
 import {
   AUDIO_BAND_PRESETS,
@@ -9,7 +10,12 @@ import {
   type Modulator,
 } from "../lib/modulators";
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
-import { BUNDLED_IMAGE_FILES, type FileParam } from "../nodes/shared/fileParam";
+import {
+  BUNDLED_AUDIO_FILES,
+  BUNDLED_IMAGE_FILES,
+  DEFAULT_AUDIO_FILE,
+  type FileParam,
+} from "../nodes/shared/fileParam";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
@@ -17,7 +23,7 @@ import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
 import { Knob } from "./Knob";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Resolve `<input accept>` tokens against a File (MIME and/or extension). */
 function fileMatchesAccept(file: File, accept: string): boolean {
@@ -91,6 +97,22 @@ function FileParamControl({
         token === ".webp",
     );
   })();
+  const showAudioLibrary = (() => {
+    const tokens = accept
+      .split(",")
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean);
+    if (tokens.length === 0) return false;
+    return tokens.every(
+      (token) =>
+        token === "audio/*" ||
+        token.startsWith("audio/") ||
+        token === ".mp3" ||
+        token === ".wav" ||
+        token === ".ogg" ||
+        token === ".m4a",
+    );
+  })();
 
   useEffect(() => {
     const input = inputRef.current;
@@ -157,6 +179,29 @@ function FileParamControl({
                   onClick={() => onChange({ ...file })}
                 >
                   <img src={file.url} alt="" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {showAudioLibrary ? (
+        <div className="media-library" aria-label="Stock audio">
+          <span className="param__label">Library</span>
+          <div className="media-library__row">
+            {BUNDLED_AUDIO_FILES.map(({ file, label }) => {
+              const active =
+                current?.name === file.name ||
+                (typeof current?.url === "string" && current.url.endsWith(file.name));
+              return (
+                <button
+                  key={file.name}
+                  type="button"
+                  className={`media-library__item${active ? " media-library__item--active" : ""}`}
+                  title={file.name}
+                  onClick={() => onChange({ ...file })}
+                >
                   <span>{label}</span>
                 </button>
               );
@@ -499,6 +544,101 @@ function KeyToggle({ animated, onFrame, onClick }: {
   );
 }
 
+/** Live RMS meter + target node/param dropdowns for Audio Analyzer. */
+function AnalyzerBindPanel({
+  nodeId,
+  params,
+  onChange,
+}: {
+  nodeId: string;
+  params: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const nodes = useGraphStore((state) => state.nodes);
+  const [level, setLevel] = useState(() => getAnalyzerOut(nodeId));
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setLevel(getAnalyzerOut(nodeId));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [nodeId]);
+
+  const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
+  const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
+
+  const nodeOptions = nodes
+    .filter((n) => n.id !== nodeId)
+    .map((n) => {
+      const def = NODE_DEFS[n.data.defType];
+      const label = def ? `${def.label} (${n.id})` : n.id;
+      return { value: n.id, label };
+    });
+
+  const target = nodes.find((n) => n.id === targetNode);
+  const paramOptions =
+    target != null
+      ? (NODE_DEFS[target.data.defType]?.params ?? [])
+          .filter((p) => p.type === "range" && p.key !== "out")
+          .map((p) => ({ value: p.key, label: p.label }))
+      : [];
+
+  return (
+    <div className="analyzer-bind">
+      <div className="param">
+        <span className="param__label">Out (RMS)</span>
+        <div className="analyzer-bind__meter" title={level.toFixed(3)}>
+          <div className="analyzer-bind__fill" style={{ width: `${Math.round(level * 100)}%` }} />
+          <span className="analyzer-bind__value">{level.toFixed(3)}</span>
+        </div>
+      </div>
+      <label className="param">
+        <span className="param__label">Bind to node</span>
+        <select
+          value={targetNode}
+          onChange={(event) => {
+            const next = event.target.value;
+            onChange("targetNode", next);
+            if (!next) {
+              onChange("targetParam", "");
+              return;
+            }
+            const def = NODE_DEFS[nodes.find((n) => n.id === next)?.data.defType ?? ""];
+            const ranges = (def?.params ?? []).filter((p) => p.type === "range" && p.key !== "out");
+            const keep = ranges.some((p) => p.key === targetParam);
+            if (!keep) onChange("targetParam", ranges[0]?.key ?? "");
+          }}
+        >
+          <option value="">(none)</option>
+          {nodeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="param">
+        <span className="param__label">Bind to param</span>
+        <select
+          value={targetParam}
+          disabled={!targetNode}
+          onChange={(event) => onChange("targetParam", event.target.value)}
+        >
+          <option value="">(none)</option>
+          {paramOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
 export function Inspector() {
   const selectedId = useGraphStore((state) => state.selectedId);
   const node = useGraphStore((state) => state.nodes.find((n) => n.id === state.selectedId));
@@ -542,6 +682,7 @@ export function Inspector() {
 
   const isMedia = node.data.defType === "source.media";
   const isShader = node.data.defType === "fx.shader";
+  const isAnalyzer = node.data.defType === "audio.analyzer";
 
   return (
     <aside className="inspector">
@@ -564,7 +705,17 @@ export function Inspector() {
         {isShader ? (
           <ShaderPresetPicker onPick={(source) => setParam(node.id, "source", source)} />
         ) : null}
+        {isAnalyzer ? (
+          <AnalyzerBindPanel
+            nodeId={node.id}
+            params={node.data.params}
+            onChange={(key, value) => setParam(node.id, key, value)}
+          />
+        ) : null}
         {definition.params.map((spec) => {
+          if (isAnalyzer && (spec.key === "out" || spec.key === "targetNode" || spec.key === "targetParam")) {
+            return null;
+          }
           if (isMedia) {
             const mode = String(node.data.params.mode ?? "image");
             const cameraOnly = spec.key === "facing";
@@ -612,11 +763,24 @@ export function Inspector() {
             <div
               key={spec.key}
               className={`param-block${spec.type === "range" ? " param-block--knob" : ""}`}
-            >              <ParamControl
+            >
+              <ParamControl
                 spec={spec}
                 value={value}
                 acceptOverride={acceptOverride}
-                onChange={(next) => setParam(node.id, spec.key, next)}
+                onChange={(next) => {
+                  if (isMedia && spec.key === "mode" && next === "audio") {
+                    setParam(node.id, "mode", "audio");
+                    const file = node.data.params.file;
+                    const hasFile =
+                      file &&
+                      typeof file === "object" &&
+                      typeof (file as FileParam).url === "string";
+                    if (!hasFile) setParam(node.id, "file", { ...DEFAULT_AUDIO_FILE });
+                    return;
+                  }
+                  setParam(node.id, spec.key, next);
+                }}
               />
               {keyable ? (
                 <KeyToggle
