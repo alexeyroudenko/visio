@@ -1426,10 +1426,22 @@ canvas.knob:focus-visible {
 .analyzer-bind {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 8px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
+}
+
+.analyzer-bind__band {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.analyzer-bind__hz {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .analyzer-bind__meter {
@@ -1438,6 +1450,7 @@ canvas.knob:focus-visible {
   background: var(--panel-2);
   border: 1px solid var(--line);
   overflow: hidden;
+  flex: 1;
 }
 
 .analyzer-bind__fill {
@@ -1459,6 +1472,61 @@ canvas.knob:focus-visible {
   font-variant-numeric: tabular-nums;
   color: var(--text);
   mix-blend-mode: difference;
+}
+
+.analyzer-bind__targets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analyzer-bind__targets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.analyzer-bind__empty {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted, #888);
+}
+
+.analyzer-bind__row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 0.7fr) minmax(0, 1.4fr) minmax(0, 1.2fr) 3.2rem 1.6rem;
+  gap: 4px;
+  align-items: center;
+}
+
+.analyzer-bind__row select,
+.analyzer-bind__row input {
+  min-width: 0;
+  width: 100%;
+}
+
+.analyzer-bind__depth {
+  display: block;
+  margin: 0;
+}
+
+.analyzer-bind__add,
+.analyzer-bind__remove {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.analyzer-bind__add:hover,
+.analyzer-bind__remove:hover {
+  border-color: var(--accent);
 }
 
 .shader-presets {

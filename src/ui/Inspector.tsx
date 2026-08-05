@@ -1,5 +1,12 @@
 import type { ParamSpec } from "../engine/types";
-import { getAnalyzerOut } from "../lib/analyzerBindings";
+import {
+  ANALYZER_BANDS,
+  emptyAnalyzerBind,
+  getAnalyzerOut,
+  parseAnalyzerBinds,
+  type AnalyzerBandId,
+  type AnalyzerBind,
+} from "../lib/analyzerBindings";
 import { getValueAtFrame, paramPath } from "../lib/keyframes";
 import {
   AUDIO_BAND_PRESETS,
@@ -544,7 +551,7 @@ function KeyToggle({ animated, onFrame, onClick }: {
   );
 }
 
-/** Live RMS meter + target node/param dropdowns for Audio Analyzer. */
+/** Low / mid / high meters + multi bind rows (+ / −) for Audio Analyzer. */
 function AnalyzerBindPanel({
   nodeId,
   params,
@@ -555,116 +562,182 @@ function AnalyzerBindPanel({
   onChange: (key: string, value: unknown) => void;
 }) {
   const nodes = useGraphStore((state) => state.nodes);
-  const [level, setLevel] = useState(() => getAnalyzerOut(nodeId));
+  const [levels, setLevels] = useState(() => ({
+    low: getAnalyzerOut(nodeId, "low"),
+    mid: getAnalyzerOut(nodeId, "mid"),
+    high: getAnalyzerOut(nodeId, "high"),
+  }));
 
   useEffect(() => {
     let raf = 0;
     const tick = () => {
-      setLevel(getAnalyzerOut(nodeId));
+      setLevels({
+        low: getAnalyzerOut(nodeId, "low"),
+        mid: getAnalyzerOut(nodeId, "mid"),
+        high: getAnalyzerOut(nodeId, "high"),
+      });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [nodeId]);
 
-  const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
-  const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
-  const loHz = typeof params.bandLoHz === "number" ? params.bandLoHz : 20;
-  const hiHz = typeof params.bandHiHz === "number" ? params.bandHiHz : 8000;
-  const bandPreset =
-    loHz === 20 && hiHz === 8000 ? "full" : matchAudioBandPreset(loHz, hiHz);
+  const binds = parseAnalyzerBinds(params);
 
-  const nodeOptions = nodes
-    .filter((n) => n.id !== nodeId)
-    .map((n) => {
-      const def = NODE_DEFS[n.data.defType];
-      const label = def ? `${def.label} (${n.id})` : n.id;
-      return { value: n.id, label };
-    });
+  const bindableNodes = nodes.filter((n) => {
+    if (n.id === nodeId) return false;
+    const def = NODE_DEFS[n.data.defType];
+    return !!def?.params.some((p) => p.type === "range");
+  });
 
-  const target = nodes.find((n) => n.id === targetNode);
-  const paramOptions =
-    target != null
-      ? (NODE_DEFS[target.data.defType]?.params ?? [])
-          .filter((p) => p.type === "range" && p.key !== "out")
-          .map((p) => ({ value: p.key, label: p.label }))
-      : [];
+  const setBinds = (next: AnalyzerBind[]) => onChange("binds", next);
+
+  const updateBind = (id: string, patch: Partial<AnalyzerBind>) => {
+    setBinds(binds.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  };
+
+  const rangeParamsFor = (targetNodeId: string) => {
+    const def = NODE_DEFS[nodes.find((n) => n.id === targetNodeId)?.data.defType ?? ""];
+    return (def?.params ?? []).filter((p) => p.type === "range");
+  };
 
   return (
     <div className="analyzer-bind">
-      <div className="param">
-        <span className="param__label">Out</span>
-        <div className="analyzer-bind__meter" title={level.toFixed(3)}>
-          <div className="analyzer-bind__fill" style={{ width: `${Math.round(level * 100)}%` }} />
-          <span className="analyzer-bind__value">{level.toFixed(3)}</span>
+      {ANALYZER_BANDS.map((band) => {
+        const level = levels[band.id];
+        return (
+          <div key={band.id} className="analyzer-bind__band">
+            <div className="param">
+              <span className="param__label">{band.label}</span>
+              <div className="analyzer-bind__meter" title={level.toFixed(3)}>
+                <div
+                  className="analyzer-bind__fill"
+                  style={{ width: `${Math.round(level * 100)}%` }}
+                />
+                <span className="analyzer-bind__value">{level.toFixed(3)}</span>
+              </div>
+            </div>
+            <div className="analyzer-bind__hz">
+              <label className="param">
+                <span className="param__label">min Hz</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={20000}
+                  step={10}
+                  value={Number(params[band.loKey] ?? band.defaultLo)}
+                  onChange={(e) => onChange(band.loKey, Number(e.target.value))}
+                />
+              </label>
+              <label className="param">
+                <span className="param__label">max Hz</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={20000}
+                  step={10}
+                  value={Number(params[band.hiKey] ?? band.defaultHi)}
+                  onChange={(e) => onChange(band.hiKey, Number(e.target.value))}
+                />
+              </label>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="analyzer-bind__targets">
+        <div className="analyzer-bind__targets-head">
+          <span className="param__label">Bindings</span>
+          <button
+            type="button"
+            className="analyzer-bind__add"
+            onClick={() => setBinds([...binds, emptyAnalyzerBind()])}
+            title="Add binding"
+          >
+            +
+          </button>
         </div>
+        {binds.length === 0 ? (
+          <p className="analyzer-bind__empty">No bindings — press + to route a band to a param.</p>
+        ) : null}
+        {binds.map((bind) => {
+          const rangeParams = rangeParamsFor(bind.targetNode);
+          return (
+            <div key={bind.id} className="analyzer-bind__row">
+              <select
+                aria-label="Band"
+                value={bind.band}
+                onChange={(e) =>
+                  updateBind(bind.id, { band: e.target.value as AnalyzerBandId })
+                }
+              >
+                {ANALYZER_BANDS.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Target node"
+                value={bind.targetNode}
+                onChange={(e) => {
+                  const nextNode = e.target.value;
+                  const first = rangeParamsFor(nextNode)[0];
+                  updateBind(bind.id, {
+                    targetNode: nextNode,
+                    targetParam: first?.key ?? "",
+                  });
+                }}
+              >
+                <option value="">— node —</option>
+                {bindableNodes.map((n) => {
+                  const def = NODE_DEFS[n.data.defType];
+                  return (
+                    <option key={n.id} value={n.id}>
+                      {def ? `${def.label} (${n.id})` : n.id}
+                    </option>
+                  );
+                })}
+              </select>
+              <select
+                aria-label="Target param"
+                value={bind.targetParam}
+                disabled={!bind.targetNode || rangeParams.length === 0}
+                onChange={(e) => updateBind(bind.id, { targetParam: e.target.value })}
+              >
+                <option value="">— param —</option>
+                {rangeParams.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <label className="analyzer-bind__depth" title="Depth">
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={bind.depth}
+                  onChange={(e) =>
+                    updateBind(bind.id, {
+                      depth: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="analyzer-bind__remove"
+                onClick={() => setBinds(binds.filter((b) => b.id !== bind.id))}
+                title="Remove binding"
+              >
+                −
+              </button>
+            </div>
+          );
+        })}
       </div>
-      <label className="param">
-        <span className="param__label">Band</span>
-        <select
-          value={bandPreset}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (next === "full") {
-              onChange("bandLoHz", 20);
-              onChange("bandHiHz", 8000);
-              return;
-            }
-            const preset = AUDIO_BAND_PRESETS.find((p) => p.value === next);
-            if (!preset || preset.value === "custom") return;
-            onChange("bandLoHz", preset.lo);
-            onChange("bandHiHz", preset.hi);
-          }}
-        >
-          <option value="full">full (20–8k Hz)</option>
-          {AUDIO_BAND_PRESETS.filter((p) => p.value !== "custom").map((preset) => (
-            <option key={preset.value} value={preset.value}>
-              {preset.label}
-            </option>
-          ))}
-          <option value="custom">custom</option>
-        </select>
-      </label>
-      <label className="param">
-        <span className="param__label">Bind to node</span>
-        <select
-          value={targetNode}
-          onChange={(event) => {
-            const next = event.target.value;
-            onChange("targetNode", next);
-            if (!next) {
-              onChange("targetParam", "");
-              return;
-            }
-            const def = NODE_DEFS[nodes.find((n) => n.id === next)?.data.defType ?? ""];
-            const ranges = (def?.params ?? []).filter((p) => p.type === "range" && p.key !== "out");
-            const keep = ranges.some((p) => p.key === targetParam);
-            if (!keep) onChange("targetParam", ranges[0]?.key ?? "");
-          }}
-        >
-          <option value="">(none)</option>
-          {nodeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="param">
-        <span className="param__label">Bind to param</span>
-        <select
-          value={targetParam}
-          disabled={!targetNode}
-          onChange={(event) => onChange("targetParam", event.target.value)}
-        >
-          <option value="">(none)</option>
-          {paramOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
     </div>
   );
 }
@@ -743,7 +816,15 @@ export function Inspector() {
           />
         ) : null}
         {definition.params.map((spec) => {
-          if (isAnalyzer && (spec.key === "out" || spec.key === "targetNode" || spec.key === "targetParam")) {
+          if (
+            isAnalyzer &&
+            (spec.key.startsWith("out") ||
+              spec.key.endsWith("LoHz") ||
+              spec.key.endsWith("HiHz") ||
+              spec.key === "targetNode" ||
+              spec.key === "targetParam" ||
+              spec.key === "binds")
+          ) {
             return null;
           }
           if (isMedia) {

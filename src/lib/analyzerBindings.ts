@@ -1,9 +1,9 @@
 /**
- * Soft-bind Audio Analyzer band level onto another node's range params.
+ * Soft-bind Audio Analyzer band levels onto other nodes' range params.
  *
- * Measurement lives only in analyzer `evaluate()` (live audio playhead).
- * That pass publishes `lastOut` and queues a param override; the engine applies
- * overrides at the start of the next tick so Points Noise etc. see the value.
+ * Measurement lives in analyzer `evaluate()` (live audio playhead). That pass
+ * publishes per-band outs and queues param overrides; the engine applies them
+ * at the start of the next tick.
  *
  * Keep this module free of registry/graphStore imports — it is pulled in by
  * audio.analyzer, which the registry itself imports (cycle → blank boot).
@@ -12,6 +12,40 @@
 import type { NodeDefinition, ParamSpec } from "../engine/types";
 
 export const ANALYZER_NODE_TYPE = "audio.analyzer";
+
+export type AnalyzerBandId = "low" | "mid" | "high";
+
+export const ANALYZER_BANDS: {
+  id: AnalyzerBandId;
+  label: string;
+  loKey: string;
+  hiKey: string;
+  outKey: string;
+  defaultLo: number;
+  defaultHi: number;
+}[] = [
+  { id: "low", label: "Low", loKey: "lowLoHz", hiKey: "lowHiHz", outKey: "outLow", defaultLo: 20, defaultHi: 200 },
+  { id: "mid", label: "Mid", loKey: "midLoHz", hiKey: "midHiHz", outKey: "outMid", defaultLo: 200, defaultHi: 2000 },
+  {
+    id: "high",
+    label: "High",
+    loKey: "highLoHz",
+    hiKey: "highHiHz",
+    outKey: "outHigh",
+    defaultLo: 2000,
+    defaultHi: 8000,
+  },
+];
+
+/** One soft-bind: a band level drives one range param on another node. */
+export interface AnalyzerBind {
+  id: string;
+  band: AnalyzerBandId;
+  targetNode: string;
+  targetParam: string;
+  /** 0..1 — how much of the target range the band level covers. */
+  depth: number;
+}
 
 declare global {
   interface Window {
@@ -47,12 +81,22 @@ if (typeof window !== "undefined") {
   window.__visioAnalyzerPending = pending;
 }
 
-export function getAnalyzerOut(nodeId: string): number {
-  return lastOut.get(nodeId) ?? 0;
+export function analyzerOutKey(nodeId: string, band: AnalyzerBandId): string {
+  return `${nodeId}:${band}`;
+}
+
+export function getAnalyzerOut(nodeId: string, band: AnalyzerBandId = "low"): number {
+  return lastOut.get(analyzerOutKey(nodeId, band)) ?? 0;
 }
 
 export function clearAnalyzerState(nodeId?: string): void {
   if (nodeId) {
+    for (const band of ANALYZER_BANDS) {
+      const key = analyzerOutKey(nodeId, band.id);
+      smoothed.delete(key);
+      lastOut.delete(key);
+    }
+    // Legacy single-key cleanup.
     smoothed.delete(nodeId);
     lastOut.delete(nodeId);
     return;
@@ -65,35 +109,79 @@ export function clearAnalyzerState(nodeId?: string): void {
 
 /** EMA toward `raw` with coefficient `smoothing` in 0..1 (higher = stickier). */
 export function smoothAnalyzerLevel(
-  nodeId: string,
+  slotKey: string,
   raw: number,
   smoothing: number,
 ): number {
   const alpha = Math.min(0.99, Math.max(0, smoothing));
-  const prev = smoothed.get(nodeId);
+  const prev = smoothed.get(slotKey);
   const next = prev == null ? raw : prev + (1 - alpha) * (raw - prev);
-  smoothed.set(nodeId, next);
+  smoothed.set(slotKey, next);
   return next;
 }
 
-export function finalizeAnalyzerOut(nodeId: string, level: number): number {
+export function finalizeAnalyzerOut(slotKey: string, level: number): number {
   const clamped = Math.min(1, Math.max(0, level));
-  lastOut.set(nodeId, clamped);
+  lastOut.set(slotKey, clamped);
   return clamped;
 }
 
-/** True when any analyzer has a soft-bind target — live pushGraph should keep ticking. */
+function isBandId(value: unknown): value is AnalyzerBandId {
+  return value === "low" || value === "mid" || value === "high";
+}
+
+function newBindId(): string {
+  return `b-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Normalize `params.binds` (+ legacy single target) into a bind list. */
+export function parseAnalyzerBinds(params: Record<string, unknown>): AnalyzerBind[] {
+  const raw = params.binds;
+  if (Array.isArray(raw)) {
+    const out: AnalyzerBind[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const row = entry as Partial<AnalyzerBind>;
+      if (!isBandId(row.band)) continue;
+      if (typeof row.targetNode !== "string" || typeof row.targetParam !== "string") continue;
+      const depth =
+        typeof row.depth === "number" && Number.isFinite(row.depth)
+          ? Math.min(1, Math.max(0, row.depth))
+          : 1;
+      out.push({
+        id: typeof row.id === "string" && row.id ? row.id : newBindId(),
+        band: row.band,
+        targetNode: row.targetNode,
+        targetParam: row.targetParam,
+        depth,
+      });
+    }
+    return out;
+  }
+
+  // Legacy single bind → low band.
+  const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
+  const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
+  if (!targetNode || !targetParam) return [];
+  const depth =
+    typeof params.depth === "number" && Number.isFinite(params.depth)
+      ? Math.min(1, Math.max(0, params.depth))
+      : 1;
+  return [{ id: "legacy", band: "low", targetNode, targetParam, depth }];
+}
+
+export function emptyAnalyzerBind(band: AnalyzerBandId = "low"): AnalyzerBind {
+  return { id: newBindId(), band, targetNode: "", targetParam: "", depth: 1 };
+}
+
+/** True when any analyzer has at least one soft-bind target. */
 export function graphHasAnalyzerBindings(
   nodes: { data: { defType: string; params: Record<string, unknown> } }[],
 ): boolean {
-  return nodes.some(
-    (n) =>
-      n.data.defType === ANALYZER_NODE_TYPE &&
-      typeof n.data.params.targetNode === "string" &&
-      n.data.params.targetNode.length > 0 &&
-      typeof n.data.params.targetParam === "string" &&
-      n.data.params.targetParam.length > 0,
-  );
+  return nodes.some((n) => {
+    if (n.data.defType !== ANALYZER_NODE_TYPE) return false;
+    return parseAnalyzerBinds(n.data.params).some((b) => b.targetNode && b.targetParam);
+  });
 }
 
 /**
@@ -110,8 +198,8 @@ export function mapAnalyzerToRange(
 }
 
 /**
- * Called from analyzer evaluate after computing `level`. Queues a soft-bind for
- * the next engine tick (target may run earlier in this frame's topo order).
+ * Called from analyzer evaluate after computing a band level. Queues a soft-bind
+ * for the next engine tick.
  */
 export function queueAnalyzerBind(
   level: number,
@@ -146,8 +234,7 @@ export function applyPendingAnalyzerBinds(
 }
 
 /**
- * Copy lastOut into the keyed param map for setGraph / export. Does not
- * recompute band energy — that clock was drifting from the live audio playhead.
+ * Copy per-band lastOut into the keyed param map for setGraph / export.
  */
 export function applyAnalyzerBindings(
   _timelineSec: number,
@@ -160,28 +247,32 @@ export function applyAnalyzerBindings(
   if (analyzers.length === 0) return;
 
   for (const analyzer of analyzers) {
-    const level = lastOut.get(analyzer.id);
-    if (level == null) continue;
-
     const params = keyed.get(analyzer.id) ?? { ...analyzer.params };
     keyed.set(analyzer.id, params);
-    params.out = level;
 
-    const targetNode = typeof params.targetNode === "string" ? params.targetNode : "";
-    const targetParam = typeof params.targetParam === "string" ? params.targetParam : "";
-    const depth =
-      typeof params.depth === "number" && Number.isFinite(params.depth) ? params.depth : 1;
-    if (!targetNode || !targetParam) continue;
-
-    let targetParams = keyed.get(targetNode);
-    if (!targetParams) {
-      const ref = nodes.find((n) => n.id === targetNode);
-      if (!ref) continue;
-      targetParams = { ...ref.params };
-      keyed.set(targetNode, targetParams);
+    const levels: Partial<Record<AnalyzerBandId, number>> = {};
+    for (const band of ANALYZER_BANDS) {
+      const level = lastOut.get(analyzerOutKey(analyzer.id, band.id));
+      if (level == null) continue;
+      levels[band.id] = level;
+      params[band.outKey] = level;
     }
-    const spec = specOf(targetNode, targetParam);
-    if (!spec || spec.type !== "range") continue;
-    targetParams[targetParam] = mapAnalyzerToRange(spec, level, depth);
+
+    for (const bind of parseAnalyzerBinds(params)) {
+      if (!bind.targetNode || !bind.targetParam) continue;
+      const level = levels[bind.band];
+      if (level == null) continue;
+
+      let targetParams = keyed.get(bind.targetNode);
+      if (!targetParams) {
+        const ref = nodes.find((n) => n.id === bind.targetNode);
+        if (!ref) continue;
+        targetParams = { ...ref.params };
+        keyed.set(bind.targetNode, targetParams);
+      }
+      const spec = specOf(bind.targetNode, bind.targetParam);
+      if (!spec || spec.type !== "range") continue;
+      targetParams[bind.targetParam] = mapAnalyzerToRange(spec, level, bind.depth);
+    }
   }
 }
