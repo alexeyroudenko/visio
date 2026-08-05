@@ -2019,6 +2019,32 @@ async function run(): Promise<void> {
     JSON.stringify(audioModSaved ?? null),
   );
 
+  // --- 8. Media facing + recorder MIME ------------------------------------
+  const mediaDefaults = defaultParams("source.media");
+  check(
+    "Media defaults include facing=user",
+    mediaDefaults.facing === "user",
+    `facing=${String(mediaDefaults.facing)}`,
+  );
+  const facingSpec = NODE_DEFS["source.media"]?.params.find((p) => p.key === "facing");
+  const facingOptions =
+    facingSpec && facingSpec.type === "select" ? facingSpec.options : [];
+  check(
+    "Media facing select lists front and back",
+    facingSpec?.type === "select" &&
+      facingOptions.some((o) => o.value === "user") &&
+      facingOptions.some((o) => o.value === "environment"),
+    JSON.stringify(facingOptions),
+  );
+
+  const { pickRecorderMimeType } = await import("./ui/useRecorder");
+  const mime = pickRecorderMimeType();
+  check(
+    "pickRecorderMimeType returns a supported type or empty UA default",
+    mime === null || typeof mime === "string",
+    `mime=${mime === null ? "null" : JSON.stringify(mime)}`,
+  );
+
   render();
 }
 

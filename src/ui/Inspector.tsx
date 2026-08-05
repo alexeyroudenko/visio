@@ -565,6 +565,24 @@ export function Inspector() {
           <ShaderPresetPicker onPick={(source) => setParam(node.id, "source", source)} />
         ) : null}
         {definition.params.map((spec) => {
+          if (isMedia) {
+            const mode = String(node.data.params.mode ?? "image");
+            const cameraOnly = spec.key === "facing";
+            const cameraHidden = new Set([
+              "file",
+              "playing",
+              "muted",
+              "volume",
+              "speed",
+              "syncTimeline",
+            ]);
+            if (mode === "camera") {
+              if (cameraHidden.has(spec.key)) return null;
+            } else if (cameraOnly) {
+              return null;
+            }
+          }
+
           const acceptOverride =
             isMedia && spec.type === "file" && spec.key === "file"
               ? mediaFileAccept(node.data.params.mode)

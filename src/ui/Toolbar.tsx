@@ -22,6 +22,7 @@ export function Toolbar({
   onToggleRender,
   paused,
   onTogglePause,
+  hideRecord = false,
 }: {
   recording: boolean;
   onToggleRecord: () => void;
@@ -30,6 +31,8 @@ export function Toolbar({
   onToggleRender: () => void;
   paused: boolean;
   onTogglePause: () => void;
+  /** Portrait shell puts Record on the bottom shutter — hide the toolbar twin. */
+  hideRecord?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [presetsOpen, setPresetsOpen] = useState(false);
@@ -127,15 +130,17 @@ export function Toolbar({
             {paused ? "► Play" : "❚❚ Pause"}
           </button>
 
-          <button
-            type="button"
-            className={`button ${recording ? "button--recording" : ""}`}
-            onClick={onToggleRecord}
-            disabled={paused || rendering}
-            title="Realtime capture of the output canvas"
-          >
-            {recording ? "■ Stop" : "● Record"}
-          </button>
+          {!hideRecord ? (
+            <button
+              type="button"
+              className={`button ${recording ? "button--recording" : ""}`}
+              onClick={onToggleRecord}
+              disabled={paused || rendering}
+              title="Realtime capture of the output canvas"
+            >
+              {recording ? "■ Stop" : "● Record"}
+            </button>
+          ) : null}
 
           <button
             type="button"

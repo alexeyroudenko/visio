@@ -29,6 +29,8 @@ interface MediaState {
   stream: MediaStream | null;
   cameraRequested: boolean;
   cameraFailed: boolean;
+  /** Facing last successfully requested (`user` / `environment`). */
+  cameraFacing: string | null;
   loadedUrl: string | null;
   imageReady: boolean;
   frameId: number;
@@ -163,6 +165,11 @@ function stopCamera(state: MediaState): void {
   state.video.srcObject = null;
   state.cameraRequested = false;
   state.cameraFailed = false;
+  state.cameraFacing = null;
+}
+
+function normalizeFacing(value: string): "user" | "environment" {
+  return value === "environment" ? "environment" : "user";
 }
 
 function clearFileVideo(state: MediaState): void {
@@ -299,6 +306,16 @@ export const mediaNode = defineNode<MediaState>({
       ],
       default: "image",
     },
+    {
+      key: "facing",
+      label: "Facing",
+      type: "select",
+      options: [
+        { value: "user", label: "front" },
+        { value: "environment", label: "back" },
+      ],
+      default: "user",
+    },
     { key: "file", label: "File", type: "file", accept: "image/*,video/*,audio/*", default: null },
     { key: "playing", label: "Play", type: "toggle", default: true },
     { key: "muted", label: "Mute", type: "toggle", default: false },
@@ -350,6 +367,7 @@ export const mediaNode = defineNode<MediaState>({
       stream: null,
       cameraRequested: false,
       cameraFailed: false,
+      cameraFacing: null,
       loadedUrl: null,
       imageReady: false,
       frameId: 0,
@@ -416,7 +434,7 @@ export const mediaNode = defineNode<MediaState>({
     const mirror = paramBool(params, "mirror", mode === "camera");
     const zoom = Math.max(0, paramNumber(params, "zoom", 1));
 
-    if (mode === "camera") return evalCamera(ctx, nodeId, state, target, fit, mirror, zoom);
+    if (mode === "camera") return evalCamera(ctx, nodeId, params, state, target, fit, mirror, zoom);
     if (mode === "image") {
       return evalImage(ctx, nodeId, params, runtime, state, target, fit, mirror, zoom);
     }
@@ -428,6 +446,7 @@ export const mediaNode = defineNode<MediaState>({
 function evalCamera(
   ctx: EngineContext,
   nodeId: string,
+  params: ParamValues,
   state: MediaState,
   target: RT,
   fit: FitMode,
@@ -437,13 +456,27 @@ function evalCamera(
   state.video.autoplay = true;
   state.video.loop = false;
 
+  const facing = normalizeFacing(paramString(params, "facing", "user"));
+  // Restart the stream when the user flips front ↔ back.
+  if (state.cameraRequested && state.cameraFacing && state.cameraFacing !== facing) {
+    stopCamera(state);
+  }
+
   if (!state.cameraRequested && !state.cameraFailed) {
     state.cameraRequested = true;
-    ctx.report(nodeId, "loading", "requesting camera access…");
+    state.cameraFacing = facing;
+    ctx.report(nodeId, "loading", `requesting ${facing} camera…`);
     navigator.mediaDevices
-      .getUserMedia({ video: { width: 1280, height: 720 }, audio: false })
+      .getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      })
       .then((stream) => {
-        if (state.mode !== "camera") {
+        if (state.mode !== "camera" || state.cameraFacing !== facing) {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
@@ -458,9 +491,12 @@ function evalCamera(
         return state.video.play();
       })
       .then(() => {
-        if (state.mode === "camera") ctx.report(nodeId, "ready", null);
+        if (state.mode === "camera" && state.cameraFacing === facing) {
+          ctx.report(nodeId, "ready", null);
+        }
       })
       .catch((error: unknown) => {
+        if (state.cameraFacing !== facing) return;
         state.cameraFailed = true;
         ctx.report(nodeId, "error", error instanceof Error ? error.message : "camera unavailable");
       });
@@ -489,17 +525,17 @@ function evalCamera(
     typeof settings?.frameRate === "number" && settings.frameRate > 0
       ? Math.round(settings.frameRate * 1000) / 1000
       : ensureProbedFps(state, "camera");
-  const facing =
+  const reportedFacing =
     typeof settings?.facingMode === "string" && settings.facingMode
       ? settings.facingMode
-      : null;
+      : facing;
   const label = track?.label || "camera";
 
   publishMediaInfo(nodeId, {
     kind: "camera",
     width: video.videoWidth,
     height: video.videoHeight,
-    name: facing ? `${label} · ${facing}` : label,
+    name: `${label} · ${reportedFacing}`,
     mime: null,
     codec: null,
     aspectRatio: aspectOf(video.videoWidth, video.videoHeight),

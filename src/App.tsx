@@ -266,6 +266,7 @@ export default function App() {
         onToggleRender={toggleRender}
         paused={paused}
         onTogglePause={togglePause}
+        hideRecord={vertical}
       />
 
       <main className="app__body">
@@ -356,6 +357,27 @@ export default function App() {
 
       {!vertical ? <Timeline /> : null}
       {!vertical ? <AppConsole /> : null}
+
+      {vertical ? (
+        <div className="shutter-bar" role="toolbar" aria-label="Record">
+          <button
+            type="button"
+            className={`shutter${recording ? " shutter--recording" : ""}`}
+            onClick={toggle}
+            disabled={paused || rendering}
+            title={
+              recording
+                ? "Stop recording the output"
+                : paused
+                  ? "Resume playback to record"
+                  : "Record the output canvas"
+            }
+            aria-label={recording ? "Stop recording" : "Record"}
+          >
+            <span className="shutter__inner" aria-hidden />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
