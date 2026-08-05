@@ -14,6 +14,7 @@ import type {
   NodeRuntime,
   PortValue,
 } from "./types";
+import { applyPendingAnalyzerBinds } from "../lib/analyzerBindings";
 import { publishNodeDebug } from "../store/nodeDebugStore";
 
 function waitForVideoSeek(video: HTMLVideoElement, time: number): Promise<void> {
@@ -517,6 +518,9 @@ export class Engine {
     const deltaSec = Math.min(0.25, (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.frameCount += 1;
+
+    // Soft-binds published last frame (analyzer out → target range params).
+    applyPendingAnalyzerBinds(this.nodesById, this.definitions);
 
     const ctx = this.context(now - this.startTime, deltaSec);
     const gl = this.gl;

@@ -293,11 +293,22 @@ function createGraphStore() {
     },
     loadPatch(patch, note) {
       nodeCounter = patch.nodes.length;
-      // Presets ship their own source type and file. Whatever is already open
-      // outranks both — swapping patches should not cost you your footage.
+      // Single-Media patches: session source type/file outranks the preset so
+      // swapping demos does not drop the user's camera/footage. Multi-Media
+      // patches (audio + image) keep each node's authored mode — otherwise the
+      // last session mode (e.g. camera) rewrites the audio source and kills
+      // analyzer / granular wires.
+      const mediaCount = patch.nodes.filter((node) => node.data.defType === "source.media").length;
+      const allowModeOverride = mediaCount <= 1;
       const nodes = patch.nodes.map((node) =>
         node.data.defType === "source.media"
-          ? { ...node, data: { ...node.data, params: recallMediaParams(node.data.params) } }
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                params: recallMediaParams(node.data.params, { allowModeOverride }),
+              },
+            }
           : node,
       );
       set({
@@ -376,10 +387,12 @@ function createGraphStore() {
     reapplyRememberedMedia() {
       // After IndexedDB hydrate, blob files that were stripped from the saved
       // patch need to be written back onto Media nodes.
+      const mediaCount = get().nodes.filter((node) => node.data.defType === "source.media").length;
+      const allowModeOverride = mediaCount <= 1;
       let changed = false;
       const nodes = get().nodes.map((node) => {
         if (node.data.defType !== "source.media") return node;
-        const params = recallMediaParams(node.data.params);
+        const params = recallMediaParams(node.data.params, { allowModeOverride });
         if (params === node.data.params) return node;
         changed = true;
         return { ...node, data: { ...node.data, params } };

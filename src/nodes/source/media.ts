@@ -759,13 +759,13 @@ function evalAudio(
   if (!state.loadedUrl) {
     if (runtime.status === "idle") ctx.report(nodeId, "idle", "drop an audio file");
     publishClear(nodeId);
-    return { out: target, frame: null };
+    return { out: target, frame: null, audio: null };
   }
 
   applyAvTransport(ctx, params, state, video);
 
   if (video.readyState < 1) {
-    return { out: target, frame: null };
+    return { out: target, frame: null, audio: audioOut(state, video) };
   }
 
   if (video.currentTime !== state.lastTime) {

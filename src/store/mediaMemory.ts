@@ -145,16 +145,16 @@ export function rememberedFile(mode: unknown): RememberedFile | null {
 }
 
 /**
- * Media params for a patch being loaded: the remembered source type wins over
- * the one the preset shipped with, and the remembered file over its file.
- * Returns the input untouched when there is nothing to say, so a first-run
- * session gets exactly the preset as authored.
+ * Media params for a patch being loaded.
  *
- * When `preferAuthoredMedia` is on (preset-preview capture), skip recall so
- * each preset keeps the still it was built with.
+ * Always restore the remembered *file* for the node's authored mode (so a
+ * dropped track survives preset switches). Only override `mode` itself when
+ * the patch has a single Media node — multi-source presets (audio + image)
+ * must keep each node's authored mode or the audio wire goes dead.
  */
 export function recallMediaParams(
   params: Record<string, unknown>,
+  opts?: { allowModeOverride?: boolean },
 ): Record<string, unknown> {
   if (
     preferAuthoredMedia ||
@@ -163,7 +163,8 @@ export function recallMediaParams(
     return params;
   }
   const patchMode = asMode(params.mode) ?? "image";
-  const mode = memory.mode ?? patchMode;
+  const allowModeOverride = opts?.allowModeOverride !== false;
+  const mode = allowModeOverride && memory.mode ? memory.mode : patchMode;
   const file = rememberedFile(mode);
   if (mode === patchMode && !file) return params;
 
