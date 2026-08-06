@@ -58,6 +58,12 @@ export const EXAMPLE_AUDIO_02_FILE: FileParam = {
   mime: "audio/mpeg",
 };
 
+export const EXAMPLE_AUDIO_03_FILE: FileParam = {
+  name: "example-audio-03.mp3",
+  url: `${import.meta.env.BASE_URL}example-audio-03.mp3`,
+  mime: "audio/mpeg",
+};
+
 /** Stock images shown in the Media inspector library. */
 export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] = [
   { file: DEFAULT_IMAGE_FILE, label: "Frame" },
@@ -67,7 +73,8 @@ export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] 
 
 /** Stock audio shown in the Media inspector library (audio mode). */
 export const BUNDLED_AUDIO_FILES: readonly { file: FileParam; label: string }[] = [
-  { file: DEFAULT_AUDIO_FILE, label: "Track 3" },
+  { file: DEFAULT_AUDIO_FILE, label: "Track 4" },
+  { file: EXAMPLE_AUDIO_03_FILE, label: "Track 3" },
   { file: EXAMPLE_AUDIO_02_FILE, label: "Track 2" },
   { file: EXAMPLE_AUDIO_01_FILE, label: "Track 1" },
 ];
