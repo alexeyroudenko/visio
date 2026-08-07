@@ -368,6 +368,10 @@ export function Timeline() {
                       (zone.endSec - zone.startSec) * fps * pxPerFrame,
                       2,
                     );
+                    // FormWait is ~0.2 s wide — clipped text reads as noise, so
+                    // short zones keep only the colour band and the tooltip.
+                    const showLabel = width >= 34;
+                    const showRange = width >= 92;
                     return (
                       <div
                         key={zone.id}
@@ -375,18 +379,26 @@ export function Timeline() {
                         style={{ left, width }}
                         title={`${zone.label}: ${formatReelSeconds(zone.startSec)} – ${formatReelSeconds(zone.endSec)}\n${zone.tip}`}
                       >
-                        <span className="timeline__reel-zone-label">
-                          {zone.label}{" "}
-                          <em>
-                            {formatReelSeconds(zone.startSec)}–{formatReelSeconds(zone.endSec)}
-                          </em>
-                        </span>
+                        {showLabel ? (
+                          <span className="timeline__reel-zone-label">
+                            {zone.label}
+                            {showRange ? (
+                              <>
+                                {" "}
+                                <em>
+                                  {formatReelSeconds(zone.startSec)}–
+                                  {formatReelSeconds(zone.endSec)}
+                                </em>
+                              </>
+                            ) : null}
+                          </span>
+                        ) : null}
                       </div>
                     );
                   })
                 : null}
               {reelZonesVisible
-                ? ([0, 1, 2] as const).map((index) => {
+                ? ([0, 1, 2, 3] as const).map((index) => {
                     const sec = reelZones.cutsSec[index];
                     return (
                       <div

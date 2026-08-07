@@ -7,6 +7,7 @@ import {
   type ParamKeyframes,
 } from "../lib/keyframes";
 import { parseModulators, type Modulators } from "../lib/modulators";
+import { cutsFromUnknown } from "../lib/reelMarkers";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
@@ -23,15 +24,28 @@ export interface SerializedTimeline {
   fps: number;
   durationInFrames: number;
   keyframes: ParamKeyframes;
-  /** Optional Hook/Dev/Climax cuts (seconds) for reel zone overlay. */
-  reelZones?: { cutsSec: [number, number, number]; dirty?: boolean };
+  /**
+   * Optional Hook/FormWait/Dev/Climax cuts (seconds) for the reel zone overlay.
+   * Patches written before FormWait carry three cuts and are upgraded on load.
+   */
+  reelZones?: { cutsSec: [number, number, number, number]; dirty?: boolean };
   cueZoneTick?: boolean;
   cueDevMetronome?: boolean;
   cueDrone?: boolean;
   developmentBpm?: number;
   droneByZone?: Record<
     string,
-    { enabled?: boolean; freq?: number; gain?: number; type?: string }
+    {
+      enabled?: boolean;
+      freq?: number;
+      gain?: number;
+      type?: string;
+      detune?: number;
+      cutoff?: number;
+      lfoRate?: number;
+      lfoDepth?: number;
+      subGain?: number;
+    }
   >;
 }
 
@@ -152,7 +166,7 @@ export function serializePatch(
             ...(timeline.reelZones
               ? {
                   reelZones: {
-                    cutsSec: [...timeline.reelZones.cutsSec] as [number, number, number],
+                    cutsSec: [...timeline.reelZones.cutsSec] as [number, number, number, number],
                     dirty: !!timeline.reelZones.dirty,
                   },
                 }
@@ -211,14 +225,10 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
   let reelZones: SerializedTimeline["reelZones"];
   const rawZones = (timeline as { reelZones?: unknown }).reelZones;
   if (rawZones && typeof rawZones === "object") {
-    const cuts = (rawZones as { cutsSec?: unknown }).cutsSec;
-    if (
-      Array.isArray(cuts) &&
-      cuts.length === 3 &&
-      cuts.every((c) => typeof c === "number" && Number.isFinite(c))
-    ) {
+    const cuts = cutsFromUnknown((rawZones as { cutsSec?: unknown }).cutsSec);
+    if (cuts) {
       reelZones = {
-        cutsSec: [cuts[0] as number, cuts[1] as number, cuts[2] as number],
+        cutsSec: [cuts[0], cuts[1], cuts[2], cuts[3]],
         dirty: !!(rawZones as { dirty?: unknown }).dirty,
       };
     }

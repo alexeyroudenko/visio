@@ -1948,6 +1948,10 @@ canvas.knob:focus-visible {
   background: linear-gradient(180deg, #e87a3a 0%, #c45a22 100%);
 }
 
+.timeline__reel-zone--formwait {
+  background: linear-gradient(180deg, #d9c33f 0%, #a8932a 100%);
+}
+
 .timeline__reel-zone--development {
   background: linear-gradient(180deg, #3a7ec8 0%, #2a5f9e 100%);
 }

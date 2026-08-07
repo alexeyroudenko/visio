@@ -2027,15 +2027,14 @@ async function run(): Promise<void> {
       formatReelSeconds,
       moveCut,
       REEL_ANCHORS,
+      REEL_ZONE_META,
     } = await import("./lib/reelMarkers");
 
     for (const anchor of REEL_ANCHORS) {
       const result = computeReelCuts(anchor.durationSec);
       const ok =
         result.warning === null &&
-        Math.abs(result.cutsSec[0] - anchor.cuts[0]) < 1e-6 &&
-        Math.abs(result.cutsSec[1] - anchor.cuts[1]) < 1e-6 &&
-        Math.abs(result.cutsSec[2] - anchor.cuts[2]) < 1e-6;
+        anchor.cuts.every((cut, i) => Math.abs(result.cutsSec[i]! - cut) < 1e-6);
       check(
         `reel markers ${anchor.durationSec}s match table`,
         ok,
@@ -2046,32 +2045,61 @@ async function run(): Promise<void> {
     const short = computeReelCuts(5);
     check(
       "reel markers <7s warn short and scale 7s formula",
-      short.warning === "short" && short.cutsSec[0] > 0 && short.cutsSec[2] < 5,
+      short.warning === "short" && short.cutsSec[0] > 0 && short.cutsSec[3] < 5,
       JSON.stringify(short),
     );
     const long = computeReelCuts(20);
     check(
       "reel markers >15s warn long and scale 15s formula",
-      long.warning === "long" && Math.abs(long.cutsSec[0] - 4) < 0.05,
+      long.warning === "long" && Math.abs(long.cutsSec[2] - 12) < 0.05,
       JSON.stringify(long),
     );
 
-    const zones = zonesFromCuts([3, 9, 12], 15);
+    // Hook / FormWait are absolute, not proportional to the reel length.
+    check(
+      "hook ends at 1.0s and FormWait at 1.2s for every duration",
+      [5, 7, 10, 15, 20].every((sec) => {
+        const r = computeReelCuts(sec);
+        return Math.abs(r.cutsSec[0] - 1) < 1e-6 && Math.abs(r.cutsSec[1] - 1.2) < 1e-6;
+      }),
+      JSON.stringify([computeReelCuts(7).cutsSec, computeReelCuts(20).cutsSec]),
+    );
+
+    const zones = zonesFromCuts([1, 1.2, 9, 12], 15);
     check(
       "reel zones cover 0..duration without gaps",
-      zones.length === 4 &&
+      zones.length === 5 &&
         zones[0]!.startSec === 0 &&
-        zones[3]!.endSec === 15 &&
+        zones[4]!.endSec === 15 &&
+        zones.every((z, i) => i === 0 || z.startSec === zones[i - 1]!.endSec) &&
         zones[0]!.id === "hook" &&
-        zones[3]!.id === "cta",
+        zones[1]!.id === "formwait" &&
+        zones[4]!.id === "cta",
       JSON.stringify(zones.map((z) => [z.id, z.startSec, z.endSec])),
     );
 
-    const moved = moveCut([3, 9, 12], 1, 8, 15);
+    const moved = moveCut([1, 1.2, 9, 12], 2, 8, 15);
     check(
       "reel moveCut keeps ordered cuts",
-      moved[0] < moved[1] && moved[1] < moved[2] && moved[2] < 15,
+      moved[0] < moved[1] &&
+        moved[1] < moved[2] &&
+        moved[2] < moved[3] &&
+        moved[3] < 15 &&
+        Math.abs(moved[2] - 8) < 1e-6,
       JSON.stringify(moved),
+    );
+
+    const { cutsFromUnknown } = await import("./lib/reelMarkers");
+    const upgraded = cutsFromUnknown([3, 9, 12]);
+    check(
+      "legacy 3-cut patch upgrades to Hook/FormWait + old Dev/Climax",
+      !!upgraded &&
+        upgraded[0] === 1 &&
+        upgraded[1] === 1.2 &&
+        upgraded[2] === 9 &&
+        upgraded[3] === 12 &&
+        cutsFromUnknown([1, 2]) === null,
+      JSON.stringify(upgraded),
     );
 
     check(
@@ -2082,22 +2110,52 @@ async function run(): Promise<void> {
 
     const { zoneAtSec } = await import("./lib/reelMarkers");
     check(
-      "zoneAtSec maps cuts to Hook/Dev/Climax/CTA",
-      zoneAtSec([3, 9, 12], 15, 0) === "hook" &&
-        zoneAtSec([3, 9, 12], 15, 5) === "development" &&
-        zoneAtSec([3, 9, 12], 15, 10) === "climax" &&
-        zoneAtSec([3, 9, 12], 15, 14) === "cta",
+      "zoneAtSec maps cuts to Hook/FormWait/Dev/Climax/CTA",
+      zoneAtSec([1, 1.2, 9, 12], 15, 0.5) === "hook" &&
+        zoneAtSec([1, 1.2, 9, 12], 15, 1.1) === "formwait" &&
+        zoneAtSec([1, 1.2, 9, 12], 15, 5) === "development" &&
+        zoneAtSec([1, 1.2, 9, 12], 15, 10) === "climax" &&
+        zoneAtSec([1, 1.2, 9, 12], 15, 14) === "cta",
       "ok",
     );
 
-    const { parseDroneByZone, DEFAULT_DEVELOPMENT_BPM } = await import("./lib/reelCueAudio");
+    const { parseDroneByZone, DEFAULT_DEVELOPMENT_BPM, DEFAULT_DRONE_BY_ZONE } = await import(
+      "./lib/reelCueAudio"
+    );
     const drones = parseDroneByZone({ hook: { freq: 300, gain: 0.1 } });
     check(
       "parseDroneByZone merges defaults",
       drones.hook.freq === 300 &&
         drones.development.freq > 0 &&
+        drones.formwait.freq > 0 &&
         DEFAULT_DEVELOPMENT_BPM === 120,
       JSON.stringify(drones.hook),
+    );
+    check(
+      "drone params clamp out-of-range voice fields",
+      (() => {
+        const clamped = parseDroneByZone({
+          climax: { detune: 999, cutoff: 1, lfoRate: -3, lfoDepth: 5, subGain: 9 },
+        }).climax;
+        return (
+          clamped.detune === 60 &&
+          clamped.cutoff === 60 &&
+          clamped.lfoRate === 0 &&
+          clamped.lfoDepth === 1 &&
+          clamped.subGain === 1
+        );
+      })(),
+      "ok",
+    );
+    check(
+      "each zone has its own drone character",
+      new Set(
+        REEL_ZONE_META.map((z) => {
+          const d = DEFAULT_DRONE_BY_ZONE[z.id];
+          return `${d.type}|${d.freq}|${d.cutoff}|${d.lfoRate}`;
+        }),
+      ).size === REEL_ZONE_META.length,
+      "ok",
     );
   }
 

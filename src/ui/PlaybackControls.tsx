@@ -370,6 +370,71 @@ export function PlaybackControls() {
                 <option value="square">square</option>
               </select>
             </label>
+            <label title="Cents between the two stacked oscillators — beating / width">
+              Detune
+              <input
+                type="number"
+                min={0}
+                max={60}
+                step={1}
+                value={activeDrone.detune}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { detune: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
+            <label title="Lowpass cutoff (Hz)">
+              Cutoff
+              <input
+                type="number"
+                min={60}
+                max={8000}
+                step={10}
+                value={activeDrone.cutoff}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { cutoff: Number(e.target.value) || 800 })
+                }
+              />
+            </label>
+            <label title="Filter LFO speed (Hz); 0 keeps the tone static">
+              LFO
+              <input
+                type="number"
+                min={0}
+                max={12}
+                step={0.1}
+                value={activeDrone.lfoRate}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { lfoRate: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
+            <label title="How far the LFO sweeps the cutoff (0..1)">
+              Depth
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                value={activeDrone.lfoDepth}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { lfoDepth: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
+            <label title="Sub oscillator an octave down (0..1)">
+              Sub
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                value={activeDrone.subGain}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { subGain: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
           </div>
         </div>
       ) : null}

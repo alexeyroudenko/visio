@@ -126,7 +126,12 @@ export function currentTimeline(): SerializedTimeline {
     durationInFrames,
     keyframes: paramKeyframes,
     reelZones: {
-      cutsSec: [reelZones.cutsSec[0], reelZones.cutsSec[1], reelZones.cutsSec[2]],
+      cutsSec: [
+        reelZones.cutsSec[0],
+        reelZones.cutsSec[1],
+        reelZones.cutsSec[2],
+        reelZones.cutsSec[3],
+      ],
       dirty: reelZones.dirty,
     },
     cueZoneTick,

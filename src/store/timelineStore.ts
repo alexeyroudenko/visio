@@ -12,15 +12,16 @@ import {
 } from "../lib/keyframes";
 import {
   computeReelCuts,
+  cutsFromUnknown,
   moveCut,
   normalizeCuts,
   scaleCuts,
+  type ReelCutIndex,
   type ReelCutsSec,
   type ReelDurationWarning,
 } from "../lib/reelMarkers";
 import {
   DEFAULT_DEVELOPMENT_BPM,
-  DEFAULT_DRONE_BY_ZONE,
   parseDroneByZone,
   type ReelDroneByZone,
   type ReelDroneParams,
@@ -52,7 +53,7 @@ interface TimelineState {
   isLooping: boolean;
   paramKeyframes: ParamKeyframes;
   selectedKeyframeFrame: number | null;
-  /** Auto Hook/Dev/Climax/CTA zones for short reels. */
+  /** Auto Hook/FormWait/Dev/Climax/CTA zones for short reels. */
   reelZones: ReelZonesState;
   /** Show / hide reel zone overlay (default on). */
   reelZonesVisible: boolean;
@@ -81,7 +82,7 @@ interface TimelineState {
     fps: number;
     durationInFrames: number;
     keyframes: ParamKeyframes;
-    reelZones?: { cutsSec: ReelCutsSec; dirty?: boolean } | null;
+    reelZones?: { cutsSec: readonly number[]; dirty?: boolean } | null;
     cueZoneTick?: boolean;
     cueDevMetronome?: boolean;
     cueDrone?: boolean;
@@ -95,7 +96,7 @@ interface TimelineState {
   clearKeyframes: () => void;
 
   resetReelZones: () => void;
-  setReelCut: (index: 0 | 1 | 2, sec: number) => void;
+  setReelCut: (index: ReelCutIndex, sec: number) => void;
   toggleReelZonesVisible: () => void;
   /** Sync composition length from a media clip (sec) and recompute zones. */
   syncDurationFromMediaSec: (durationSec: number) => void;
@@ -132,12 +133,7 @@ function createTimelineStore() {
     cueDevMetronome: false,
     cueDrone: false,
     developmentBpm: DEFAULT_DEVELOPMENT_BPM,
-    droneByZone: {
-      hook: { ...DEFAULT_DRONE_BY_ZONE.hook },
-      development: { ...DEFAULT_DRONE_BY_ZONE.development },
-      climax: { ...DEFAULT_DRONE_BY_ZONE.climax },
-      cta: { ...DEFAULT_DRONE_BY_ZONE.cta },
-    },
+    droneByZone: parseDroneByZone(null),
 
     seek(frame) {
       const { durationInFrames } = get();
@@ -216,11 +212,13 @@ function createTimelineStore() {
       const duration = Math.max(MIN_DURATION, Math.round(durationInFrames));
       const durationSec = duration / nextFps;
       let nextReel: ReelZonesState;
-      if (reelZones?.cutsSec && reelZones.cutsSec.length === 3) {
+      // Patches saved before FormWait carry three cuts — cutsFromUnknown upgrades them.
+      const loadedCuts = cutsFromUnknown(reelZones?.cutsSec);
+      if (loadedCuts) {
         const { warning } = computeReelCuts(durationSec);
         nextReel = {
-          cutsSec: normalizeCuts(reelZones.cutsSec, durationSec),
-          dirty: !!reelZones.dirty,
+          cutsSec: normalizeCuts(loadedCuts, durationSec),
+          dirty: !!reelZones?.dirty,
           warning,
         };
       } else {
