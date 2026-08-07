@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { formatTimecode, parseTimecode } from "../lib/keyframes";
+import { REEL_ZONE_META, type ReelZoneId } from "../lib/reelMarkers";
+import type { OscWave } from "../lib/reelCueAudio";
 import { useTimelineStore } from "../store/timelineStore";
+import { useReelCueAudio } from "./useReelCueAudio";
 
 export function PlaybackControls() {
+  useReelCueAudio();
+
   const isPlaying = useTimelineStore((s) => s.isPlaying);
   const isRecording = useTimelineStore((s) => s.isRecording);
   const isLooping = useTimelineStore((s) => s.isLooping);
@@ -21,10 +26,23 @@ export function PlaybackControls() {
   const toggleReelZonesVisible = useTimelineStore((s) => s.toggleReelZonesVisible);
   const reelDirty = useTimelineStore((s) => s.reelZones.dirty);
 
+  const cueZoneTick = useTimelineStore((s) => s.cueZoneTick);
+  const cueDevMetronome = useTimelineStore((s) => s.cueDevMetronome);
+  const cueDrone = useTimelineStore((s) => s.cueDrone);
+  const developmentBpm = useTimelineStore((s) => s.developmentBpm);
+  const droneByZone = useTimelineStore((s) => s.droneByZone);
+  const setCueZoneTick = useTimelineStore((s) => s.setCueZoneTick);
+  const setCueDevMetronome = useTimelineStore((s) => s.setCueDevMetronome);
+  const setCueDrone = useTimelineStore((s) => s.setCueDrone);
+  const setDevelopmentBpm = useTimelineStore((s) => s.setDevelopmentBpm);
+  const setDroneZoneParams = useTimelineStore((s) => s.setDroneZoneParams);
+
   const [editingFrame, setEditingFrame] = useState(false);
   const [frameDraft, setFrameDraft] = useState("");
   const [editingDuration, setEditingDuration] = useState(false);
   const [durationDraft, setDurationDraft] = useState("");
+  const [droneOpen, setDroneOpen] = useState(false);
+  const [droneTab, setDroneTab] = useState<ReelZoneId>("hook");
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -77,6 +95,7 @@ export function PlaybackControls() {
   };
 
   const atEnd = currentFrame >= duration;
+  const activeDrone = droneByZone[droneTab];
 
   return (
     <div className="playback">
@@ -234,6 +253,127 @@ export function PlaybackControls() {
           Reset formula
         </button>
       </div>
+
+      <div className="playback__cues">
+        <label className="playback__cue" title="Click when playhead enters a new reel zone">
+          <input
+            type="checkbox"
+            checked={cueZoneTick}
+            onChange={(e) => setCueZoneTick(e.target.checked)}
+          />
+          Zone tick
+        </label>
+        <label
+          className="playback__cue"
+          title="Metronome while playhead is in Development"
+        >
+          <input
+            type="checkbox"
+            checked={cueDevMetronome}
+            onChange={(e) => setCueDevMetronome(e.target.checked)}
+          />
+          Dev tick
+        </label>
+        <label className="playback__cue playback__cue--bpm" title="Development metronome BPM">
+          BPM
+          <input
+            type="number"
+            min={40}
+            max={240}
+            step={1}
+            value={developmentBpm}
+            disabled={!cueDevMetronome}
+            onChange={(e) => setDevelopmentBpm(Number(e.target.value) || 120)}
+          />
+        </label>
+        <label className="playback__cue" title="Sustained tone per reel zone while playing">
+          <input
+            type="checkbox"
+            checked={cueDrone}
+            onChange={(e) => setCueDrone(e.target.checked)}
+          />
+          Drone
+        </label>
+        <button
+          type="button"
+          className="button button--small"
+          disabled={!cueDrone}
+          onClick={() => setDroneOpen((o) => !o)}
+          title="Per-zone drone frequency / gain / wave"
+        >
+          Drone…
+        </button>
+      </div>
+
+      {droneOpen && cueDrone ? (
+        <div className="playback__drone-panel">
+          <div className="playback__drone-tabs">
+            {REEL_ZONE_META.map((z) => (
+              <button
+                key={z.id}
+                type="button"
+                className={`button button--small${droneTab === z.id ? " playback__drone-tab--on" : ""}`}
+                onClick={() => setDroneTab(z.id)}
+              >
+                {z.label}
+              </button>
+            ))}
+          </div>
+          <div className="playback__drone-fields">
+            <label>
+              <input
+                type="checkbox"
+                checked={activeDrone.enabled}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { enabled: e.target.checked })
+                }
+              />
+              On
+            </label>
+            <label>
+              Hz
+              <input
+                type="number"
+                min={20}
+                max={2000}
+                step={1}
+                value={activeDrone.freq}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { freq: Number(e.target.value) || 110 })
+                }
+              />
+            </label>
+            <label>
+              Gain
+              <input
+                type="number"
+                min={0}
+                max={0.35}
+                step={0.01}
+                value={activeDrone.gain}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { gain: Number(e.target.value) || 0 })
+                }
+              />
+            </label>
+            <label>
+              Wave
+              <select
+                value={activeDrone.type}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { type: e.target.value as OscWave })
+                }
+              >
+                <option value="sine">sine</option>
+                <option value="triangle">triangle</option>
+                <option value="sawtooth">saw</option>
+                <option value="square">square</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      ) : null}
+
       <label className="playback__loop">
         <input type="checkbox" checked={isLooping} onChange={() => toggleLoop()} />
         Loop

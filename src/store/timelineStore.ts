@@ -18,6 +18,13 @@ import {
   type ReelCutsSec,
   type ReelDurationWarning,
 } from "../lib/reelMarkers";
+import {
+  DEFAULT_DEVELOPMENT_BPM,
+  DEFAULT_DRONE_BY_ZONE,
+  parseDroneByZone,
+  type ReelDroneByZone,
+  type ReelDroneParams,
+} from "../lib/reelCueAudio";
 import { appLog } from "./consoleStore";
 
 const MIN_DURATION = DEFAULT_FPS;
@@ -50,6 +57,15 @@ interface TimelineState {
   /** Show / hide reel zone overlay (default on). */
   reelZonesVisible: boolean;
 
+  /** Tick when playhead crosses a zone boundary. */
+  cueZoneTick: boolean;
+  /** Metronome clicks while in Development. */
+  cueDevMetronome: boolean;
+  /** Sustained drone that follows the active zone. */
+  cueDrone: boolean;
+  developmentBpm: number;
+  droneByZone: ReelDroneByZone;
+
   seek: (frame: number) => void;
   setDurationInFrames: (durationInFrames: number) => void;
   play: () => void;
@@ -66,6 +82,11 @@ interface TimelineState {
     durationInFrames: number;
     keyframes: ParamKeyframes;
     reelZones?: { cutsSec: ReelCutsSec; dirty?: boolean } | null;
+    cueZoneTick?: boolean;
+    cueDevMetronome?: boolean;
+    cueDrone?: boolean;
+    developmentBpm?: number;
+    droneByZone?: unknown;
   }) => void;
   hasKeyframes: (path: ParamPath) => boolean;
   removeParamKeyframe: (path: ParamPath, frame: number) => void;
@@ -78,6 +99,12 @@ interface TimelineState {
   toggleReelZonesVisible: () => void;
   /** Sync composition length from a media clip (sec) and recompute zones. */
   syncDurationFromMediaSec: (durationSec: number) => void;
+
+  setCueZoneTick: (on: boolean) => void;
+  setCueDevMetronome: (on: boolean) => void;
+  setCueDrone: (on: boolean) => void;
+  setDevelopmentBpm: (bpm: number) => void;
+  setDroneZoneParams: (zone: keyof ReelDroneByZone, patch: Partial<ReelDroneParams>) => void;
 }
 
 declare global {
@@ -101,6 +128,16 @@ function createTimelineStore() {
     selectedKeyframeFrame: null,
     reelZones: reelFromDurationFrames(initialDuration, initialFps),
     reelZonesVisible: true,
+    cueZoneTick: false,
+    cueDevMetronome: false,
+    cueDrone: false,
+    developmentBpm: DEFAULT_DEVELOPMENT_BPM,
+    droneByZone: {
+      hook: { ...DEFAULT_DRONE_BY_ZONE.hook },
+      development: { ...DEFAULT_DRONE_BY_ZONE.development },
+      climax: { ...DEFAULT_DRONE_BY_ZONE.climax },
+      cta: { ...DEFAULT_DRONE_BY_ZONE.cta },
+    },
 
     seek(frame) {
       const { durationInFrames } = get();
@@ -164,7 +201,17 @@ function createTimelineStore() {
       });
     },
 
-    loadTimeline({ fps, durationInFrames, keyframes, reelZones }) {
+    loadTimeline({
+      fps,
+      durationInFrames,
+      keyframes,
+      reelZones,
+      cueZoneTick,
+      cueDevMetronome,
+      cueDrone,
+      developmentBpm,
+      droneByZone,
+    }) {
       const nextFps = Math.max(1, fps);
       const duration = Math.max(MIN_DURATION, Math.round(durationInFrames));
       const durationSec = duration / nextFps;
@@ -187,6 +234,13 @@ function createTimelineStore() {
         isPlaying: false,
         selectedKeyframeFrame: null,
         reelZones: nextReel,
+        ...(typeof cueZoneTick === "boolean" ? { cueZoneTick } : {}),
+        ...(typeof cueDevMetronome === "boolean" ? { cueDevMetronome } : {}),
+        ...(typeof cueDrone === "boolean" ? { cueDrone } : {}),
+        ...(typeof developmentBpm === "number" && Number.isFinite(developmentBpm)
+          ? { developmentBpm: Math.max(40, Math.min(240, developmentBpm)) }
+          : {}),
+        ...(droneByZone ? { droneByZone: parseDroneByZone(droneByZone) } : {}),
       });
       const tracks = Object.keys(keyframes).length;
       if (tracks > 0) appLog("ok", "timeline", `restored ${tracks} keyframed params`);
@@ -258,11 +312,36 @@ function createTimelineStore() {
         reelZones: reelFromDurationFrames(frames, state.fps),
       });
     },
+
+    setCueZoneTick(on) {
+      set({ cueZoneTick: on });
+    },
+    setCueDevMetronome(on) {
+      set({ cueDevMetronome: on });
+    },
+    setCueDrone(on) {
+      set({ cueDrone: on });
+    },
+    setDevelopmentBpm(bpm) {
+      set({ developmentBpm: Math.max(40, Math.min(240, Math.round(bpm))) });
+    },
+    setDroneZoneParams(zone, patch) {
+      const state = get();
+      const prev = state.droneByZone[zone];
+      set({
+        droneByZone: {
+          ...state.droneByZone,
+          [zone]: parseDroneByZone({ [zone]: { ...prev, ...patch } })[zone],
+        },
+      });
+    },
   }));
 }
 
 export const useTimelineStore =
-  typeof window !== "undefined" && window.__visioTimelineStore
+  typeof window !== "undefined" &&
+  window.__visioTimelineStore &&
+  "cueZoneTick" in window.__visioTimelineStore.getState()
     ? window.__visioTimelineStore
     : createTimelineStore();
 

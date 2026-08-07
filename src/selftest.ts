@@ -2079,6 +2079,26 @@ async function run(): Promise<void> {
       formatReelSeconds(2.5) === "0:02.5" && formatReelSeconds(3) === "0:03",
       `${formatReelSeconds(2.5)} / ${formatReelSeconds(3)}`,
     );
+
+    const { zoneAtSec } = await import("./lib/reelMarkers");
+    check(
+      "zoneAtSec maps cuts to Hook/Dev/Climax/CTA",
+      zoneAtSec([3, 9, 12], 15, 0) === "hook" &&
+        zoneAtSec([3, 9, 12], 15, 5) === "development" &&
+        zoneAtSec([3, 9, 12], 15, 10) === "climax" &&
+        zoneAtSec([3, 9, 12], 15, 14) === "cta",
+      "ok",
+    );
+
+    const { parseDroneByZone, DEFAULT_DEVELOPMENT_BPM } = await import("./lib/reelCueAudio");
+    const drones = parseDroneByZone({ hook: { freq: 300, gain: 0.1 } });
+    check(
+      "parseDroneByZone merges defaults",
+      drones.hook.freq === 300 &&
+        drones.development.freq > 0 &&
+        DEFAULT_DEVELOPMENT_BPM === 120,
+      JSON.stringify(drones.hook),
+    );
   }
 
   // --- 8. Media facing + recorder MIME ------------------------------------

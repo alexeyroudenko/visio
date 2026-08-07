@@ -2239,3 +2239,73 @@ canvas.knob:focus-visible {
   opacity: 0.45;
 }
 
+.playback__cues {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.playback__cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.playback__cue input[type="checkbox"] {
+  margin: 0;
+}
+
+.playback__cue--bpm input {
+  width: 3.2rem;
+  margin-left: 4px;
+}
+
+.playback__drone-panel {
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playback__drone-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.playback__drone-tab--on {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.playback__drone-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.playback__drone-fields label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.playback__drone-fields input[type="number"] {
+  width: 4rem;
+}
+
+.playback__drone-fields select {
+  min-width: 5rem;
+}
+

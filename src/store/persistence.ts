@@ -25,6 +25,14 @@ export interface SerializedTimeline {
   keyframes: ParamKeyframes;
   /** Optional Hook/Dev/Climax cuts (seconds) for reel zone overlay. */
   reelZones?: { cutsSec: [number, number, number]; dirty?: boolean };
+  cueZoneTick?: boolean;
+  cueDevMetronome?: boolean;
+  cueDrone?: boolean;
+  developmentBpm?: number;
+  droneByZone?: Record<
+    string,
+    { enabled?: boolean; freq?: number; gain?: number; type?: string }
+  >;
 }
 
 export interface SerializedPatch {
@@ -149,6 +157,17 @@ export function serializePatch(
                   },
                 }
               : {}),
+            ...(typeof timeline.cueZoneTick === "boolean"
+              ? { cueZoneTick: timeline.cueZoneTick }
+              : {}),
+            ...(typeof timeline.cueDevMetronome === "boolean"
+              ? { cueDevMetronome: timeline.cueDevMetronome }
+              : {}),
+            ...(typeof timeline.cueDrone === "boolean" ? { cueDrone: timeline.cueDrone } : {}),
+            ...(typeof timeline.developmentBpm === "number"
+              ? { developmentBpm: timeline.developmentBpm }
+              : {}),
+            ...(timeline.droneByZone ? { droneByZone: timeline.droneByZone } : {}),
           },
         }
       : {}),
@@ -212,6 +231,21 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
         : DEFAULT_DURATION_FRAMES,
     keyframes,
     ...(reelZones ? { reelZones } : {}),
+    ...(typeof (timeline as { cueZoneTick?: unknown }).cueZoneTick === "boolean"
+      ? { cueZoneTick: (timeline as { cueZoneTick: boolean }).cueZoneTick }
+      : {}),
+    ...(typeof (timeline as { cueDevMetronome?: unknown }).cueDevMetronome === "boolean"
+      ? { cueDevMetronome: (timeline as { cueDevMetronome: boolean }).cueDevMetronome }
+      : {}),
+    ...(typeof (timeline as { cueDrone?: unknown }).cueDrone === "boolean"
+      ? { cueDrone: (timeline as { cueDrone: boolean }).cueDrone }
+      : {}),
+    ...(typeof (timeline as { developmentBpm?: unknown }).developmentBpm === "number"
+      ? { developmentBpm: (timeline as { developmentBpm: number }).developmentBpm }
+      : {}),
+    ...((timeline as { droneByZone?: unknown }).droneByZone
+      ? { droneByZone: (timeline as { droneByZone: SerializedTimeline["droneByZone"] }).droneByZone }
+      : {}),
   };
 }
 

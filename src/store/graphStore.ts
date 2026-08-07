@@ -110,7 +110,17 @@ function nextId(defType: string, taken: Set<string>): string {
 
 /** The parts of the timeline that belong to the document, not the session. */
 export function currentTimeline(): SerializedTimeline {
-  const { fps, durationInFrames, paramKeyframes, reelZones } = useTimelineStore.getState();
+  const {
+    fps,
+    durationInFrames,
+    paramKeyframes,
+    reelZones,
+    cueZoneTick,
+    cueDevMetronome,
+    cueDrone,
+    developmentBpm,
+    droneByZone,
+  } = useTimelineStore.getState();
   return {
     fps,
     durationInFrames,
@@ -119,6 +129,11 @@ export function currentTimeline(): SerializedTimeline {
       cutsSec: [reelZones.cutsSec[0], reelZones.cutsSec[1], reelZones.cutsSec[2]],
       dirty: reelZones.dirty,
     },
+    cueZoneTick,
+    cueDevMetronome,
+    cueDrone,
+    developmentBpm,
+    droneByZone,
   };
 }
 
@@ -451,12 +466,22 @@ function createGraphStore() {
   let savedDuration = useTimelineStore.getState().durationInFrames;
   let savedFps = useTimelineStore.getState().fps;
   let savedReel = useTimelineStore.getState().reelZones;
+  let savedCueTick = useTimelineStore.getState().cueZoneTick;
+  let savedCueMetro = useTimelineStore.getState().cueDevMetronome;
+  let savedCueDrone = useTimelineStore.getState().cueDrone;
+  let savedBpm = useTimelineStore.getState().developmentBpm;
+  let savedDroneParams = useTimelineStore.getState().droneByZone;
   useTimelineStore.subscribe((state) => {
     if (
       state.paramKeyframes === savedKeys &&
       state.durationInFrames === savedDuration &&
       state.fps === savedFps &&
-      state.reelZones === savedReel
+      state.reelZones === savedReel &&
+      state.cueZoneTick === savedCueTick &&
+      state.cueDevMetronome === savedCueMetro &&
+      state.cueDrone === savedCueDrone &&
+      state.developmentBpm === savedBpm &&
+      state.droneByZone === savedDroneParams
     ) {
       return;
     }
@@ -464,6 +489,11 @@ function createGraphStore() {
     savedDuration = state.durationInFrames;
     savedFps = state.fps;
     savedReel = state.reelZones;
+    savedCueTick = state.cueZoneTick;
+    savedCueMetro = state.cueDevMetronome;
+    savedCueDrone = state.cueDrone;
+    savedBpm = state.developmentBpm;
+    savedDroneParams = state.droneByZone;
     scheduleSave();
   });
 

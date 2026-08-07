@@ -211,3 +211,12 @@ export function reelWarningMessage(warning: ReelDurationWarning): string | null 
   }
   return null;
 }
+
+/** Which reel zone contains `sec` (clamped to the composition). */
+export function zoneAtSec(cuts: ReelCutsSec, durationSec: number, sec: number): ReelZoneId {
+  const t = Math.max(0, Math.min(sec, Math.max(0, durationSec)));
+  if (t < cuts[0]) return "hook";
+  if (t < cuts[1]) return "development";
+  if (t < cuts[2]) return "climax";
+  return "cta";
+}
