@@ -2019,6 +2019,68 @@ async function run(): Promise<void> {
     JSON.stringify(audioModSaved ?? null),
   );
 
+  // --- 7b. Reel markers formula -------------------------------------------
+  {
+    const {
+      computeReelCuts,
+      zonesFromCuts,
+      formatReelSeconds,
+      moveCut,
+      REEL_ANCHORS,
+    } = await import("./lib/reelMarkers");
+
+    for (const anchor of REEL_ANCHORS) {
+      const result = computeReelCuts(anchor.durationSec);
+      const ok =
+        result.warning === null &&
+        Math.abs(result.cutsSec[0] - anchor.cuts[0]) < 1e-6 &&
+        Math.abs(result.cutsSec[1] - anchor.cuts[1]) < 1e-6 &&
+        Math.abs(result.cutsSec[2] - anchor.cuts[2]) < 1e-6;
+      check(
+        `reel markers ${anchor.durationSec}s match table`,
+        ok,
+        `cuts=${JSON.stringify(result.cutsSec)} expected=${JSON.stringify(anchor.cuts)}`,
+      );
+    }
+
+    const short = computeReelCuts(5);
+    check(
+      "reel markers <7s warn short and scale 7s formula",
+      short.warning === "short" && short.cutsSec[0] > 0 && short.cutsSec[2] < 5,
+      JSON.stringify(short),
+    );
+    const long = computeReelCuts(20);
+    check(
+      "reel markers >15s warn long and scale 15s formula",
+      long.warning === "long" && Math.abs(long.cutsSec[0] - 4) < 0.05,
+      JSON.stringify(long),
+    );
+
+    const zones = zonesFromCuts([3, 9, 12], 15);
+    check(
+      "reel zones cover 0..duration without gaps",
+      zones.length === 4 &&
+        zones[0]!.startSec === 0 &&
+        zones[3]!.endSec === 15 &&
+        zones[0]!.id === "hook" &&
+        zones[3]!.id === "cta",
+      JSON.stringify(zones.map((z) => [z.id, z.startSec, z.endSec])),
+    );
+
+    const moved = moveCut([3, 9, 12], 1, 8, 15);
+    check(
+      "reel moveCut keeps ordered cuts",
+      moved[0] < moved[1] && moved[1] < moved[2] && moved[2] < 15,
+      JSON.stringify(moved),
+    );
+
+    check(
+      "formatReelSeconds shows tenths when needed",
+      formatReelSeconds(2.5) === "0:02.5" && formatReelSeconds(3) === "0:03",
+      `${formatReelSeconds(2.5)} / ${formatReelSeconds(3)}`,
+    );
+  }
+
   // --- 8. Media facing + recorder MIME ------------------------------------
   const mediaDefaults = defaultParams("source.media");
   check(
