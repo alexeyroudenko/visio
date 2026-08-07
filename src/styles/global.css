@@ -2299,6 +2299,20 @@ canvas.knob:focus-visible {
   font-size: 11px;
 }
 
+.playback__drone-fields--texture {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.playback__drone-group {
+  width: 100%;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
 .playback__drone-fields label {
   display: inline-flex;
   align-items: center;

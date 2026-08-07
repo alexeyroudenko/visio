@@ -2135,14 +2135,28 @@ async function run(): Promise<void> {
       "drone params clamp out-of-range voice fields",
       (() => {
         const clamped = parseDroneByZone({
-          climax: { detune: 999, cutoff: 1, lfoRate: -3, lfoDepth: 5, subGain: 9 },
+          climax: {
+            detune: 999,
+            cutoff: 1,
+            lfoRate: -3,
+            lfoDepth: 5,
+            subGain: 9,
+            ratio: 99,
+            fm: -1,
+            crush: 4,
+            glitch: 7,
+          },
         }).climax;
         return (
           clamped.detune === 60 &&
           clamped.cutoff === 60 &&
           clamped.lfoRate === 0 &&
           clamped.lfoDepth === 1 &&
-          clamped.subGain === 1
+          clamped.subGain === 1 &&
+          clamped.ratio === 8 &&
+          clamped.fm === 0 &&
+          clamped.crush === 1 &&
+          clamped.glitch === 1
         );
       })(),
       "ok",
@@ -2152,9 +2166,25 @@ async function run(): Promise<void> {
       new Set(
         REEL_ZONE_META.map((z) => {
           const d = DEFAULT_DRONE_BY_ZONE[z.id];
-          return `${d.type}|${d.freq}|${d.cutoff}|${d.lfoRate}`;
+          return `${d.type}|${d.freq}|${d.cutoff}|${d.ratio}|${d.crush}|${d.glitch}`;
         }),
       ).size === REEL_ZONE_META.length,
+      "ok",
+    );
+    check(
+      "drone ratios stay inharmonic (no integer partials)",
+      REEL_ZONE_META.every((z) => {
+        const r = DEFAULT_DRONE_BY_ZONE[z.id].ratio;
+        return Math.abs(r - Math.round(r)) > 0.02;
+      }),
+      REEL_ZONE_META.map((z) => DEFAULT_DRONE_BY_ZONE[z.id].ratio).join(","),
+    );
+    check(
+      "every zone carries some digital texture",
+      REEL_ZONE_META.every((z) => {
+        const d = DEFAULT_DRONE_BY_ZONE[z.id];
+        return d.crush + d.ring + d.fm + d.glitch + d.comb > 0.5;
+      }),
       "ok",
     );
   }

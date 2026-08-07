@@ -436,6 +436,47 @@ export function PlaybackControls() {
               />
             </label>
           </div>
+          <div className="playback__drone-fields playback__drone-fields--texture">
+            <span className="playback__drone-group">Texture</span>
+            <label title="Inharmonic partial ratio for FM and ring mod — non-integer values ring metallic">
+              Ratio
+              <input
+                type="number"
+                min={0.25}
+                max={8}
+                step={0.01}
+                value={activeDrone.ratio}
+                onChange={(e) =>
+                  setDroneZoneParams(droneTab, { ratio: Number(e.target.value) || 2 })
+                }
+              />
+            </label>
+            {(
+              [
+                ["FM", "fm", "FM index — how hard the modulator bends the carrier"],
+                ["Ring", "ring", "Ring modulation depth: 0 dry, 1 fully multiplied"],
+                ["Noise", "noise", "Resonant noise band mixed under the tone"],
+                ["Crush", "crush", "Bit-crush — digital staircase and aliasing"],
+                ["Comb", "comb", "Comb feedback — short metallic delay resonance"],
+                ["Glitch", "glitch", "Stutter gate: two incommensurate square LFOs chop the voice"],
+                ["Drift", "drift", "Random drift on the cutoff"],
+              ] as const
+            ).map(([label, key, tip]) => (
+              <label key={key} title={tip}>
+                {label}
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={activeDrone[key]}
+                  onChange={(e) =>
+                    setDroneZoneParams(droneTab, { [key]: Number(e.target.value) || 0 })
+                  }
+                />
+              </label>
+            ))}
+          </div>
         </div>
       ) : null}
 
