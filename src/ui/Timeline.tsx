@@ -214,9 +214,10 @@ export function Timeline() {
     let best = 0;
     for (const clip of videoClips) {
       const info = mediaById[clip.id];
+      const reported = info?.durationSec;
       const sec =
-        info && Number.isFinite(info.durationSec) && info.durationSec > 0
-          ? info.durationSec
+        typeof reported === "number" && Number.isFinite(reported) && reported > 0
+          ? reported
           : clip.durationFrames / Math.max(1, fps);
       if (sec > best) best = sec;
     }
