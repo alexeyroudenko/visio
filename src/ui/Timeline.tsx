@@ -5,6 +5,11 @@ import {
   getPrevKeyframeFrame,
 } from "../lib/keyframes";
 import { resamplePeaks } from "../lib/peaks";
+import {
+  formatReelSeconds,
+  reelWarningMessage,
+  zonesFromCuts,
+} from "../lib/reelMarkers";
 import { fileParam } from "../nodes/shared/fileParam";
 import { grainsFor } from "../store/grainStore";
 import { useGraphStore } from "../store/graphStore";
@@ -185,6 +190,10 @@ export function Timeline() {
   const selectedKeyframeFrame = useTimelineStore((s) => s.selectedKeyframeFrame);
   const selectKeyframe = useTimelineStore((s) => s.selectKeyframe);
   const moveSelectedKeyframe = useTimelineStore((s) => s.moveSelectedKeyframe);
+  const reelZones = useTimelineStore((s) => s.reelZones);
+  const reelZonesVisible = useTimelineStore((s) => s.reelZonesVisible);
+  const setReelCut = useTimelineStore((s) => s.setReelCut);
+  const syncDurationFromMediaSec = useTimelineStore((s) => s.syncDurationFromMediaSec);
 
   const nodes = useGraphStore((s) => s.nodes);
   const mediaById = useMediaInfoStore((s) => s.byId);
@@ -198,6 +207,41 @@ export function Timeline() {
     [nodes, mediaById, fps, durationInFrames],
   );
 
+  // When a video clip reports a real duration, match the composition length
+  // (reel formula recalculates). Fingerprint avoids fighting manual duration edits
+  // until the source length actually changes.
+  const primaryVideoSec = useMemo(() => {
+    let best = 0;
+    for (const clip of videoClips) {
+      const info = mediaById[clip.id];
+      const sec =
+        info && Number.isFinite(info.durationSec) && info.durationSec > 0
+          ? info.durationSec
+          : clip.durationFrames / Math.max(1, fps);
+      if (sec > best) best = sec;
+    }
+    return best;
+  }, [videoClips, mediaById, fps]);
+  const lastSyncedVideoSec = useRef(0);
+  useEffect(() => {
+    if (primaryVideoSec < 0.5) return;
+    if (Math.abs(primaryVideoSec - lastSyncedVideoSec.current) < 0.05) return;
+    const targetFrames = Math.round(primaryVideoSec * fps);
+    // Already matching composition length — don't wipe manual zone edits.
+    if (Math.abs(targetFrames - durationInFrames) <= 1) {
+      lastSyncedVideoSec.current = primaryVideoSec;
+      return;
+    }
+    lastSyncedVideoSec.current = primaryVideoSec;
+    syncDurationFromMediaSec(primaryVideoSec);
+  }, [primaryVideoSec, syncDurationFromMediaSec, fps, durationInFrames]);
+
+  const durationSec = durationInFrames / Math.max(1, fps);
+  const reelRanges = useMemo(
+    () => zonesFromCuts(reelZones.cutsSec, durationSec),
+    [reelZones.cutsSec, durationSec],
+  );
+  const warningText = reelWarningMessage(reelZones.warning);
   const [zoom, setZoom] = useState(3);
   const [dragPreview, setDragPreview] = useState<number | null>(null);
   const pxPerFrame = zoom;
@@ -286,11 +330,20 @@ export function Timeline() {
             +
           </button>
         </div>
+        {warningText ? (
+          <span className="timeline__reel-warn" title={warningText}>
+            Reel: {reelZones.warning === "short" ? "<7s" : ">15s"}
+          </span>
+        ) : null}
       </div>
 
       <div className="timeline__body">
         <div className="timeline__labels">
-          <div className="timeline__label timeline__label--ruler" />
+          <div
+            className={`timeline__label timeline__label--ruler${
+              reelZonesVisible ? " timeline__label--ruler-reel" : ""
+            }`}
+          />
           {TRACKS.map((track) => (
             <div key={track.id} className="timeline__label">
               {track.label}
@@ -302,11 +355,65 @@ export function Timeline() {
           <div className="timeline__tracks" style={{ width: trackWidth }}>
             <div
               ref={rulerRef}
-              className="timeline__ruler"
+              className={`timeline__ruler${reelZonesVisible ? " timeline__ruler--reel" : ""}`}
               onPointerDown={onRulerDown}
               onPointerMove={onRulerMove}
               onPointerUp={onRulerUp}
             >
+              {reelZonesVisible
+                ? reelRanges.map((zone) => {
+                    const left = zone.startSec * fps * pxPerFrame;
+                    const width = Math.max(
+                      (zone.endSec - zone.startSec) * fps * pxPerFrame,
+                      2,
+                    );
+                    return (
+                      <div
+                        key={zone.id}
+                        className={`timeline__reel-zone timeline__reel-zone--${zone.color}`}
+                        style={{ left, width }}
+                        title={`${zone.label}: ${formatReelSeconds(zone.startSec)} – ${formatReelSeconds(zone.endSec)}\n${zone.tip}`}
+                      >
+                        <span className="timeline__reel-zone-label">
+                          {zone.label}{" "}
+                          <em>
+                            {formatReelSeconds(zone.startSec)}–{formatReelSeconds(zone.endSec)}
+                          </em>
+                        </span>
+                      </div>
+                    );
+                  })
+                : null}
+              {reelZonesVisible
+                ? ([0, 1, 2] as const).map((index) => {
+                    const sec = reelZones.cutsSec[index];
+                    return (
+                      <div
+                        key={`cut-${index}`}
+                        className="timeline__reel-handle"
+                        style={{ left: sec * fps * pxPerFrame }}
+                        title="Drag zone boundary"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          pause();
+                          const target = e.currentTarget;
+                          target.setPointerCapture(e.pointerId);
+                          const onMove = (ev: PointerEvent) => {
+                            const frame = frameFromClientX(ev.clientX);
+                            setReelCut(index, frame / Math.max(1, fps));
+                          };
+                          const onUp = (ev: PointerEvent) => {
+                            target.releasePointerCapture(ev.pointerId);
+                            window.removeEventListener("pointermove", onMove);
+                            window.removeEventListener("pointerup", onUp);
+                          };
+                          window.addEventListener("pointermove", onMove);
+                          window.addEventListener("pointerup", onUp);
+                        }}
+                      />
+                    );
+                  })
+                : null}
               {markers.map((sec) => (
                 <div
                   key={sec}

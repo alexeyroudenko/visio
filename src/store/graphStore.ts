@@ -110,8 +110,16 @@ function nextId(defType: string, taken: Set<string>): string {
 
 /** The parts of the timeline that belong to the document, not the session. */
 export function currentTimeline(): SerializedTimeline {
-  const { fps, durationInFrames, paramKeyframes } = useTimelineStore.getState();
-  return { fps, durationInFrames, keyframes: paramKeyframes };
+  const { fps, durationInFrames, paramKeyframes, reelZones } = useTimelineStore.getState();
+  return {
+    fps,
+    durationInFrames,
+    keyframes: paramKeyframes,
+    reelZones: {
+      cutsSec: [reelZones.cutsSec[0], reelZones.cutsSec[1], reelZones.cutsSec[2]],
+      dirty: reelZones.dirty,
+    },
+  };
 }
 
 const EMPTY_TIMELINE: SerializedTimeline = {
@@ -442,17 +450,20 @@ function createGraphStore() {
   let savedKeys = useTimelineStore.getState().paramKeyframes;
   let savedDuration = useTimelineStore.getState().durationInFrames;
   let savedFps = useTimelineStore.getState().fps;
+  let savedReel = useTimelineStore.getState().reelZones;
   useTimelineStore.subscribe((state) => {
     if (
       state.paramKeyframes === savedKeys &&
       state.durationInFrames === savedDuration &&
-      state.fps === savedFps
+      state.fps === savedFps &&
+      state.reelZones === savedReel
     ) {
       return;
     }
     savedKeys = state.paramKeyframes;
     savedDuration = state.durationInFrames;
     savedFps = state.fps;
+    savedReel = state.reelZones;
     scheduleSave();
   });
 

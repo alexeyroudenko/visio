@@ -23,6 +23,8 @@ export interface SerializedTimeline {
   fps: number;
   durationInFrames: number;
   keyframes: ParamKeyframes;
+  /** Optional Hook/Dev/Climax cuts (seconds) for reel zone overlay. */
+  reelZones?: { cutsSec: [number, number, number]; dirty?: boolean };
 }
 
 export interface SerializedPatch {
@@ -139,6 +141,14 @@ export function serializePatch(
             fps: timeline.fps,
             durationInFrames: timeline.durationInFrames,
             keyframes: serializableKeyframes(nodes, timeline.keyframes),
+            ...(timeline.reelZones
+              ? {
+                  reelZones: {
+                    cutsSec: [...timeline.reelZones.cutsSec] as [number, number, number],
+                    dirty: !!timeline.reelZones.dirty,
+                  },
+                }
+              : {}),
           },
         }
       : {}),
@@ -179,6 +189,21 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
 
   const fps = Number(timeline.fps);
   const duration = Number(timeline.durationInFrames);
+  let reelZones: SerializedTimeline["reelZones"];
+  const rawZones = (timeline as { reelZones?: unknown }).reelZones;
+  if (rawZones && typeof rawZones === "object") {
+    const cuts = (rawZones as { cutsSec?: unknown }).cutsSec;
+    if (
+      Array.isArray(cuts) &&
+      cuts.length === 3 &&
+      cuts.every((c) => typeof c === "number" && Number.isFinite(c))
+    ) {
+      reelZones = {
+        cutsSec: [cuts[0] as number, cuts[1] as number, cuts[2] as number],
+        dirty: !!(rawZones as { dirty?: unknown }).dirty,
+      };
+    }
+  }
   return {
     fps: Number.isFinite(fps) && fps >= 1 ? fps : DEFAULT_FPS,
     durationInFrames:
@@ -186,6 +211,7 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
         ? Math.round(duration)
         : DEFAULT_DURATION_FRAMES,
     keyframes,
+    ...(reelZones ? { reelZones } : {}),
   };
 }
 

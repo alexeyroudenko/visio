@@ -1897,6 +1897,10 @@ canvas.knob:focus-visible {
   height: 18px;
 }
 
+.timeline__label--ruler-reel {
+  height: 36px;
+}
+
 .timeline__scroll {
   flex: 1 1 auto;
   min-width: 0;
@@ -1925,14 +1929,92 @@ canvas.knob:focus-visible {
   touch-action: none;
 }
 
+.timeline__ruler--reel {
+  height: 36px;
+}
+
+.timeline__reel-zone {
+  position: absolute;
+  top: 0;
+  bottom: 10px;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.timeline__reel-zone--hook {
+  background: linear-gradient(180deg, #e87a3a 0%, #c45a22 100%);
+}
+
+.timeline__reel-zone--development {
+  background: linear-gradient(180deg, #3a7ec8 0%, #2a5f9e 100%);
+}
+
+.timeline__reel-zone--climax {
+  background: linear-gradient(180deg, #a855f7 0%, #7c3aed 100%);
+}
+
+.timeline__reel-zone--cta {
+  background: linear-gradient(180deg, #34a86a 0%, #25804f 100%);
+}
+
+.timeline__reel-zone-label {
+  display: block;
+  padding: 2px 4px;
+  font-size: 9px;
+  line-height: 1.2;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.timeline__reel-zone-label em {
+  font-style: normal;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline__reel-handle {
+  position: absolute;
+  top: 0;
+  bottom: 10px;
+  width: 8px;
+  margin-left: -4px;
+  cursor: ew-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.timeline__reel-handle::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.timeline__reel-warn {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #e8a03a;
+  white-space: nowrap;
+}
+
 .timeline__tick {
   position: absolute;
-  top: 2px;
+  top: auto;
+  bottom: 1px;
   transform: translateX(-50%);
   font-size: 9px;
   color: var(--dim);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+  z-index: 1;
 }
 
 .timeline__track {
@@ -2151,5 +2233,9 @@ canvas.knob:focus-visible {
   font-style: normal;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.playback__reel-off {
+  opacity: 0.45;
 }
 

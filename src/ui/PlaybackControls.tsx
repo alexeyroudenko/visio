@@ -16,6 +16,10 @@ export function PlaybackControls() {
   const pause = useTimelineStore((s) => s.pause);
   const setDurationInFrames = useTimelineStore((s) => s.setDurationInFrames);
   const clearKeyframes = useTimelineStore((s) => s.clearKeyframes);
+  const resetReelZones = useTimelineStore((s) => s.resetReelZones);
+  const reelZonesVisible = useTimelineStore((s) => s.reelZonesVisible);
+  const toggleReelZonesVisible = useTimelineStore((s) => s.toggleReelZonesVisible);
+  const reelDirty = useTimelineStore((s) => s.reelZones.dirty);
 
   const [editingFrame, setEditingFrame] = useState(false);
   const [frameDraft, setFrameDraft] = useState("");
@@ -211,6 +215,23 @@ export function PlaybackControls() {
           title="Clear all keyframes"
         >
           Clear keys
+        </button>
+        <button
+          type="button"
+          className={`button button--small${reelZonesVisible ? "" : " playback__reel-off"}`}
+          onClick={toggleReelZonesVisible}
+          title="Show or hide Hook / Development / Climax / CTA zones"
+        >
+          Reel
+        </button>
+        <button
+          type="button"
+          className="button button--small"
+          onClick={resetReelZones}
+          disabled={!reelDirty}
+          title="Reset zone boundaries to the 7–15s formula"
+        >
+          Reset formula
         </button>
       </div>
       <label className="playback__loop">
