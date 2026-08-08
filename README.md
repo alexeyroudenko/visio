@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (133 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (136 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 capture metadata off synthetic MP4 boxes, lazy MediaPipe import). Dev-only page: it is not built into `dist`.
@@ -89,6 +89,14 @@ costs a handful of small reads instead of a scan. Timestamps are shown as the
 file recorded them rather than converted to the viewer's clock: Apple's
 `creationdate` states its UTC offset, the `mvhd` fallback does not, and cameras
 routinely write local time into a field defined as UTC.
+
+The sidebar has to fit a lens model into one ellipsised line, so **Info ↗** above
+the panel opens the same read-out in its own window: grouped into Stream /
+Capture / Playback, wrapped instead of clipped, with a link to the coordinates
+on a map and a Copy JSON button. It stays live — leave it open on a second
+screen while the patch runs. Values are rewritten only when they actually
+change, so a selection you are dragging across a coordinate survives the next
+refresh.
 
 CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
 Sobel run once per node, with no allocations per frame. Each has an

@@ -35,9 +35,22 @@ function formatCamera(make: string | null, model: string | null): string | null 
   return `${make} ${model}`;
 }
 
-/** Rows built from live Media probe (Inspector + node body). */
-export function mediaInfoRows(info: MediaInfo): { label: string; value: string }[] {
-  const rows: { label: string; value: string }[] = [];
+/**
+ * Which heading a row belongs under. The inline panels ignore it and print one
+ * flat list; the detached Info window uses it to separate what the file is from
+ * what the camera recorded and what the playhead is doing right now.
+ */
+export type InfoGroup = "stream" | "capture" | "playback";
+
+export interface InfoRow {
+  label: string;
+  value: string;
+  group?: InfoGroup;
+}
+
+/** Rows built from live Media probe (Inspector + node body + Info window). */
+export function mediaInfoRows(info: MediaInfo): InfoRow[] {
+  const rows: InfoRow[] = [];
   // Native filename first — everything else is "what's on it now".
   if (info.name) rows.push({ label: "File", value: info.name });
   rows.push({ label: "Mode", value: info.kind });
@@ -73,35 +86,44 @@ export function mediaInfoRows(info: MediaInfo): { label: string; value: string }
     rows.push({ label: "Duration", value: formatDuration(info.durationSec) });
   }
   if (info.capturedAt) {
-    rows.push({ label: "Captured", value: formatCapturedAt(info.capturedAt) });
+    rows.push({ label: "Captured", value: formatCapturedAt(info.capturedAt), group: "capture" });
   }
   if (info.latitude != null && info.longitude != null) {
     const altitude = info.altitudeM != null ? ` · ${Math.round(info.altitudeM)} m` : "";
     rows.push({
       label: "Location",
       value: `${formatCoord(info.latitude)}, ${formatCoord(info.longitude)}${altitude}`,
+      group: "capture",
     });
   }
   const camera = formatCamera(info.cameraMake ?? null, info.cameraModel ?? null);
-  if (camera) rows.push({ label: "Camera", value: camera });
-  if (info.lensModel) rows.push({ label: "Lens", value: info.lensModel });
-  if (info.software) rows.push({ label: "Software", value: info.software });
+  if (camera) rows.push({ label: "Camera", value: camera, group: "capture" });
+  if (info.lensModel) rows.push({ label: "Lens", value: info.lensModel, group: "capture" });
+  if (info.software) rows.push({ label: "Software", value: info.software, group: "capture" });
   if (info.rotationDeg != null && info.rotationDeg !== 0) {
-    rows.push({ label: "Rotation", value: `${info.rotationDeg}°` });
+    rows.push({ label: "Rotation", value: `${info.rotationDeg}°`, group: "capture" });
   }
   if (info.kind === "video" || info.kind === "audio") {
     if (info.currentTimeSec != null) {
-      rows.push({ label: "Time", value: formatDuration(info.currentTimeSec) });
+      rows.push({ label: "Time", value: formatDuration(info.currentTimeSec), group: "playback" });
     }
     if (info.currentFrame != null) {
       const total = info.totalFrames != null ? ` / ${info.totalFrames}` : "";
-      rows.push({ label: "Frame", value: `${info.currentFrame}${total}` });
+      rows.push({
+        label: "Frame",
+        value: `${info.currentFrame}${total}`,
+        group: "playback",
+      });
     }
     if (info.playing != null) {
-      rows.push({ label: "State", value: info.playing ? "playing" : "paused" });
+      rows.push({
+        label: "State",
+        value: info.playing ? "playing" : "paused",
+        group: "playback",
+      });
     }
   } else if (info.kind === "camera" && info.playing != null) {
-    rows.push({ label: "State", value: info.playing ? "live" : "paused" });
+    rows.push({ label: "State", value: info.playing ? "live" : "paused", group: "playback" });
   }
   return rows;
 }
@@ -112,7 +134,7 @@ export function InfoRows({
   label,
   compact = false,
 }: {
-  rows: { label: string; value: string }[];
+  rows: InfoRow[];
   label: string;
   /** Tighter layout for the graph node body. */
   compact?: boolean;

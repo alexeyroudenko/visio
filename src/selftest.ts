@@ -2586,6 +2586,66 @@ async function run(): Promise<void> {
     `found=${JSON.stringify(foundMoov)} of ${tailFile.size} bytes`,
   );
 
+  const { mediaInfoRows } = await import("./ui/MediaInfoPanel");
+  const { buildRows } = await import("./ui/useMediaInfoWindow");
+  const probedInfo = {
+    kind: "video" as const,
+    width: 1080,
+    height: 1920,
+    name: "IMG_1273.MOV",
+    container: "mov",
+    videoCodec: "H.265 / HEVC",
+    audioCodec: "AAC",
+    sizeBytes: 20_358_025,
+    bitrateBps: 24_000_000,
+    capturedAt: "2026-07-06T09:19:39+0300",
+    capturedAtHasZone: true,
+    latitude: 55.7043,
+    longitude: 37.6393,
+    altitudeM: 128.746,
+    cameraMake: "Apple",
+    cameraModel: "iPhone 16 Pro",
+    lensModel: "iPhone 16 Pro back camera 6.765mm f/1.78",
+    software: "26.5",
+    rotationDeg: 90,
+    durationSec: 6.7,
+    currentTimeSec: 1.5,
+    playing: true,
+  };
+  const probedRows = mediaInfoRows(probedInfo);
+  const infoHost = document.createElement("div");
+  const infoCells = buildRows(document, infoHost, probedRows);
+  check(
+    "Info window groups every row it is given and loses none of them",
+    infoCells.size === probedRows.length &&
+      infoHost.querySelectorAll("dd").length === probedRows.length &&
+      [...infoHost.querySelectorAll("h2")].map((h) => h.textContent).join(",") ===
+        "Stream,Capture,Playback",
+    `cells=${infoCells.size} rows=${probedRows.length} groups=${[
+      ...infoHost.querySelectorAll("h2"),
+    ]
+      .map((h) => h.textContent)
+      .join(",")}`,
+  );
+  // The window fills the cells it was handed; this is that step, verbatim.
+  for (const row of probedRows) infoCells.get(row.label)!.textContent = row.value;
+  check(
+    "Info window shows in full the capture facts the sidebar truncates",
+    infoCells.get("Lens")?.textContent === "iPhone 16 Pro back camera 6.765mm f/1.78" &&
+      infoCells.get("Captured")?.textContent === "2026-07-06 09:19:39 +03:00" &&
+      infoCells.get("Location")?.textContent === "55.7043, 37.6393 · 129 m" &&
+      infoCells.get("Camera")?.textContent === "Apple iPhone 16 Pro" &&
+      infoCells.get("Rotation")?.textContent === "90°" &&
+      infoCells.get("Container")?.textContent === "mov",
+    `captured=${infoCells.get("Captured")?.textContent} location=${infoCells.get("Location")?.textContent}`,
+  );
+  check(
+    "Info window drops to a placeholder when the node has no source",
+    buildRows(document, infoHost, []).size === 0 &&
+      infoHost.querySelector(".empty") !== null,
+    infoHost.innerHTML.slice(0, 80),
+  );
+
   const { resolveRenderRange } = await import("./store/timelineStore");
   check(
     "resolveRenderRange defaults to full timeline when unset",

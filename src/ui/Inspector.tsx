@@ -36,6 +36,7 @@ import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { MediaInfoPanel } from "./MediaInfoPanel";
+import { useMediaInfoWindow } from "./useMediaInfoWindow";
 import { Knob } from "./Knob";
 import { useEffect, useRef, useState } from "react";
 
@@ -916,6 +917,7 @@ export function Inspector() {
   const mediaInfo = useMediaInfoStore((state) =>
     selectedId ? state.byId[selectedId] : undefined,
   );
+  const { open: openMediaInfo } = useMediaInfoWindow();
   const setParam = useGraphStore((state) => state.setParam);
   const removeNode = useGraphStore((state) => state.removeNode);
 
@@ -1114,7 +1116,22 @@ export function Inspector() {
         {definition.params.length === 0 ? (
           <p className="inspector__empty">No parameters.</p>
         ) : null}
-        {isMedia && mediaInfo ? <MediaInfoPanel info={mediaInfo} /> : null}
+        {isMedia && mediaInfo ? (
+          <>
+            <div className="inspector__media-head">
+              <span>Source</span>
+              <button
+                type="button"
+                className="button button--small"
+                title="Open everything read from this file in its own window"
+                onClick={() => openMediaInfo(node.id)}
+              >
+                Info ↗
+              </button>
+            </div>
+            <MediaInfoPanel info={mediaInfo} />
+          </>
+        ) : null}
       </div>
     </aside>
   );

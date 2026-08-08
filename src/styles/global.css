@@ -1294,6 +1294,18 @@ canvas.knob:focus-visible {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+.inspector__media-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: var(--label-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .media-info {
   margin: 2px 0 6px;
   padding: 6px 8px;
