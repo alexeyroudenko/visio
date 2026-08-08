@@ -20,8 +20,9 @@ interface NoisePointsState {
   /** Reused between frames — the graph consumes the value in the same tick. */
   points: PointsValue["points"];
   /**
-   * Advances only while animating, so switching Animate off freezes the field
-   * where it stands instead of snapping back to wall-clock time.
+   * Noise field time. When Animate is on this is derived from the timeline
+   * playhead so scrubbing / offline Render hit the same cloud; when off it
+   * freezes where it last stood.
    */
   phase: number;
 }
@@ -141,10 +142,12 @@ export const pointsNoiseNode = defineNode<NoisePointsState>({
     const total = source ? source.length : state.homeX.length;
     ensureSize(state, total);
 
-    // Fixed step, like Particles: the phase carries state, so a stuttering frame
-    // must not jump the field and an offline render must match playback.
+    // Timeline-locked phase: one playhead position → one field. Accumulating
+    // per tick broke offline Render (two ticks per frame) and drifted from the
+    // video when Media was on Sync with timeline.
     if (paramBool(params, "animate", true)) {
-      state.phase += paramNumber(params, "speed", 0.4) / Math.max(1, ctx.timelineFps);
+      const speed = paramNumber(params, "speed", 0.4);
+      state.phase = (ctx.timelineFrame / Math.max(1, ctx.timelineFps)) * speed;
     }
 
     const frequency = Math.max(0.01, paramNumber(params, "frequency", 2.5));

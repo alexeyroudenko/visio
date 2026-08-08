@@ -776,19 +776,33 @@ async function run(): Promise<void> {
   };
 
   noiseGraph(true);
+  engine.setTimeline(0, 30, false);
   engine.tick();
   const movedA = frameSignature();
+  engine.setTimeline(15, 30, false);
   engine.tick();
   const movedB = frameSignature();
   check(
-    "animated noise points move between frames",
+    "animated noise points move with the timeline",
     movedA !== movedB && movedA !== 0,
     `${movedA} → ${movedB}`,
   );
 
+  // Same playhead twice must redraw the same field (offline / scrub lockstep).
+  engine.setTimeline(15, 30, false);
+  engine.tick();
+  const movedBAgain = frameSignature();
+  check(
+    "noise at a timeline frame is deterministic",
+    movedB === movedBAgain && movedB !== 0,
+    `${movedB} → ${movedBAgain}`,
+  );
+
   noiseGraph(false);
+  engine.setTimeline(0, 30, false);
   engine.tick();
   const frozenA = frameSignature();
+  engine.setTimeline(30, 30, false);
   engine.tick();
   const frozenB = frameSignature();
   // A blank frame hashes to 0, which would pass the equality on its own.

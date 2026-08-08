@@ -7,6 +7,7 @@ import {
   type FileParam,
 } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
+import { trackNoiseGlitch } from "./trackNoiseGlitch";
 
 export interface PatchPreset {
   id: string;
@@ -1235,6 +1236,14 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
       "Image → Shi–Tomasi + PyrLK → motion lines (switch to camera/video for live trails)",
     builtin: true,
     build: featuresTracking,
+  },
+  {
+    id: "track-noise-glitch",
+    label: "Track Noise Glitch",
+    description:
+      "Video → Pixel Sort / Slice + Features Track → Points Noise → Grid / Connectors (drop a video; timeline keyed)",
+    builtin: true,
+    build: trackNoiseGlitch,
   },
   {
     id: "track-hough-circles",
