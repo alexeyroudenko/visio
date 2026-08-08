@@ -365,6 +365,12 @@ double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
 stays in the main window and nothing is rendered twice.
 - **Recording** to webm — toolbar ● Record (realtime canvas capture).
 - **Render** — toolbar Render: offline frame-by-frame timeline export (not realtime).
+Both write at the bitrate set in Settings (12 Mbps by default); fps is a Render
+setting alone, since Record follows the clock.
+- **Exported patches** lead with the footage they were built on —
+`clip-visio-patch-2026-08-08.json`, and a `source` field inside. Dropped files
+live behind a `blob:` URL the params cannot keep, so the name is all that is
+left to say which clip a patch belongs to.
 - **Right panel width** is dragged via the splitter between graph and preview;
 double-click resets it to 340 px. Width lives in localStorage separately from the
 patch — a workspace setting, not part of the document.
