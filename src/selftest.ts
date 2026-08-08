@@ -41,6 +41,7 @@ import {
 } from "./lib/modulators";
 import { defineNode } from "./nodes/defineNode";
 import { cutoffForScale, rectScale, sliceLoop } from "./nodes/audio/granular";
+import { trimCellsToContent } from "./nodes/draw/featuresGrid";
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
@@ -677,6 +678,64 @@ async function run(): Promise<void> {
     "smeared column comes from the cell centre",
     Math.abs(smearLeft - 64) < 12,
     `value=${smearLeft} (cell centre x=80 → ~64)`,
+  );
+
+  // Filled frames outlines only what the smear filled — with no bg to smear
+  // from, that is nothing at all, border included.
+  engine.setGraph(
+    [
+      { id: "pts", type: "test.points", params: {} },
+      {
+        id: "grid",
+        type: "draw.featuresGrid",
+        params: {
+          ...defaultParams("draw.featuresGrid"),
+          color: "#ff0000",
+          maxDepth: 4,
+          minSize: 40,
+          stroke: 2,
+          labels: false,
+          filledOnly: true,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "pts", sourceHandle: "out", target: "grid", targetHandle: "points" },
+      { id: "b", source: "grid", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  const filledOnlyBorder = readPixel(engine, 1, Math.round(HEIGHT / 2));
+  check(
+    "Filled frames drops the outlines of unfilled cells",
+    filledOnlyBorder[0] < 40,
+    `rgba=${filledOnlyBorder.join(",")}`,
+  );
+
+  // Use content edge over a 100×100 frame whose content is one central block.
+  // The second cell sits on bare background and touches no canvas edge — the
+  // case a point found on the backdrop produces, which edge trimming misses.
+  const edgeMask = new Uint8Array(10 * 10);
+  for (let my = 3; my <= 6; my += 1) {
+    for (let mx = 3; mx <= 6; mx += 1) edgeMask[my * 10 + mx] = 1;
+  }
+  const edgeCells = [
+    { x: 30, y: 30, w: 40, h: 40 },
+    { x: 20, y: 75, w: 20, h: 20 },
+  ];
+  const edgeMaskArg = { data: edgeMask, sw: 10, sh: 10, scaleX: 10, scaleY: 10 };
+  const culled = trimCellsToContent(edgeCells, edgeMaskArg, 100, 100, 10, 0.05);
+  check(
+    "content edge drops cells sitting on the background",
+    culled.length === 1 && culled[0]!.x === 30,
+    `kept=${culled.map((c) => `${c.x},${c.y}`).join(" ") || "none"}`,
+  );
+  const uncalled = trimCellsToContent(edgeCells, edgeMaskArg, 100, 100, 10, 0);
+  check(
+    "Min content 0 leaves every cell the edge trim kept",
+    uncalled.length === 2,
+    `kept=${uncalled.length}`,
   );
 
   // The `rects` port is what drives Granular, so it has to carry the same cells

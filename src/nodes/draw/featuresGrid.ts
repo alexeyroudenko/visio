@@ -221,8 +221,15 @@ function buildContentMaskFromImage(
 }
 
 /**
- * Prefer Media `frame` (2D canvas). Fall back to a GPU-downscaled readback of
- * the bg texture — never `readPixels` the full frame just to sample a 480-wide mask.
+ * Built from `bg`, downscaled on the GPU before the readback — never
+ * `readPixels` the full frame just to sample a 480-wide mask.
+ *
+ * `bg` is the only input in the cells' own coordinate space. Media `frame` is
+ * the raw decoded picture: it knows nothing of the source node's fit, zoom or
+ * mirror, so stretching it over the mask puts the silhouette somewhere other
+ * than where it is on screen and the trim then clips the wrong cells. It is
+ * kept as a fallback for a grid drawn without a background, where the readback
+ * has nothing to read.
  */
 function buildContentMask(
   ctx: EngineContext,
@@ -239,32 +246,61 @@ function buildContentMask(
   mctx.setTransform(1, 0, 0, 1, 0, 0);
   mctx.clearRect(0, 0, sw, sh);
 
+  if (isRenderTarget(background)) {
+    if (!state.buffer) state.buffer = new PixelBuffer();
+    const small = ctx.target(nodeId, "edgeMask", sw, sh);
+    copyTexture(ctx.gl, background.texture, small);
+    const pixels = state.buffer.read(ctx.gl, small);
+    state.buffer.syncToCanvas();
+    mctx.drawImage(state.buffer.element, 0, 0, pixels.width, pixels.height, 0, 0, sw, sh);
+    return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
+  }
+
   if (frame?.element && frame.width > 0 && frame.height > 0) {
     mctx.drawImage(frame.element, 0, 0, frame.width, frame.height, 0, 0, sw, sh);
     return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
   }
 
-  if (!isRenderTarget(background)) return null;
-  if (!state.buffer) state.buffer = new PixelBuffer();
+  return null;
+}
 
-  const small = ctx.target(nodeId, "edgeMask", sw, sh);
-  copyTexture(ctx.gl, background.texture, small);
-  const pixels = state.buffer.read(ctx.gl, small);
-  state.buffer.syncToCanvas();
-  mctx.drawImage(state.buffer.element, 0, 0, pixels.width, pixels.height, 0, 0, sw, sh);
-  return buildContentMaskFromImage(mctx.getImageData(0, 0, sw, sh), width, height);
+/** Fraction of a cell's mask samples that are content. */
+function contentCoverage(cell: Cell, mask: ContentMask): number {
+  const { data, sw, sh, scaleX, scaleY } = mask;
+  const sx0 = Math.min(sw - 1, Math.max(0, Math.floor(cell.x / scaleX)));
+  const sx1 = Math.min(sw - 1, Math.max(0, Math.ceil((cell.x + cell.w) / scaleX) - 1));
+  const sy0 = Math.min(sh - 1, Math.max(0, Math.floor(cell.y / scaleY)));
+  const sy1 = Math.min(sh - 1, Math.max(0, Math.ceil((cell.y + cell.h) / scaleY) - 1));
+
+  let hit = 0;
+  let total = 0;
+  for (let sy = sy0; sy <= sy1; sy += 1) {
+    const row = sy * sw;
+    for (let sx = sx0; sx <= sx1; sx += 1) {
+      total += 1;
+      if (data[row + sx]) hit += 1;
+    }
+  }
+  return total > 0 ? hit / total : 0;
 }
 
 /**
  * Trims cells touching a canvas edge to the extreme content pixel within that
- * cell's band — local silhouette hug, not a global bbox (cv-reels).
+ * cell's band — local silhouette hug, not a global bbox (cv-reels) — and drops
+ * whatever is left sitting on the background.
+ *
+ * The cull is what keeps a point found on the backdrop (the frame's own
+ * corners are strong Shi–Tomasi corners) from splitting out a block over empty
+ * space: edge trimming alone cannot see those, since a cell in the middle of
+ * the frame touches nothing.
  */
-function trimCellsToContentEdge(
+export function trimCellsToContent(
   cells: Cell[],
   mask: ContentMask,
   width: number,
   height: number,
   minSize: number,
+  minFill: number,
 ): Cell[] {
   const edgeTol = 2;
   const { data, sw, sh, scaleX, scaleY } = mask;
@@ -350,9 +386,10 @@ function trimCellsToContentEdge(
       h = clipBottom - y;
     }
 
-    if (w >= minSize && h >= minSize) {
-      trimmed.push({ x, y, w, h });
-    }
+    if (w < minSize || h < minSize) continue;
+    const cropped = { x, y, w, h };
+    if (minFill > 0 && contentCoverage(cropped, mask) < minFill) continue;
+    trimmed.push(cropped);
   }
 
   return trimmed;
@@ -462,6 +499,15 @@ export const featuresGridNode = defineNode<GridState>({
       default: false,
     },
     {
+      key: "edgeMinFill",
+      label: "Min content",
+      type: "range",
+      min: 0,
+      max: 0.5,
+      step: 0.01,
+      default: 0.05,
+    },
+    {
       key: "edgeInterval",
       label: "Edge mask every N frames",
       type: "range",
@@ -569,12 +615,11 @@ export const featuresGridNode = defineNode<GridState>({
       // Trimming stays per-frame — it is cheap and the cells move every frame.
       // Only the mask behind it is throttled. A resolution change invalidates it
       // outright, since its scale factors are tied to the frame it was built for.
-      // Cheap path: Media `frame` → canvas. Expensive path: GPU readback of bg —
-      // that only runs when `frame` is unwired, and is floored at every 4th frame
-      // even if the dial is at 1 (full-frame stalls are not worth a sharper silhouette).
-      const hasFrame = !!(frame?.element && frame.width > 0 && frame.height > 0);
+      // Reading bg back off the GPU stalls the pipeline, so it is floored at
+      // every 4th frame even with the dial at 1: a sharper silhouette is not
+      // worth the hitch. The `frame` fallback draws to a canvas and is free.
       let edgeInterval = Math.max(1, Math.round(paramNumber(params, "edgeInterval", 4)));
-      if (!hasFrame) edgeInterval = Math.max(edgeInterval, 4);
+      if (isRenderTarget(background)) edgeInterval = Math.max(edgeInterval, 4);
       const stale =
         state.maskFrame < 0 ||
         state.maskW !== width ||
@@ -587,7 +632,14 @@ export const featuresGridNode = defineNode<GridState>({
         state.maskH = height;
       }
       if (state.mask) {
-        cells = trimCellsToContentEdge(cells, state.mask, width, height, minSize);
+        cells = trimCellsToContent(
+          cells,
+          state.mask,
+          width,
+          height,
+          minSize,
+          Math.max(0, Math.min(1, paramNumber(params, "edgeMinFill", 0.05))),
+        );
       }
     }
 

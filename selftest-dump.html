@@ -1,0 +1,278 @@
+﻿<!DOCTYPE html>
+<html lang="en"><head>
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8">
+    <title>visio selftest</title>
+    <style>
+      body {
+        background: #0d0f14;
+        color: #e6e8ee;
+        font: 14px/1.6 ui-monospace, monospace;
+        padding: 24px;
+      }
+      li {
+        margin-bottom: 4px;
+      }
+      em {
+        font-style: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+    <h1>visio selftest ΓÇö 120/121</h1>
+    <ul>
+      <li style="color:#7fe3c0">
+               PASS ┬╖ raw drawPoints paints the target <em style="color:#8b93a7">rgba=255,0,0,255 glError=0</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ raw drawSegments paints the target <em style="color:#8b93a7">rgba=0,255,0,255 glError=0</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ drawPoints after a fullscreen pass <em style="color:#8b93a7">rgba=0,0,255,255 glError=0</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ landmarks value reaches the graph outputs <em style="color:#8b93a7">order=fill&gt;lm&gt;draw&gt;out sets=1</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ bone drawn at y=0.25 (green) <em style="color:#8b93a7">rgba=0,255,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ point drawn at x=0.25 (red) <em style="color:#8b93a7">rgba=255,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ background preserved under drawing <em style="color:#8b93a7">rgba=51,51,51,255 (expected ~51)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ no stray geometry far from landmarks <em style="color:#8b93a7">rgba=51,51,51,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ feedback passes the live frame <em style="color:#8b93a7">rgba=255,255,255,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ feedback decays without input <em style="color:#8b93a7">rgba=128,128,128,255 (expected ~128)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ feedback keeps decaying <em style="color:#8b93a7">rgba=64,64,64,255 (expected ~64)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ blend add sums both inputs <em style="color:#8b93a7">rgba=128,128,128,255 (expected ~128)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ circle ring drawn at its radius <em style="color:#8b93a7">rgba=0,0,255,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ circle is a ring, not a disc <em style="color:#8b93a7">rgba=0,0,0,255 (inside should be empty)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ line drawn at y=0.8 (red) <em style="color:#8b93a7">rgba=255,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ detection style draws a ring <em style="color:#8b93a7">rgba=0,178,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ detection style keeps a centre dot <em style="color:#8b93a7">rgba=0,255,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ detection ring is hollow between dot and edge <em style="color:#8b93a7">rgba=0,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ features grid strokes cell borders <em style="color:#8b93a7">rgba=128,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ features grid leaves cells empty <em style="color:#8b93a7">rgba=0,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ grid without effect keeps the gradient <em style="color:#8b93a7">left=16 right=112 (should differ)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ effect smears a cell into one column <em style="color:#8b93a7">left=64 right=64 (should match)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ smeared column comes from the cell centre <em style="color:#8b93a7">value=64 (cell centre x=80 ΓåÆ ~64)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Filled frames drops the outlines of unfilled cells <em style="color:#8b93a7">rgba=0,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ features grid exports its cells as rects <em style="color:#8b93a7">6 stroked columns across the middle row</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ animated noise points move with the timeline <em style="color:#8b93a7">630076066 ΓåÆ 489851229</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ noise at a timeline frame is deterministic <em style="color:#8b93a7">489851229 ΓåÆ 489851229</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Animate off freezes the field <em style="color:#8b93a7">489851229 ΓåÆ 489851229</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ wired points drive the noise instead of the generated cloud <em style="color:#8b93a7">420 lit pixels, x 60..250 of 320</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ slice shift with 0 bands is a pass-through <em style="color:#8b93a7">all rows match the gradient</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ one band moves between 1 and maxH rows <em style="color:#8b93a7">rows shifted: 19 (band Γëñ 20)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ shifted row is a rotation, not a clamp <em style="color:#8b93a7">row value set preserved</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ block scatter with 0 blocks is a pass-through <em style="color:#8b93a7">frame untouched</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ block scatter moves pixels <em style="color:#8b93a7">pixels changed: 15497</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ block scatter leaves no holes <em style="color:#8b93a7">zero pixels: 88, in source: 200</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pixel sort reorders a span by luminance <em style="color:#8b93a7">x=10 ΓåÆ 78, x=200 ΓåÆ 227, ascending=true</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pixel sort async readback still reorders by luminance <em style="color:#8b93a7">x=10 ΓåÆ 78, x=200 ΓåÆ 227, ascending=true</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pixel sort on the worker reorders by luminance <em style="color:#8b93a7">x=10 ΓåÆ 78, x=200 ΓåÆ 227, ascending=true</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ shader node runs user source <em style="color:#8b93a7">rgba=0,192,0,255 (red should move to green)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ broken shader passes input through and reports <em style="color:#8b93a7">rgba=192,0,0,255 status=error msg=shader compile failed: ERROR: 0:1: 'nope' : undeclared ident</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ every shader preset compiles <em style="color:#8b93a7">6 presets</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pixelate flattens within a block but not across the frame <em style="color:#8b93a7">x150=112 x154=112 x300=240</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ particles appear at the emitter <em style="color:#8b93a7">emitter=126,224,184,255 corner=0,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ particles expire and stop emitting <em style="color:#8b93a7">rgba=0,0,0,255</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Hough finds the synthetic circle near center <em style="color:#8b93a7">x=0.49 y=0.49 r=0.125</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ ΓÇªwith roughly the right radius <em style="color:#8b93a7">r=40.0px (expected ~40)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Hough finds the synthetic horizontal line <em style="color:#8b93a7">y=0.83 (expected 0.85), total=16</em>
+             </li><li style="color:#ff5c7a">
+               FAIL ┬╖ Hough on the worker finds the same circle <em style="color:#8b93a7">nothing came back</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Corners finds points on the synthetic frame (inline) <em style="color:#8b93a7">points=38</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Corners on the Hough worker finds points <em style="color:#8b93a7">points=38</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Features Tracking emits points on first detect (ignores minAge) <em style="color:#8b93a7">points=38 lines=0 (lines may be 0 until ageΓëÑminAge)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ blob file params are stripped on save <em style="color:#8b93a7">params=mode,facing,playing,muted,volume,speed,syncTimeline,mirror,fit,zoom</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ the source media file name survives even when the blob param does not <em style="color:#8b93a7">source=x.mp4</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ patch survives a save/load round trip <em style="color:#8b93a7">nodes=1 width=1920</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ garbage input is rejected <em style="color:#8b93a7">parsePatch({hello:1})</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ keyframes are saved, minus file params and dead nodes <em style="color:#8b93a7">tracks=cam-1:zoom</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ keyframes survive a save/load round trip <em style="color:#8b93a7">fps=25 duration=300 keys=2</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ a patch without a timeline still loads <em style="color:#8b93a7">timeline field absent ΓåÆ null</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ every builtin preset is wired correctly <em style="color:#8b93a7">29 presets</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ demo presets carry their timeline and modulators <em style="color:#8b93a7">keys=1 modulators=2</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ peaks follow the signal envelope <em style="color:#8b93a7">silent half=0.000, loud half=1.000</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ resampling keeps transients <em style="color:#8b93a7">columns=8 peak=1.000</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ FFT band energy peaks on the tone frequency <em style="color:#8b93a7">on=0.885 off=0.000 silent@fake=0.000</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ bandDrive maps energy into -1..1 <em style="color:#8b93a7">drive=0.769 from energy=0.885</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pickAudioMedia prefers audio mode over video <em style="color:#8b93a7">got aud</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ mediaPlayheadSec wraps by duration with speed <em style="color:#8b93a7">got 2</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ audioModulatorSamples drives from Media buffer at playhead <em style="color:#8b93a7">sample=0.769022811071514</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ debug panel summarises a node's ports <em style="color:#8b93a7">eval=0.00 ms ┬╖ status=idle ┬╖ in bg=ΓÇö ┬╖ in points=points ├ù3 ┬╖ out out=texture 320├ù200</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ nodes without the toggle publish nothing <em style="color:#8b93a7">panels for dp</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ an untouched session gets the preset as authored <em style="color:#8b93a7">params passed through unchanged</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ the last image beats the preset's own <em style="color:#8b93a7">mode=image file=shot.png</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ an image preset loads as video when that is what is open <em style="color:#8b93a7">mode=video file=clip.mp4</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ each source type keeps its own file <em style="color:#8b93a7">image=shot.png video=clip.mp4</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ switching to a type with no file clears the preset's <em style="color:#8b93a7">mode=camera file=null</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ fbm stays in 0..1 and is reproducible <em style="color:#8b93a7">range 0.098..0.808</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ moving rectangles keep their ids <em style="color:#8b93a7">1,2 ΓåÆ 1,2</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ a rectangle that blinks out is held, not dropped <em style="color:#8b93a7">2 tracked, missing=1</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ the hold expires after its frames run out <em style="color:#8b93a7">1 tracked after 3 missed frames (hold=2)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ a genuinely new rectangle gets a fresh id <em style="color:#8b93a7">new id 3 vs previous max 2</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ smaller rectangles open the filter higher <em style="color:#8b93a7">9000 / 1918 / 300 Hz</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ a grain loops without a step at the seam <em style="color:#8b93a7">crossfaded=0.090 vs plain cut=1.449</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ every modulator shape stays in -1..1 <em style="color:#8b93a7">all shapes</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ depth 0 leaves the value untouched <em style="color:#8b93a7">got 42</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ modulation swings around the base value <em style="color:#8b93a7">t=0 ΓåÆ 50.00, t=0.25 ΓåÆ 75.00 (expected 50 and 75)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ modulation clamps to the parameter range <em style="color:#8b93a7">got 100</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ audio sample ┬▒1 swings depth * half-range around base <em style="color:#8b93a7">+1ΓåÆ75, -1ΓåÆ25, missingΓåÆ50 (expected 75 / 25 / 50)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ applyModulatorsToNodes uses sampleAt for audio source <em style="color:#8b93a7">got 75</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ parseModulators keeps audio source and band edges <em style="color:#8b93a7">{"source":"audio","shape":"sine","rateHz":0.5,"depth":0.4,"bias":0,"phase":0,"bandLoHz":100,"bandHiHz":800}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ modulators round-trip and drop dead nodes <em style="color:#8b93a7">paths=cam-1:zoom source=lfo</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ audio modulator band persists in the patch <em style="color:#8b93a7">{"source":"audio","shape":"sine","rateHz":0.5,"depth":0.7,"bias":0,"phase":0,"bandLoHz":200,"bandHiHz":2000}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ modulator.drive shares one LFO across binds at different depths <em style="color:#8b93a7">a=75 b=100 (expected 75 / 100 at sine peak)</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ parseModulatorBinds keeps target depth and bias <em style="color:#8b93a7">[{"id":"b1","targetNode":"n1","targetParam":"a","depth":0.5,"bias":0},{"id":"b2","targetNode":"n1","targetParam":"b","depth":1,"bias":0}]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ modulator-routing preset wires shared drive binds <em style="color:#8b93a7">binds=2 source=lfo</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ analyzer and modulator binds persist through the patch <em style="color:#8b93a7">analyzer=[{"id":"b-x","band":"low","targetNode":"n1","targetParam":"a","depth":0.8}] mod=[{"id":"b-y","targetNode":"n1","targetParam":"a","depth":0.4,"bias":0.1}]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers 7s match table <em style="color:#8b93a7">cuts=[1,1.2,4,6] expected=[1,1.2,4,6]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers 8s match table <em style="color:#8b93a7">cuts=[1,1.2,5,7] expected=[1,1.2,5,7]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers 10s match table <em style="color:#8b93a7">cuts=[1,1.2,6,8.5] expected=[1,1.2,6,8.5]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers 12s match table <em style="color:#8b93a7">cuts=[1,1.2,7,10] expected=[1,1.2,7,10]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers 15s match table <em style="color:#8b93a7">cuts=[1,1.2,9,12] expected=[1,1.2,9,12]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers &lt;7s warn short and scale 7s formula <em style="color:#8b93a7">{"durationSec":5,"formulaSec":7,"cutsSec":[1,1.2,2.857142857142857,4.285714285714286],"warning":"short"}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel markers &gt;15s warn long and scale 15s formula <em style="color:#8b93a7">{"durationSec":20,"formulaSec":15,"cutsSec":[1,1.2,12,16],"warning":"long"}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ hook ends at 1.0s and FormWait at 1.2s for every duration <em style="color:#8b93a7">[[1,1.2,4,6],[1,1.2,12,16]]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel zones cover 0..duration without gaps <em style="color:#8b93a7">[["hook",0,1],["formwait",1,1.2],["development",1.2,9],["climax",9,12],["cta",12,15]]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ reel moveCut keeps ordered cuts <em style="color:#8b93a7">[1,1.2,8,12]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ legacy 3-cut patch upgrades to Hook/FormWait + old Dev/Climax <em style="color:#8b93a7">[1,1.2,9,12]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ formatReelSeconds shows tenths when needed <em style="color:#8b93a7">0:02.5 / 0:03</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ zoneAtSec maps cuts to Hook/FormWait/Dev/Climax/CTA <em style="color:#8b93a7">ok</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ parseDroneByZone merges defaults <em style="color:#8b93a7">{"enabled":true,"freq":300,"gain":0.1,"type":"sawtooth","detune":18,"cutoff":1800,"lfoRate":6.5,"lfoDepth":0.4,"subGain":0.25,"ratio":3.13,"fm":0.35,"ring":0.45,"noise":0.2,"crush":0.4,"comb":0.3,"glitch":0.5,"drift":0.25}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ drone params clamp out-of-range voice fields <em style="color:#8b93a7">ok</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ each zone has its own drone character <em style="color:#8b93a7">ok</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ drone ratios stay inharmonic (no integer partials) <em style="color:#8b93a7">3.13,1.41,2.07,5.19,1.49</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ every zone carries some digital texture <em style="color:#8b93a7">ok</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Media defaults include facing=user <em style="color:#8b93a7">facing=user</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ Media facing select lists front and back <em style="color:#8b93a7">[{"value":"user","label":"front"},{"value":"environment","label":"back"}]</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ pickRecorderMimeType returns a supported type or empty UA default <em style="color:#8b93a7">mime="video/webm;codecs=vp9"</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ preview quality clamps to 1 / 0.5 / 0.25 / 0.125 <em style="color:#8b93a7">half={"width":540,"height":960}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ render fps defaults to 60 and clamps custom values <em style="color:#8b93a7">default=60 custom24=24</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ render bitrate defaults to 12 Mbps and clamps custom values <em style="color:#8b93a7">default=12 Mbps clamped=500000</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ resolveRenderRange defaults to full timeline when unset <em style="color:#8b93a7">{"startFrame":0,"endFrame":300}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ resolveRenderRange keeps inclusive In/Out and swaps if reversed <em style="color:#8b93a7">{"startFrame":90,"endFrame":120}</em>
+             </li><li style="color:#7fe3c0">
+               PASS ┬╖ MediaPipe module loads on demand <em style="color:#8b93a7">dynamic import in 10 ms</em>
+             </li>
+    </ul></div>
+    <script type="module" src="/src/selftest.ts"></script>
+  
+
+</body></html>
