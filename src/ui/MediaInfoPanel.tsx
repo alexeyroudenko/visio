@@ -7,6 +7,34 @@ function formatDuration(sec: number): string {
   return `${m}:${s.toFixed(2).padStart(5, "0")}`;
 }
 
+/**
+ * Shows the timestamp the way the file stored it rather than converting to the
+ * viewer's clock — for footage, "when the camera thought it was" is the useful
+ * fact, and only some sources record an offset to convert from.
+ */
+function formatCapturedAt(raw: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?/.exec(
+    raw,
+  );
+  if (!match) return raw;
+  const zone = match[3];
+  if (!zone) return `${match[1]} ${match[2]}`;
+  if (zone === "Z") return `${match[1]} ${match[2]} UTC`;
+  const normalized = zone.includes(":") ? zone : `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  return `${match[1]} ${match[2]} ${normalized}`;
+}
+
+/** Trims trailing zeros so a 4-decimal fix does not read as 6-decimal precision. */
+function formatCoord(value: number): string {
+  return String(Number(value.toFixed(6)));
+}
+
+function formatCamera(make: string | null, model: string | null): string | null {
+  if (!model) return make;
+  if (!make || model.toLowerCase().startsWith(make.toLowerCase())) return model;
+  return `${make} ${model}`;
+}
+
 /** Rows built from live Media probe (Inspector + node body). */
 export function mediaInfoRows(info: MediaInfo): { label: string; value: string }[] {
   const rows: { label: string; value: string }[] = [];
@@ -43,6 +71,23 @@ export function mediaInfoRows(info: MediaInfo): { label: string; value: string }
   }
   if (info.durationSec != null) {
     rows.push({ label: "Duration", value: formatDuration(info.durationSec) });
+  }
+  if (info.capturedAt) {
+    rows.push({ label: "Captured", value: formatCapturedAt(info.capturedAt) });
+  }
+  if (info.latitude != null && info.longitude != null) {
+    const altitude = info.altitudeM != null ? ` · ${Math.round(info.altitudeM)} m` : "";
+    rows.push({
+      label: "Location",
+      value: `${formatCoord(info.latitude)}, ${formatCoord(info.longitude)}${altitude}`,
+    });
+  }
+  const camera = formatCamera(info.cameraMake ?? null, info.cameraModel ?? null);
+  if (camera) rows.push({ label: "Camera", value: camera });
+  if (info.lensModel) rows.push({ label: "Lens", value: info.lensModel });
+  if (info.software) rows.push({ label: "Software", value: info.software });
+  if (info.rotationDeg != null && info.rotationDeg !== 0) {
+    rows.push({ label: "Rotation", value: `${info.rotationDeg}°` });
   }
   if (info.kind === "video" || info.kind === "audio") {
     if (info.currentTimeSec != null) {

@@ -24,6 +24,20 @@ export interface MediaInfo {
   sampleRate?: number | null;
   /** Decoded audio channel count. */
   channels?: number | null;
+  /** Capture timestamp as recorded, ISO 8601. */
+  capturedAt?: string | null;
+  /** True when `capturedAt` carries a timezone offset. */
+  capturedAtHasZone?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  altitudeM?: number | null;
+  /** Camera make / model / lens as the recorder wrote them. */
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  lensModel?: string | null;
+  software?: string | null;
+  /** Track matrix rotation in degrees. */
+  rotationDeg?: number | null;
   /** width/height when both known. */
   aspectRatio?: string | null;
   fps?: number | null;
@@ -57,6 +71,15 @@ function infoFingerprint(info: MediaInfo | null): string {
     info.bitrateBps ?? "",
     info.sampleRate ?? "",
     info.channels ?? "",
+    info.capturedAt ?? "",
+    info.latitude ?? "",
+    info.longitude ?? "",
+    info.altitudeM ?? "",
+    info.cameraMake ?? "",
+    info.cameraModel ?? "",
+    info.lensModel ?? "",
+    info.software ?? "",
+    info.rotationDeg ?? "",
     info.aspectRatio ?? "",
     info.fps ?? "",
     info.durationSec != null ? info.durationSec.toFixed(2) : "",

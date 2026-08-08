@@ -11,10 +11,10 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (85 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (133 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
-lazy MediaPipe import). Dev-only page: it is not built into `dist`.
+capture metadata off synthetic MP4 boxes, lazy MediaPipe import). Dev-only page: it is not built into `dist`.
 
 > Test gradients are drawn column-by-column, not via `createLinearGradient`:
 > Chrome dithers gradients, so identical rows stop matching byte-for-byte and
@@ -77,6 +77,18 @@ to be read at module top level and dragged the whole package into the main bundl
 
 Ports are typed (`frame`, `texture`, `landmarks`, `points`, `boxes`, `circles`,
 `lines`, `audio`) — the editor will not connect incompatible ones.
+
+**Media reads the file, not just the picture.** Alongside size and duration the
+Inspector reports container, video/audio codec, average bitrate, and — for
+footage that carries it — when and where it was shot, on which camera and lens,
+and the rotation stored in the track matrix. All of that lives in the `moov`
+box, and a phone writes `moov` *after* the samples: on a 20 MB iPhone clip it
+starts at 99.9% of the file, so the old head-only read found the brand and
+nothing else. `lib/mp4Boxes.ts` hops top-level box headers to locate it, which
+costs a handful of small reads instead of a scan. Timestamps are shown as the
+file recorded them rather than converted to the viewer's clock: Apple's
+`creationdate` states its UTC offset, the `mvhd` fallback does not, and cameras
+routinely write local time into a field defined as UTC.
 
 CPU detectors (Corners, Hough) share one `GrayFrame`: downscale, grayscale, and
 Sobel run once per node, with no allocations per frame. Each has an

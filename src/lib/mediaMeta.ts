@@ -3,9 +3,12 @@
  *
  * The browser does not expose codec/bitrate from HTMLVideoElement, so we:
  *  - read the file head and sniff MP4 / WebM / Ogg / RIFF containers
+ *  - locate `moov` wherever it sits and read codecs plus capture metadata
  *  - estimate overall bitrate from byte size ÷ duration
  *  - pull sample-rate / channels from a decoded AudioBuffer when available
  */
+import { emptyCaptureMeta, readCaptureMeta, type CaptureMeta } from "./captureMeta";
+import { asciiAt, findTopLevelBox, looksLikeMp4, readU32, walkMp4 } from "./mp4Boxes";
 
 export interface MediaMeta {
   sizeBytes: number | null;
@@ -16,6 +19,8 @@ export interface MediaMeta {
   audioCodec: string | null;
   sampleRate: number | null;
   channels: number | null;
+  /** When / where / on what it was shot; all-null until the probe lands. */
+  capture: CaptureMeta;
 }
 
 interface CacheEntry {
@@ -34,6 +39,7 @@ const emptyMeta = (): MediaMeta => ({
   audioCodec: null,
   sampleRate: null,
   channels: null,
+  capture: emptyCaptureMeta(),
 });
 
 /** Sync peek — whatever we already know; kicks off a fetch if needed. */
@@ -88,49 +94,39 @@ async function probeUrl(url: string, meta: MediaMeta): Promise<void> {
   const entry = cache.get(url);
   if (!entry) return;
   try {
-    const head = await readHead(url, HEAD_BYTES);
-    if (meta.sizeBytes == null) {
-      // Full size when the response told us; otherwise leave the File hint.
-      const full = await tryContentLength(url);
-      if (full != null) meta.sizeBytes = full;
-      else if (head.complete) meta.sizeBytes = head.bytes.byteLength;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    const blob = await res.blob();
+    if (meta.sizeBytes == null && blob.size > 0) meta.sizeBytes = blob.size;
+
+    // The head answers "what kind of file is this" for every format we know.
+    const head = new Uint8Array(
+      await blob.slice(0, Math.min(blob.size, HEAD_BYTES)).arrayBuffer(),
+    );
+    Object.assign(meta, sniffContainer(head, meta));
+
+    // Everything else about an MP4 lives in `moov`, which a phone writes after
+    // the samples — reading only the head finds the brand and nothing more.
+    if (looksLikeMp4(head)) {
+      const found = await findTopLevelBox(blob, "moov");
+      if (found) {
+        const moov = new Uint8Array(
+          await blob.slice(found.start, found.start + found.size).arrayBuffer(),
+        );
+        Object.assign(meta, sniffMp4(moov, meta));
+        meta.capture = readCaptureMeta(moov);
+      }
     }
-    Object.assign(meta, sniffContainer(head.bytes, meta));
     entry.status = "ready";
   } catch {
     entry.status = "error";
   }
 }
 
-async function tryContentLength(url: string): Promise<number | null> {
-  try {
-    const res = await fetch(url, { method: "HEAD" });
-    const len = res.headers.get("content-length");
-    if (len) {
-      const n = Number(len);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-  } catch {
-    // blob: often has no HEAD — fall through
-  }
-  return null;
-}
-
-async function readHead(
-  url: string,
-  maxBytes: number,
-): Promise<{ bytes: Uint8Array; complete: boolean }> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch ${res.status}`);
-  const blob = await res.blob();
-  const complete = blob.size <= maxBytes;
-  const slice = complete ? blob : blob.slice(0, maxBytes);
-  return { bytes: new Uint8Array(await slice.arrayBuffer()), complete };
-}
-
 function containerFromMime(mime: string): string | null {
   const base = mime.split(";")[0]?.trim().toLowerCase() ?? "";
-  if (base.includes("mp4") || base.includes("quicktime") || base.includes("m4a")) return "mp4";
+  if (base.includes("quicktime")) return "mov";
+  if (base.includes("mp4") || base.includes("m4a")) return "mp4";
   if (base.includes("webm")) return "webm";
   if (base.includes("ogg")) return "ogg";
   if (base.includes("wav")) return "wav";
@@ -225,12 +221,6 @@ function sniffContainer(bytes: Uint8Array, prior: MediaMeta): Partial<MediaMeta>
   return {};
 }
 
-function looksLikeMp4(bytes: Uint8Array): boolean {
-  if (bytes.length < 8) return false;
-  const type = asciiAt(bytes, 4, 4);
-  return type === "ftyp" || type === "moov" || type === "mdat" || type === "free" || type === "wide";
-}
-
 function sniffMp4(bytes: Uint8Array, prior: MediaMeta): Partial<MediaMeta> {
   const brands: string[] = [];
   let videoCodec = prior.videoCodec;
@@ -258,63 +248,22 @@ function sniffMp4(bytes: Uint8Array, prior: MediaMeta): Partial<MediaMeta> {
     if (mapped.kind === "audio" && !audioCodec) audioCodec = mapped.label;
   });
 
-  const container =
-    prior.container ??
-    (brands.some((b) => /m4a|M4A/.test(b))
-      ? "m4a"
-      : brands.some((b) => /qt|QuickTime/i.test(b))
-        ? "mov"
-        : "mp4");
+  // A brand is a stronger statement than the MIME type the browser guessed, so
+  // it wins when present. Walking `moov` finds no brands and keeps the earlier
+  // answer.
+  const brandContainer = brands.some((b) => /^m4a$/i.test(b))
+    ? "m4a"
+    : brands.some((b) => /^qt$/i.test(b))
+      ? "mov"
+      : brands.length > 0
+        ? "mp4"
+        : null;
 
-  return { container, videoCodec, audioCodec };
-}
-
-function walkMp4(
-  bytes: Uint8Array,
-  visit: (type: string, data: Uint8Array) => void,
-  offset = 0,
-  end = bytes.length,
-): void {
-  let i = offset;
-  while (i + 8 <= end) {
-    const size32 = readU32(bytes, i);
-    const type = asciiAt(bytes, i + 4, 4);
-    let header = 8;
-    let size = size32;
-    if (size32 === 1) {
-      if (i + 16 > end) break;
-      size = readU32(bytes, i + 8) * 0x100000000 + readU32(bytes, i + 12);
-      header = 16;
-    } else if (size32 === 0) {
-      size = end - i;
-    }
-    if (size < header || i + size > end) break;
-
-    const dataStart = i + header;
-    const dataEnd = i + size;
-    const data = bytes.subarray(dataStart, dataEnd);
-    visit(type, data);
-
-    // Boxes that contain other boxes.
-    if (
-      type === "moov" ||
-      type === "trak" ||
-      type === "mdia" ||
-      type === "minf" ||
-      type === "stbl" ||
-      type === "edts" ||
-      type === "udta" ||
-      type === "meta" ||
-      type === "dinf"
-    ) {
-      walkMp4(bytes, visit, dataStart, dataEnd);
-    } else if (type === "stsd") {
-      // stsd: version/flags + count, then sample entries (each a box).
-      if (data.length >= 8) walkMp4(bytes, visit, dataStart + 8, dataEnd);
-    }
-
-    i += size;
-  }
+  return {
+    container: brandContainer ?? prior.container ?? "mp4",
+    videoCodec,
+    audioCodec,
+  };
 }
 
 function mapSampleEntry(fourcc: string): { kind: "video" | "audio" | null; label: string | null } {
@@ -427,22 +376,6 @@ function prettyCodec(raw: string): string {
   if (lower.includes("flac")) return "FLAC";
   if (lower === "mjpg" || lower === "mjpeg") return "MJPEG";
   return raw;
-}
-
-function asciiAt(bytes: Uint8Array, offset: number, length: number): string {
-  let out = "";
-  for (let i = 0; i < length; i += 1) {
-    const c = bytes[offset + i];
-    if (c == null) break;
-    out += String.fromCharCode(c);
-  }
-  return out;
-}
-
-function readU32(bytes: Uint8Array, offset: number): number {
-  return (
-    ((bytes[offset]! << 24) | (bytes[offset + 1]! << 16) | (bytes[offset + 2]! << 8) | bytes[offset + 3]!) >>> 0
-  );
 }
 
 export function formatBytes(bytes: number): string {

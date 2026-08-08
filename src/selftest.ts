@@ -2508,6 +2508,84 @@ async function run(): Promise<void> {
     `default=${formatBitrate(DEFAULT_RENDER_BITRATE)} clamped=${clampRenderBitrate(0)}`,
   );
 
+  const { mp4EpochToIso, parseIso6709, readCaptureMeta, rotationFromMatrix } = await import(
+    "./lib/captureMeta"
+  );
+  check(
+    "ISO 6709 parses signed decimal degrees with altitude",
+    parseIso6709("+55.7043+037.6393+141.339/")?.latitude === 55.7043 &&
+      parseIso6709("+55.7043+037.6393+141.339/")?.longitude === 37.6393 &&
+      parseIso6709("+55.7043+037.6393+141.339/")?.altitudeM === 141.339 &&
+      parseIso6709("-33.8688+151.2093")?.latitude === -33.8688 &&
+      parseIso6709("not a fix") === null &&
+      parseIso6709("+95.0+037.0") === null,
+    JSON.stringify(parseIso6709("+55.7043+037.6393+141.339/")),
+  );
+  check(
+    "mp4 epoch converts from 1904 and rejects the zero value",
+    mp4EpochToIso(3_660_681_600) === "2020-01-01T00:00:00.000Z" &&
+      mp4EpochToIso(0) === null &&
+      mp4EpochToIso(1) === null,
+    `iso=${mp4EpochToIso(3_660_681_600)}`,
+  );
+  check(
+    "track matrix snaps to quarter turns",
+    rotationFromMatrix(1, 0) === 0 &&
+      rotationFromMatrix(0, 1) === 90 &&
+      rotationFromMatrix(-1, 0) === 180 &&
+      rotationFromMatrix(0, -1) === 270,
+    `b=1 → ${rotationFromMatrix(0, 1)}`,
+  );
+
+  const appleMoov = buildTestMoov({ isoMeta: false });
+  const appleCapture = readCaptureMeta(appleMoov);
+  check(
+    "Apple keys/ilst metadata wins over mvhd and reaches the capture fields",
+    appleCapture.capturedAt === "2026-07-06T09:19:39+0300" &&
+      appleCapture.capturedAtHasZone &&
+      appleCapture.latitude === 55.7043 &&
+      appleCapture.longitude === 37.6393 &&
+      appleCapture.make === "Apple" &&
+      appleCapture.model === "iPhone 16 Pro" &&
+      appleCapture.lensModel?.startsWith("iPhone 16 Pro back camera") === true &&
+      appleCapture.rotationDeg === 90,
+    JSON.stringify(appleCapture),
+  );
+  check(
+    "ISO-style meta with version/flags parses the same way",
+    readCaptureMeta(buildTestMoov({ isoMeta: true })).latitude === 55.7043,
+    JSON.stringify(readCaptureMeta(buildTestMoov({ isoMeta: true })).capturedAt),
+  );
+
+  const legacyCapture = readCaptureMeta(buildLegacyMoov());
+  check(
+    "legacy udta atoms cover files without a keys table",
+    legacyCapture.capturedAt === "2019-05-04T11:22:33+0200" &&
+      legacyCapture.latitude === -33.8688 &&
+      legacyCapture.model === "Canon EOS R",
+    JSON.stringify(legacyCapture),
+  );
+
+  const mvhdOnly = readCaptureMeta(mp4Box("moov", mvhdBox(3_660_681_600)));
+  check(
+    "mvhd creation time is the last resort and is flagged as zone-less",
+    mvhdOnly.capturedAt === "2020-01-01T00:00:00.000Z" && !mvhdOnly.capturedAtHasZone,
+    `captured=${mvhdOnly.capturedAt}`,
+  );
+
+  const { findTopLevelBox } = await import("./lib/mp4Boxes");
+  const tailFile = new Blob([
+    mp4Box("ftyp", fourcc("qt  "), u32Bytes(0), fourcc("qt  ")),
+    mp4Box("mdat", new Uint8Array(4096)),
+    appleMoov,
+  ]);
+  const foundMoov = await findTopLevelBox(tailFile, "moov");
+  check(
+    "moov is found behind the samples, where a phone writes it",
+    foundMoov?.size === appleMoov.length && foundMoov.start === 20 + 8 + 4096,
+    `found=${JSON.stringify(foundMoov)} of ${tailFile.size} bytes`,
+  );
+
   const { resolveRenderRange } = await import("./store/timelineStore");
   check(
     "resolveRenderRange defaults to full timeline when unset",
@@ -2524,6 +2602,120 @@ async function run(): Promise<void> {
   );
 
   render();
+}
+
+// --- Synthetic MP4 boxes, so the capture-metadata reader can be tested without
+// --- shipping a multi-megabyte phone recording alongside the source.
+
+function u32Bytes(value: number): Uint8Array {
+  const out = new Uint8Array(4);
+  new DataView(out.buffer).setUint32(0, value >>> 0, false);
+  return out;
+}
+
+/** Byte-per-character, matching how box types are read back. */
+function fourcc(type: string): Uint8Array {
+  const out = new Uint8Array(4);
+  for (let i = 0; i < 4; i += 1) out[i] = type.charCodeAt(i) & 0xff;
+  return out;
+}
+
+function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+function mp4Box(type: string, ...parts: Uint8Array[]): Uint8Array {
+  const payload = concatBytes(parts);
+  return concatBytes([u32Bytes(8 + payload.length), fourcc(type), payload]);
+}
+
+function mvhdBox(creationSeconds: number): Uint8Array {
+  const payload = new Uint8Array(100);
+  payload.set(u32Bytes(creationSeconds), 4);
+  return mp4Box("mvhd", payload);
+}
+
+/** Version 0 track header whose matrix encodes a quarter turn. */
+function tkhdBox(): Uint8Array {
+  const payload = new Uint8Array(84);
+  const matrix = [0, 0x0001_0000, 0, 0xffff_0000, 0, 0, 0, 0, 0x4000_0000];
+  matrix.forEach((value, index) => payload.set(u32Bytes(value), 40 + index * 4));
+  return mp4Box("tkhd", payload);
+}
+
+function keysBox(names: readonly string[]): Uint8Array {
+  const utf8 = new TextEncoder();
+  const entries = names.map((name) => {
+    const bytes = utf8.encode(name);
+    return concatBytes([u32Bytes(8 + bytes.length), fourcc("mdta"), bytes]);
+  });
+  return mp4Box("keys", u32Bytes(0), u32Bytes(names.length), ...entries);
+}
+
+/** One UTF-8 `data` box per value, keyed by its 1-based index into `keys`. */
+function ilstBox(values: readonly string[]): Uint8Array {
+  const utf8 = new TextEncoder();
+  const entries = values.map((value, index) => {
+    const payload = utf8.encode(value);
+    const data = concatBytes([
+      u32Bytes(16 + payload.length),
+      fourcc("data"),
+      u32Bytes(1),
+      u32Bytes(0),
+      payload,
+    ]);
+    return concatBytes([u32Bytes(8 + data.length), u32Bytes(index + 1), data]);
+  });
+  return mp4Box("ilst", ...entries);
+}
+
+/** Legacy user-data text atom: length + language, then the string. */
+function udtaTextBox(type: string, text: string): Uint8Array {
+  const bytes = new TextEncoder().encode(text);
+  return mp4Box(type, u32Bytes(((bytes.length << 16) | 0x55c4) >>> 0), bytes);
+}
+
+function buildTestMoov({ isoMeta }: { isoMeta: boolean }): Uint8Array {
+  const keys = keysBox([
+    "com.apple.quicktime.creationdate",
+    "com.apple.quicktime.location.ISO6709",
+    "com.apple.quicktime.make",
+    "com.apple.quicktime.model",
+    "com.apple.quicktime.camera.lens_model",
+  ]);
+  const values = ilstBox([
+    "2026-07-06T09:19:39+0300",
+    "+55.7043+037.6393+141.339/",
+    "Apple",
+    "iPhone 16 Pro",
+    "iPhone 16 Pro back camera 6.765mm f/1.78",
+  ]);
+  // ISO-BMFF puts version/flags before the children; QuickTime does not.
+  const meta = isoMeta
+    ? mp4Box("meta", u32Bytes(0), keys, values)
+    : mp4Box("meta", keys, values);
+  return mp4Box("moov", mvhdBox(3_660_681_600), mp4Box("trak", tkhdBox()), meta);
+}
+
+function buildLegacyMoov(): Uint8Array {
+  return mp4Box(
+    "moov",
+    mvhdBox(3_660_681_600),
+    mp4Box(
+      "udta",
+      udtaTextBox("\u00A9day", "2019-05-04T11:22:33+0200"),
+      udtaTextBox("\u00A9xyz", "-33.8688+151.2093/"),
+      udtaTextBox("\u00A9mak", "Canon"),
+      udtaTextBox("\u00A9mod", "Canon EOS R"),
+    ),
+  );
 }
 
 function render(): void {

@@ -86,6 +86,16 @@ function fileMetaFields(
   | "bitrateBps"
   | "sampleRate"
   | "channels"
+  | "capturedAt"
+  | "capturedAtHasZone"
+  | "latitude"
+  | "longitude"
+  | "altitudeM"
+  | "cameraMake"
+  | "cameraModel"
+  | "lensModel"
+  | "software"
+  | "rotationDeg"
 > {
   if (!url) {
     return {
@@ -96,6 +106,16 @@ function fileMetaFields(
       bitrateBps: null,
       sampleRate: null,
       channels: null,
+      capturedAt: null,
+      capturedAtHasZone: false,
+      latitude: null,
+      longitude: null,
+      altitudeM: null,
+      cameraMake: null,
+      cameraModel: null,
+      lensModel: null,
+      software: null,
+      rotationDeg: null,
     };
   }
   ensureMediaMeta(url, { sizeBytes, mime });
@@ -113,6 +133,7 @@ function fileMetaFields(
   }
 
   const latest = ensureMediaMeta(url);
+  const capture = latest.capture;
   return {
     container: latest.container,
     videoCodec: latest.videoCodec,
@@ -121,6 +142,16 @@ function fileMetaFields(
     bitrateBps: latest.bitrateBps,
     sampleRate: latest.sampleRate,
     channels: latest.channels,
+    capturedAt: capture.capturedAt,
+    capturedAtHasZone: capture.capturedAtHasZone,
+    latitude: capture.latitude,
+    longitude: capture.longitude,
+    altitudeM: capture.altitudeM,
+    cameraMake: capture.make,
+    cameraModel: capture.model,
+    lensModel: capture.lensModel,
+    software: capture.software,
+    rotationDeg: capture.rotationDeg,
   };
 }
 
