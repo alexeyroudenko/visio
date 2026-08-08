@@ -1040,7 +1040,8 @@ export function Inspector() {
           const animated = !!keys?.length;
           let value = animated ? getValueAtFrame(frame, base, keys) : base;
           // File params keep blob URLs that cannot be persisted, so they stay live-only.
-          const keyable = spec.type !== "file" && spec.type !== "json";
+          // `json` (soft-binds) is filtered out above — never keyframed.
+          const keyable = spec.type !== "file";
 
           // Show what the engine is actually rendering, modulation included.
           const modulator = modulators[path];
