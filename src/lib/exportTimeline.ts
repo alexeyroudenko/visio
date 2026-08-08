@@ -97,6 +97,11 @@ export interface ExportTimelineOptions {
   timelineFps: number;
   durationInFrames: number;
   paramKeyframes: ParamKeyframes;
+  /**
+   * Output file fps. Defaults to 60 — independent of the source video and of
+   * timeline fps so a 30 fps edit can still export smooth 60 fps.
+   */
+  outputFps?: number;
   /** LFO + audio modulators — applied after keyframes so Render matches playback. */
   modulators?: Modulators;
   /** Called with the timeline frame shown in the UI playhead. */
@@ -363,7 +368,7 @@ async function exportWithMediaRecorder(
 /**
  * Offline timeline export: seek playhead frame-by-frame (not realtime), force
  * video Media to the playhead, tick the graph, and capture each canvas frame.
- * Output fps matches the source video when detectable, otherwise timeline fps.
+ * Output fps defaults to 60; pass `outputFps` to override.
  */
 export async function exportTimelineVideo(
   engine: Engine,
@@ -378,6 +383,7 @@ export async function exportTimelineVideo(
     durationInFrames,
     paramKeyframes,
     modulators = {},
+    outputFps: outputFpsOpt,
     onFrame,
     onProgress,
     signal,
@@ -385,8 +391,7 @@ export async function exportTimelineVideo(
 
   if (durationInFrames <= 0) throw new Error("Timeline duration is empty");
 
-  const sourceFps = engine.detectSourceVideoFps();
-  const outputFps = Math.max(1, sourceFps ?? timelineFps);
+  const outputFps = Math.max(1, Math.round(outputFpsOpt ?? 60));
   const durationSec = durationInFrames / Math.max(1, timelineFps);
   const outputFrames = Math.max(1, Math.round(durationSec * outputFps));
 

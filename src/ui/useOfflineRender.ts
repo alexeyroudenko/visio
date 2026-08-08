@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { Engine } from "../engine/runtime";
 import { downloadTimelineRender, exportTimelineVideo } from "../lib/exportTimeline";
+import { loadRenderFps } from "../lib/renderFps";
 import { appLog } from "../store/consoleStore";
 import { useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
@@ -28,6 +29,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     const { nodes, edges, width, height } = useGraphStore.getState();
     const modulators = useModulatorStore.getState().byPath;
     const savedFrame = timeline.currentFrame;
+    const outputFps = loadRenderFps();
 
     timeline.pause();
     const controller = new AbortController();
@@ -36,17 +38,14 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     setRendering(true);
     setProgress(0);
 
-    const sourceFps = engine.detectSourceVideoFps();
-    const outputFpsHint = sourceFps ?? timeline.fps;
     appLog(
       "info",
       "render",
-      `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps` +
-        (sourceFps ? ` → export ${outputFpsHint} fps (source)` : ` → export ${outputFpsHint} fps`),
+      `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps`,
     );
 
     try {
-      const { blob, outputFps, outputFrames } = await exportTimelineVideo(engine, {
+      const { blob, outputFps: writtenFps, outputFrames } = await exportTimelineVideo(engine, {
         nodes,
         edges,
         width,
@@ -55,6 +54,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         durationInFrames: timeline.durationInFrames,
         paramKeyframes: timeline.paramKeyframes,
         modulators,
+        outputFps,
         signal: controller.signal,
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);
@@ -65,7 +65,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       appLog(
         "ok",
         "render",
-        `saved · ${outputFrames} frames @ ${outputFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
+        `saved · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

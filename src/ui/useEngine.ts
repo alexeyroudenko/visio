@@ -11,6 +11,10 @@ import {
   parseModulatorDriveConfig,
 } from "../lib/modulatorBindings";
 import { applyModulatorsToNodes } from "../lib/modulators";
+import {
+  previewRenderSize,
+  subscribePreviewQuality,
+} from "../lib/previewQuality";
 import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import { appLog } from "../store/consoleStore";
@@ -146,7 +150,8 @@ export function useEngine(
         },
       );
 
-      engine.setResolution(width, height);
+      const preview = previewRenderSize(width, height);
+      engine.setResolution(preview.width, preview.height);
       engine.setTimeline(timeline.currentFrame, timeline.fps, timeline.isPlaying);
       // Refresh defs every push so HMR-added nodes (converters, etc.) are live.
       engine.setDefinitions(NODE_DEFS);
@@ -224,6 +229,10 @@ export function useEngine(
       pushGraph();
     });
 
+    const unsubQuality = subscribePreviewQuality(() => {
+      pushGraph();
+    });
+
     const statsTimer = window.setInterval(() => {
       useEngineStatsStore.getState().setStats({ ...engine.stats });
     }, 500);
@@ -249,6 +258,7 @@ export function useEngine(
       unsubGraph();
       unsubTimeline();
       unsubModulators();
+      unsubQuality();
       bindPresetPreviewCapture(null);
       engine.dispose();
       engineRef.current = null;

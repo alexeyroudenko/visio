@@ -2373,6 +2373,31 @@ async function run(): Promise<void> {
     `mime=${mime === null ? "null" : JSON.stringify(mime)}`,
   );
 
+  const {
+    clampPreviewQuality,
+    DEFAULT_PREVIEW_QUALITY,
+    previewRenderSize,
+  } = await import("./lib/previewQuality");
+  check(
+    "preview quality clamps to 1 / 0.5 / 0.25 / 0.125",
+    DEFAULT_PREVIEW_QUALITY === 1 &&
+      clampPreviewQuality(0.25) === 0.25 &&
+      clampPreviewQuality(0.3) === 1 &&
+      previewRenderSize(1080, 1920, 0.5).width === 540 &&
+      previewRenderSize(1080, 1920, 0.125).height === 240,
+    `half=${JSON.stringify(previewRenderSize(1080, 1920, 0.5))}`,
+  );
+
+  const { clampRenderFps, DEFAULT_RENDER_FPS } = await import("./lib/renderFps");
+  check(
+    "render fps defaults to 60 and clamps custom values",
+    DEFAULT_RENDER_FPS === 60 &&
+      clampRenderFps(24) === 24 &&
+      clampRenderFps(0) === 1 &&
+      clampRenderFps(999) === 120,
+    `default=${DEFAULT_RENDER_FPS} custom24=${clampRenderFps(24)}`,
+  );
+
   render();
 }
 

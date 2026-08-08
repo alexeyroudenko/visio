@@ -493,6 +493,10 @@ input[type="checkbox"] {
   width: min(920px, 100%);
 }
 
+.modal--settings {
+  width: min(420px, 100%);
+}
+
 .modal__header {
   display: flex;
   align-items: center;
