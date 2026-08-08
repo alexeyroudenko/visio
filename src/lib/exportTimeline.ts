@@ -14,6 +14,7 @@ import {
 } from "./modulatorBindings";
 import { applyModulatorsToNodes, type Modulators } from "./modulators";
 import { withSourcePrefix } from "./mediaName";
+import { clampRenderBitrate, loadRenderBitrate } from "./renderBitrate";
 import {
   encodeAudioBufferOpus,
   mixRenderAudio,
@@ -26,7 +27,6 @@ const MIME_CANDIDATES = [
   "video/webm",
 ];
 
-const EXPORT_BITRATE = 12_000_000;
 const KEYFRAME_EVERY_SEC = 2;
 
 function pickMimeType(): string {
@@ -66,6 +66,7 @@ async function pickEncoderConfig(
   width: number,
   height: number,
   fps: number,
+  bitrate: number,
 ): Promise<{ codec: string; muxerCodec: "V_VP9" | "V_VP8" } | null> {
   if (typeof VideoEncoder === "undefined") return null;
 
@@ -80,7 +81,7 @@ async function pickEncoderConfig(
       codec: candidate.codec,
       width,
       height,
-      bitrate: EXPORT_BITRATE,
+      bitrate,
       framerate: fps,
     });
     if (result.supported) return candidate;
@@ -108,6 +109,8 @@ export interface ExportTimelineOptions {
    * timeline fps so a 30 fps edit can still export smooth 60 fps.
    */
   outputFps?: number;
+  /** Video bitrate in bits per second. Defaults to the stored render setting. */
+  bitrate?: number;
   /** LFO + audio modulators — applied after keyframes so Render matches playback. */
   modulators?: Modulators;
   /** Called with the timeline frame shown in the UI playhead. */
@@ -127,6 +130,7 @@ interface RenderPassContext {
   startFrame: number;
   outputFps: number;
   outputFrames: number;
+  bitrate: number;
   onFrame?: (timelineFrame: number) => void;
   onProgress?: (progress: number) => void;
   signal?: AbortSignal;
@@ -259,7 +263,7 @@ async function exportWithWebCodecs(
   height: number,
   audio: EncodedAudioTrack | null,
 ): Promise<Blob> {
-  const encoderConfig = await pickEncoderConfig(width, height, pass.outputFps);
+  const encoderConfig = await pickEncoderConfig(width, height, pass.outputFps, pass.bitrate);
   if (!encoderConfig) throw new Error("WebCodecs encoder is not available");
 
   const muxer = new Muxer({
@@ -293,7 +297,7 @@ async function exportWithWebCodecs(
     codec: encoderConfig.codec,
     width,
     height,
-    bitrate: EXPORT_BITRATE,
+    bitrate: pass.bitrate,
     framerate: pass.outputFps,
     latencyMode: "quality",
   });
@@ -342,7 +346,7 @@ async function exportWithMediaRecorder(
   const chunks: Blob[] = [];
   const recorder = new MediaRecorder(stream, {
     mimeType,
-    videoBitsPerSecond: EXPORT_BITRATE,
+    videoBitsPerSecond: pass.bitrate,
   });
 
   const stopped = new Promise<void>((resolve, reject) => {
@@ -382,7 +386,7 @@ async function exportWithMediaRecorder(
 export async function exportTimelineVideo(
   engine: Engine,
   options: ExportTimelineOptions,
-): Promise<{ blob: Blob; outputFps: number; outputFrames: number }> {
+): Promise<{ blob: Blob; outputFps: number; outputFrames: number; bitrate: number }> {
   const {
     nodes,
     edges,
@@ -395,6 +399,7 @@ export async function exportTimelineVideo(
     paramKeyframes,
     modulators = {},
     outputFps: outputFpsOpt,
+    bitrate: bitrateOpt,
     onFrame,
     onProgress,
     signal,
@@ -414,6 +419,7 @@ export async function exportTimelineVideo(
   const rangeFrames = Math.max(1, endFrame - startFrame + 1);
 
   const outputFps = Math.max(1, Math.round(outputFpsOpt ?? 60));
+  const bitrate = clampRenderBitrate(bitrateOpt ?? loadRenderBitrate());
   const durationSec = rangeFrames / Math.max(1, timelineFps);
   const startSec = startFrame / Math.max(1, timelineFps);
   const outputFrames = Math.max(1, Math.round(durationSec * outputFps));
@@ -434,6 +440,7 @@ export async function exportTimelineVideo(
     startFrame,
     outputFps,
     outputFrames,
+    bitrate,
     onFrame,
     onProgress,
     signal,
@@ -456,7 +463,7 @@ export async function exportTimelineVideo(
   }
 
   try {
-    const encoderConfig = await pickEncoderConfig(width, height, outputFps);
+    const encoderConfig = await pickEncoderConfig(width, height, outputFps, bitrate);
     if (encoderConfig && typeof VideoFrame !== "undefined") {
       try {
         const blob = await exportWithWebCodecs(
@@ -466,13 +473,13 @@ export async function exportTimelineVideo(
           height,
           encodedAudio,
         );
-        return { blob, outputFps, outputFrames };
+        return { blob, outputFps, outputFrames, bitrate };
       } catch (err) {
         console.warn("WebCodecs export failed, falling back to MediaRecorder:", err);
       }
     }
     const blob = await exportWithMediaRecorder(engine.canvas, pass);
-    return { blob, outputFps, outputFrames };
+    return { blob, outputFps, outputFrames, bitrate };
   } finally {
     engine.setTimelineForceSync(false);
     if (!wasPaused) engine.setPaused(false);

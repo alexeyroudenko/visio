@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
+import { loadRenderBitrate, saveRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps, saveRenderFps } from "../lib/renderFps";
 import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
@@ -42,6 +43,7 @@ export function Toolbar({
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [renderFps, setRenderFpsState] = useState(() => loadRenderFps());
+  const [renderBitrate, setRenderBitrateState] = useState(() => loadRenderBitrate());
   const fps = useEngineStatsStore((state) => state.fps);
   const frameMs = useEngineStatsStore((state) => state.frameMs);
   const nodeCount = useEngineStatsStore((state) => state.nodeCount);
@@ -57,6 +59,10 @@ export function Toolbar({
 
   const commitRenderFps = useCallback((value: number) => {
     setRenderFpsState(saveRenderFps(value));
+  }, []);
+
+  const commitRenderBitrate = useCallback((value: number) => {
+    setRenderBitrateState(saveRenderBitrate(value));
   }, []);
 
   const resolutionValue = `${width}x${height}`;
@@ -196,6 +202,8 @@ export function Toolbar({
           onClose={closeSettings}
           renderFps={renderFps}
           onRenderFpsChange={commitRenderFps}
+          renderBitrate={renderBitrate}
+          onRenderBitrateChange={commitRenderBitrate}
         />
       </header>
 

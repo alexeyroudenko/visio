@@ -6,6 +6,13 @@ import {
   type PreviewQuality,
 } from "../lib/previewQuality";
 import {
+  DEFAULT_RENDER_BITRATE,
+  formatBitrate,
+  MAX_RENDER_BITRATE,
+  MIN_RENDER_BITRATE,
+  saveRenderBitrate,
+} from "../lib/renderBitrate";
+import {
   DEFAULT_RENDER_FPS,
   MAX_RENDER_FPS,
   MIN_RENDER_FPS,
@@ -13,17 +20,22 @@ import {
 } from "../lib/renderFps";
 
 const RENDER_FPS_PRESETS = [60, 30, 24] as const;
+const RENDER_BITRATE_PRESETS = [4, 8, 12, 20, 40, 80].map((mbps) => mbps * 1_000_000);
 
 export function SettingsModal({
   open,
   onClose,
   renderFps,
   onRenderFpsChange,
+  renderBitrate,
+  onRenderBitrateChange,
 }: {
   open: boolean;
   onClose: () => void;
   renderFps: number;
   onRenderFpsChange: (fps: number) => void;
+  renderBitrate: number;
+  onRenderBitrateChange: (bps: number) => void;
 }) {
   const [quality, setQuality] = useState<PreviewQuality>(() => loadPreviewQuality());
   const titleId = useId();
@@ -49,6 +61,7 @@ export function SettingsModal({
   const presetMatch = RENDER_FPS_PRESETS.includes(
     renderFps as (typeof RENDER_FPS_PRESETS)[number],
   );
+  const bitratePresetMatch = RENDER_BITRATE_PRESETS.includes(renderBitrate);
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
@@ -121,6 +134,43 @@ export function SettingsModal({
           <p className="modal__hint">
             Offline Render output frame rate (default {DEFAULT_RENDER_FPS}). Timeline fps stays
             separate — a 30 fps edit can still export at {renderFps} fps.
+          </p>
+
+          <label className="modal__field">
+            <span>Render bitrate</span>
+            <select
+              className="select"
+              value={bitratePresetMatch ? String(renderBitrate) : "custom"}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === "custom") {
+                  const typed = window.prompt(
+                    `Render bitrate in Mbps (${MIN_RENDER_BITRATE / 1_000_000}–${
+                      MAX_RENDER_BITRATE / 1_000_000
+                    })`,
+                    String(renderBitrate / 1_000_000),
+                  );
+                  if (typed == null) return;
+                  onRenderBitrateChange(saveRenderBitrate(Number(typed) * 1_000_000));
+                  return;
+                }
+                onRenderBitrateChange(saveRenderBitrate(Number(value)));
+              }}
+            >
+              {RENDER_BITRATE_PRESETS.map((value) => (
+                <option key={value} value={value}>
+                  {formatBitrate(value)}
+                </option>
+              ))}
+              <option value="custom">
+                {bitratePresetMatch ? "custom…" : formatBitrate(renderBitrate)}
+              </option>
+            </select>
+          </label>
+          <p className="modal__hint">
+            Video bitrate for Record and offline Render (default{" "}
+            {formatBitrate(DEFAULT_RENDER_BITRATE)}). Higher keeps more detail in grain and fast
+            motion at the cost of file size.
           </p>
         </div>
       </div>

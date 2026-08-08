@@ -7,6 +7,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import { withSourcePrefix } from "../lib/mediaName";
+import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { appLog } from "../store/consoleStore";
 
 const MIME_CANDIDATES = [
@@ -77,11 +78,13 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
       return;
     }
 
+    const bitrate = loadRenderBitrate();
+
     let recorder: MediaRecorder;
     try {
       recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 })
-        : new MediaRecorder(stream, { videoBitsPerSecond: 12_000_000 });
+        ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate })
+        : new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
     } catch (error) {
       stream.getTracks().forEach((track) => track.stop());
       appLog(
@@ -140,7 +143,11 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
 
     recorderRef.current = recorder;
     setRecording(true);
-    appLog("info", "record", `started · ${recorder.mimeType || mimeType || "default"}`);
+    appLog(
+      "info",
+      "record",
+      `started · ${recorder.mimeType || mimeType || "default"} · ${formatBitrate(bitrate)}`,
+    );
   }, [getCanvas]);
 
   const toggle = useCallback(() => {

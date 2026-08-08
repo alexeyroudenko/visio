@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { Engine } from "../engine/runtime";
 import { downloadTimelineRender, exportTimelineVideo } from "../lib/exportTimeline";
+import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
 import { appLog } from "../store/consoleStore";
 import { useGraphStore } from "../store/graphStore";
@@ -31,6 +32,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     const modulators = useModulatorStore.getState().byPath;
     const savedFrame = timeline.currentFrame;
     const outputFps = loadRenderFps();
+    const bitrate = loadRenderBitrate();
     const { startFrame, endFrame } = resolveRenderRange(
       timeline.durationInFrames,
       timeline.renderInFrame,
@@ -51,8 +53,8 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       "info",
       "render",
       ranged
-        ? `started · F${startFrame}–F${endFrame} (${rangeFrames} tl-frames) @ ${timeline.fps} fps → export ${outputFps} fps`
-        : `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps`,
+        ? `started · F${startFrame}–F${endFrame} (${rangeFrames} tl-frames) @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`
+        : `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`,
     );
 
     try {
@@ -68,6 +70,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         paramKeyframes: timeline.paramKeyframes,
         modulators,
         outputFps,
+        bitrate,
         signal: controller.signal,
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);

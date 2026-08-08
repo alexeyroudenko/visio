@@ -2398,6 +2398,19 @@ async function run(): Promise<void> {
     `default=${DEFAULT_RENDER_FPS} custom24=${clampRenderFps(24)}`,
   );
 
+  const { clampRenderBitrate, DEFAULT_RENDER_BITRATE, formatBitrate } = await import(
+    "./lib/renderBitrate"
+  );
+  check(
+    "render bitrate defaults to 12 Mbps and clamps custom values",
+    DEFAULT_RENDER_BITRATE === 12_000_000 &&
+      clampRenderBitrate(40_000_000) === 40_000_000 &&
+      clampRenderBitrate(0) === 500_000 &&
+      clampRenderBitrate(1e12) === 200_000_000 &&
+      formatBitrate(12_000_000) === "12 Mbps",
+    `default=${formatBitrate(DEFAULT_RENDER_BITRATE)} clamped=${clampRenderBitrate(0)}`,
+  );
+
   const { resolveRenderRange } = await import("./store/timelineStore");
   check(
     "resolveRenderRange defaults to full timeline when unset",
