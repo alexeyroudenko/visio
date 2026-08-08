@@ -5,8 +5,13 @@ import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "../store/graphStore";
 import { applyAnalyzerBindings } from "./analyzerBindings";
-import { audioModulatorSamples } from "./audioModSamples";
+import { audioModulatorDriveSamples, audioModulatorSamples } from "./audioModSamples";
 import { applyKeyframesToNodes, type ParamKeyframes } from "./keyframes";
+import {
+  applyModulatorBindings,
+  MODULATOR_DRIVE_TYPE,
+  parseModulatorDriveConfig,
+} from "./modulatorBindings";
 import { applyModulatorsToNodes, type Modulators } from "./modulators";
 import { withSourcePrefix } from "./mediaName";
 import {
@@ -155,6 +160,42 @@ async function renderOneFrame(ctx: RenderPassContext, outputIndex: number): Prom
       return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
     },
     (path) => samples.get(path),
+  );
+  const driveNodes = ctx.nodes
+    .filter((node) => node.data.defType === MODULATOR_DRIVE_TYPE)
+    .map((node) => {
+      const params = keyed.get(node.id) ?? node.data.params;
+      const config = parseModulatorDriveConfig(params);
+      return {
+        nodeId: node.id,
+        bandLoHz: config.bandLoHz ?? 20,
+        bandHiHz: config.bandHiHz ?? 200,
+        audio: config.source === "audio",
+      };
+    });
+  const driveSamples = audioModulatorDriveSamples(
+    driveNodes
+      .filter((d) => d.audio)
+      .map(({ nodeId, bandLoHz, bandHiHz }) => ({ nodeId, bandLoHz, bandHiHz })),
+    ctx.nodes.map((node) => ({
+      id: node.id,
+      params: keyed.get(node.id) ?? node.data.params,
+    })),
+    timelineSec,
+  );
+  applyModulatorBindings(
+    timelineSec,
+    keyed,
+    ctx.nodes.map((node) => ({
+      id: node.id,
+      defType: node.data.defType,
+      params: keyed.get(node.id) ?? node.data.params,
+    })),
+    (nodeId, key) => {
+      const defType = defTypeById.get(nodeId);
+      return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+    },
+    (nodeId) => driveSamples.get(nodeId),
   );
   applyAnalyzerBindings(
     timelineSec,

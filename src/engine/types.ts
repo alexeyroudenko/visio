@@ -111,7 +111,12 @@ export type ParamSpec =
   | { key: string; label: string; type: "file"; accept: string; default: null }
   | { key: string; label: string; type: "text"; default: string }
   /** Multi-line source text — same value shape as `text`, taller control. */
-  | { key: string; label: string; type: "code"; rows?: number; default: string };
+  | { key: string; label: string; type: "code"; rows?: number; default: string }
+  /**
+   * Opaque structured value (e.g. soft-bind lists). Persists with the patch;
+   * Inspector uses a custom panel — never a generic control.
+   */
+  | { key: string; label: string; type: "json"; default: unknown };
 
 export type ParamValues = Record<string, unknown>;
 

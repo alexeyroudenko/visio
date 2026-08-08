@@ -9,6 +9,13 @@ import {
 } from "../lib/analyzerBindings";
 import { getValueAtFrame, paramPath } from "../lib/keyframes";
 import {
+  emptyModulatorBind,
+  getModulatorDrive,
+  MODULATOR_DRIVE_TYPE,
+  parseModulatorBinds,
+  type ModulatorBind,
+} from "../lib/modulatorBindings";
+import {
   AUDIO_BAND_PRESETS,
   matchAudioBandPreset,
   modulatedValue,
@@ -321,6 +328,9 @@ function ParamControl({
         </label>
       );
     }
+    case "json":
+      // Soft-binds and other structured values use a custom panel.
+      return null;
     default:
       return null;
   }
@@ -742,6 +752,163 @@ function AnalyzerBindPanel({
   );
 }
 
+/** Shared drive meter + multi bind rows (+ / −) for Modulator Drive. */
+function ModulatorBindPanel({
+  nodeId,
+  params,
+  onChange,
+}: {
+  nodeId: string;
+  params: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const nodes = useGraphStore((state) => state.nodes);
+  const [drive, setDrive] = useState(() => getModulatorDrive(nodeId));
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setDrive(getModulatorDrive(nodeId));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [nodeId]);
+
+  const binds = parseModulatorBinds(params);
+  const meter = (drive + 1) / 2;
+
+  const bindableNodes = nodes.filter((n) => {
+    if (n.id === nodeId) return false;
+    if (n.data.defType === MODULATOR_DRIVE_TYPE) return false;
+    const def = NODE_DEFS[n.data.defType];
+    return !!def?.params.some((p) => p.type === "range");
+  });
+
+  const setBinds = (next: ModulatorBind[]) => onChange("binds", next);
+
+  const updateBind = (id: string, patch: Partial<ModulatorBind>) => {
+    setBinds(binds.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  };
+
+  const rangeParamsFor = (targetNodeId: string) => {
+    const def = NODE_DEFS[nodes.find((n) => n.id === targetNodeId)?.data.defType ?? ""];
+    return (def?.params ?? []).filter((p) => p.type === "range");
+  };
+
+  return (
+    <div className="analyzer-bind">
+      <div className="param">
+        <span className="param__label">Drive</span>
+        <div className="analyzer-bind__meter" title={drive.toFixed(3)}>
+          <div
+            className="analyzer-bind__fill"
+            style={{ width: `${Math.round(meter * 100)}%` }}
+          />
+          <span className="analyzer-bind__value">{drive.toFixed(3)}</span>
+        </div>
+      </div>
+
+      <div className="analyzer-bind__targets">
+        <div className="analyzer-bind__targets-head">
+          <span className="param__label">Bindings</span>
+          <button
+            type="button"
+            className="analyzer-bind__add"
+            onClick={() => setBinds([...binds, emptyModulatorBind()])}
+            title="Add binding"
+          >
+            +
+          </button>
+        </div>
+        {binds.length === 0 ? (
+          <p className="analyzer-bind__empty">
+            No bindings — press + to route this drive to a param.
+          </p>
+        ) : null}
+        {binds.map((bind) => {
+          const rangeParams = rangeParamsFor(bind.targetNode);
+          return (
+            <div key={bind.id} className="analyzer-bind__row">
+              <select
+                aria-label="Target node"
+                value={bind.targetNode}
+                onChange={(e) => {
+                  const nextNode = e.target.value;
+                  const first = rangeParamsFor(nextNode)[0];
+                  updateBind(bind.id, {
+                    targetNode: nextNode,
+                    targetParam: first?.key ?? "",
+                  });
+                }}
+              >
+                <option value="">— node —</option>
+                {bindableNodes.map((n) => {
+                  const def = NODE_DEFS[n.data.defType];
+                  return (
+                    <option key={n.id} value={n.id}>
+                      {def ? `${def.label} (${n.id})` : n.id}
+                    </option>
+                  );
+                })}
+              </select>
+              <select
+                aria-label="Target param"
+                value={bind.targetParam}
+                disabled={!bind.targetNode || rangeParams.length === 0}
+                onChange={(e) => updateBind(bind.id, { targetParam: e.target.value })}
+              >
+                <option value="">— param —</option>
+                {rangeParams.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <label className="analyzer-bind__depth" title="Depth">
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={bind.depth}
+                  onChange={(e) =>
+                    updateBind(bind.id, {
+                      depth: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                    })
+                  }
+                />
+              </label>
+              <label className="analyzer-bind__depth" title="Bias">
+                <input
+                  type="number"
+                  min={-1}
+                  max={1}
+                  step={0.05}
+                  value={bind.bias}
+                  onChange={(e) =>
+                    updateBind(bind.id, {
+                      bias: Math.min(1, Math.max(-1, Number(e.target.value) || 0)),
+                    })
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="analyzer-bind__remove"
+                onClick={() => setBinds(binds.filter((b) => b.id !== bind.id))}
+                title="Remove binding"
+              >
+                −
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function Inspector() {
   const selectedId = useGraphStore((state) => state.selectedId);
   const node = useGraphStore((state) => state.nodes.find((n) => n.id === state.selectedId));
@@ -786,6 +953,8 @@ export function Inspector() {
   const isMedia = node.data.defType === "source.media";
   const isShader = node.data.defType === "fx.shader";
   const isAnalyzer = node.data.defType === "audio.analyzer";
+  const isModulatorDrive = node.data.defType === MODULATOR_DRIVE_TYPE;
+  const modulatorSource = String(node.data.params.source ?? "lfo");
 
   return (
     <aside className="inspector">
@@ -815,17 +984,31 @@ export function Inspector() {
             onChange={(key, value) => setParam(node.id, key, value)}
           />
         ) : null}
+        {isModulatorDrive ? (
+          <ModulatorBindPanel
+            nodeId={node.id}
+            params={node.data.params}
+            onChange={(key, value) => setParam(node.id, key, value)}
+          />
+        ) : null}
         {definition.params.map((spec) => {
+          if (spec.type === "json") return null;
           if (
             isAnalyzer &&
             (spec.key.startsWith("out") ||
               spec.key.endsWith("LoHz") ||
               spec.key.endsWith("HiHz") ||
               spec.key === "targetNode" ||
-              spec.key === "targetParam" ||
-              spec.key === "binds")
+              spec.key === "targetParam")
           ) {
             return null;
+          }
+          if (isModulatorDrive) {
+            if (modulatorSource === "audio") {
+              if (spec.key === "shape" || spec.key === "rateHz" || spec.key === "phase") return null;
+            } else if (spec.key === "bandLoHz" || spec.key === "bandHiHz") {
+              return null;
+            }
           }
           if (isMedia) {
             const mode = String(node.data.params.mode ?? "image");
@@ -857,7 +1040,7 @@ export function Inspector() {
           const animated = !!keys?.length;
           let value = animated ? getValueAtFrame(frame, base, keys) : base;
           // File params keep blob URLs that cannot be persisted, so they stay live-only.
-          const keyable = spec.type !== "file";
+          const keyable = spec.type !== "file" && spec.type !== "json";
 
           // Show what the engine is actually rendering, modulation included.
           const modulator = modulators[path];

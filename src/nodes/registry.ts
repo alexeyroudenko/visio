@@ -31,6 +31,7 @@ import { zoomNode } from "./fx/zoom";
 import { shaderNode } from "./fx/shader";
 import { analyzerNode } from "./audio/analyzer";
 import { granularNode } from "./audio/granular";
+import { modulatorDriveNode } from "./modulator/drive";
 import { outputNode } from "./output/output";
 
 declare global {
@@ -72,6 +73,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   zoomNode,
   shaderNode,
   analyzerNode,
+  modulatorDriveNode,
   granularNode,
   outputNode,
 ];

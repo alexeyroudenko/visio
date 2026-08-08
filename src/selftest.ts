@@ -25,6 +25,11 @@ import {
   mediaPlayheadSec,
   pickAudioMedia,
 } from "./lib/audioModSamples";
+import {
+  applyModulatorBindings,
+  parseModulatorBinds,
+  parseModulatorDriveConfig,
+} from "./lib/modulatorBindings";
 import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
   applyModulatorsToNodes,
@@ -2032,6 +2037,145 @@ async function run(): Promise<void> {
       audioModSaved.depth === 0.7,
     JSON.stringify(audioModSaved ?? null),
   );
+
+  // Graph modulator.drive: one shared sine → two params at different depths.
+  {
+    const rangeA: ParamSpec = {
+      key: "a",
+      label: "a",
+      type: "range",
+      min: 0,
+      max: 100,
+      step: 1,
+      default: 50,
+    };
+    const rangeB: ParamSpec = {
+      key: "b",
+      label: "b",
+      type: "range",
+      min: 0,
+      max: 100,
+      step: 1,
+      default: 50,
+    };
+    const driveParams = {
+      source: "lfo",
+      shape: "sine",
+      rateHz: 1,
+      phase: 0,
+      binds: [
+        { id: "b1", targetNode: "n1", targetParam: "a", depth: 0.5, bias: 0 },
+        { id: "b2", targetNode: "n1", targetParam: "b", depth: 1, bias: 0 },
+      ],
+    };
+    const keyed = new Map<string, Record<string, unknown>>([
+      ["mod-1", { ...driveParams }],
+      ["n1", { a: 50, b: 50 }],
+    ]);
+    applyModulatorBindings(
+      0.25,
+      keyed,
+      [
+        { id: "mod-1", defType: "modulator.drive", params: driveParams },
+        { id: "n1", defType: "fx.sliceShift", params: { a: 50, b: 50 } },
+      ],
+      (_nodeId, key) => (key === "a" ? rangeA : key === "b" ? rangeB : undefined),
+    );
+    const a = keyed.get("n1")!.a as number;
+    const b = keyed.get("n1")!.b as number;
+    check(
+      "modulator.drive shares one LFO across binds at different depths",
+      Math.abs(a - 75) < 0.001 && Math.abs(b - 100) < 0.001,
+      `a=${a} b=${b} (expected 75 / 100 at sine peak)`,
+    );
+
+    const parsedBinds = parseModulatorBinds(driveParams);
+    check(
+      "parseModulatorBinds keeps target depth and bias",
+      parsedBinds.length === 2 &&
+        parsedBinds[0]!.targetParam === "a" &&
+        parsedBinds[0]!.depth === 0.5 &&
+        parsedBinds[1]!.depth === 1,
+      JSON.stringify(parsedBinds),
+    );
+
+    const routingPreset = BUILTIN_PRESETS.find((p) => p.id === "modulator-routing")?.build();
+    const modNode = routingPreset?.nodes.find((n) => n.type === "modulator.drive");
+    const binds = parseModulatorBinds(modNode?.params ?? {});
+    check(
+      "modulator-routing preset wires shared drive binds",
+      !!modNode &&
+        binds.length === 2 &&
+        binds.every((b) => b.targetNode === "sliceShift-1") &&
+        parseModulatorDriveConfig(modNode.params).source === "lfo",
+      `binds=${binds.length} source=${modNode ? parseModulatorDriveConfig(modNode.params).source : "none"}`,
+    );
+
+    // Analyzer / modulator binds must survive serializePatch (json ParamSpec).
+    const bindPatch = serializePatch(
+      [
+        {
+          id: "analyzer-1",
+          type: "patch",
+          position: { x: 0, y: 0 },
+          data: {
+            defType: "audio.analyzer",
+            params: {
+              ...defaultParams("audio.analyzer"),
+              binds: [
+                {
+                  id: "b-x",
+                  band: "low",
+                  targetNode: "n1",
+                  targetParam: "a",
+                  depth: 0.8,
+                },
+              ],
+            },
+          },
+        },
+        {
+          id: "mod-1",
+          type: "patch",
+          position: { x: 0, y: 0 },
+          data: {
+            defType: "modulator.drive",
+            params: {
+              ...defaultParams("modulator.drive"),
+              binds: [
+                {
+                  id: "b-y",
+                  targetNode: "n1",
+                  targetParam: "a",
+                  depth: 0.4,
+                  bias: 0.1,
+                },
+              ],
+            },
+          },
+        },
+      ],
+      [],
+      1080,
+      1920,
+    );
+    const bindRound = parsePatch(JSON.parse(JSON.stringify(bindPatch)));
+    const savedAnalyzer = bindRound?.nodes.find((n) => n.id === "analyzer-1");
+    const savedMod = bindRound?.nodes.find((n) => n.id === "mod-1");
+    const aBinds = parseModulatorBinds(savedMod?.data.params ?? {});
+    const analyzerBinds = Array.isArray(savedAnalyzer?.data.params.binds)
+      ? (savedAnalyzer!.data.params.binds as unknown[])
+      : [];
+    check(
+      "analyzer and modulator binds persist through the patch",
+      analyzerBinds.length === 1 &&
+        (analyzerBinds[0] as { depth?: number }).depth === 0.8 &&
+        aBinds.length === 1 &&
+        aBinds[0]!.depth === 0.4 &&
+        aBinds[0]!.bias === 0.1,
+      `analyzer=${JSON.stringify(analyzerBinds)} mod=${JSON.stringify(aBinds)}`,
+    );
+  }
 
   // --- 7b. Reel markers formula -------------------------------------------
   {

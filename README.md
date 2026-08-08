@@ -337,6 +337,11 @@ bounds. They run on **timeline time**, not wall clock: an offline render
 reproduces exactly what playback showed, and scrubbing moves them. The flip side
 is that a parked playhead means a frozen drive — press play. Bindings live in the
 patch, next to keyframes.
+- **Modulator node (graph routing).** Add a **Modulator** node (Audio menu) to
+share one LFO or audio band across several params. Soft-binds in the Inspector
+(+ / −) pick a target node and range param, each with its own depth and bias —
+same −1..1 drive, different swing. Graph routing runs after per-param ∿
+bindings and before Audio Analyzer soft-binds.
 - **Inspector follows the playhead.** An animated parameter shows its value at the
 current frame, because that is what the engine renders — a slider parked at its
 base value while the output moves is just a lie. The ◆ next to each control
@@ -381,5 +386,5 @@ Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)
 
 ## What’s next
 
-- Modulator routing from the graph itself, so one source can drive several params
+- (open) Timeline collapse, settings menu, preview quality scale, more resolutions
 

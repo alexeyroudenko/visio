@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Engine } from "../engine/runtime";
 import { applyAnalyzerBindings, graphHasAnalyzerBindings } from "../lib/analyzerBindings";
-import { audioModulatorSamples } from "../lib/audioModSamples";
+import { audioModulatorDriveSamples, audioModulatorSamples } from "../lib/audioModSamples";
 import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
 import { applyKeyframesToNodes } from "../lib/keyframes";
+import {
+  applyModulatorBindings,
+  graphHasAudioModulatorDrives,
+  MODULATOR_DRIVE_TYPE,
+  parseModulatorDriveConfig,
+} from "../lib/modulatorBindings";
 import { applyModulatorsToNodes } from "../lib/modulators";
 import { NODE_DEFS } from "../nodes/registry";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
@@ -82,6 +88,46 @@ export function useEngine(
           return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
         },
         (path) => samples.get(path),
+      );
+      // Graph modulator.drive nodes: one shared drive → several params.
+      // Applied after legacy per-param modulators so routing wins on overlap.
+      const driveNodes = nodes
+        .filter((node) => node.data.defType === MODULATOR_DRIVE_TYPE)
+        .map((node) => {
+          const params = keyed.get(node.id) ?? node.data.params;
+          const config = parseModulatorDriveConfig(params);
+          return {
+            nodeId: node.id,
+            bandLoHz: config.bandLoHz ?? 20,
+            bandHiHz: config.bandHiHz ?? 200,
+            audio: config.source === "audio",
+          };
+        });
+      const driveSamples = audioModulatorDriveSamples(
+        driveNodes.filter((d) => d.audio).map(({ nodeId, bandLoHz, bandHiHz }) => ({
+          nodeId,
+          bandLoHz,
+          bandHiHz,
+        })),
+        nodes.map((node) => ({
+          id: node.id,
+          params: keyed.get(node.id) ?? node.data.params,
+        })),
+        timelineSec,
+      );
+      applyModulatorBindings(
+        timelineSec,
+        keyed,
+        nodes.map((node) => ({
+          id: node.id,
+          defType: node.data.defType,
+          params: keyed.get(node.id) ?? node.data.params,
+        })),
+        (nodeId, key) => {
+          const defType = defTypeById.get(nodeId);
+          return defType ? NODE_DEFS[defType]?.params.find((p) => p.key === key) : undefined;
+        },
+        (nodeId) => driveSamples.get(nodeId),
       );
       // Analyzer soft-binds run after modulators so a bound param can still ride
       // an LFO base — the analyzer out replaces the keyed value when set.
@@ -191,7 +237,10 @@ export function useEngine(
         pushGraph();
         return;
       }
-      if (graphHasAnalyzerBindings(useGraphStore.getState().nodes)) pushGraph();
+      const graphNodes = useGraphStore.getState().nodes;
+      if (graphHasAudioModulatorDrives(graphNodes) || graphHasAnalyzerBindings(graphNodes)) {
+        pushGraph();
+      }
     }, 1000 / 30);
 
     return () => {

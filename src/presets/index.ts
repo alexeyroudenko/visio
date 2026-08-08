@@ -1480,6 +1480,77 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         },
       ),
   },
+  {
+    id: "modulator-routing",
+    label: "Modulator: Shared Drive",
+    description: "One LFO on the graph drives slice count and amount together — press play",
+    builtin: true,
+    build: () => ({
+      format: 1,
+      width: W,
+      height: H,
+      nodes: [
+        {
+          id: "image-1",
+          type: "source.media",
+          position: { x: 0, y: 140 },
+          params: { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover", zoom: 1 },
+        },
+        {
+          id: "sliceShift-1",
+          type: "fx.sliceShift",
+          position: { x: 320, y: 140 },
+          params: { count: 60, maxH: 90, amount: 14, animate: true, seed: 0 },
+        },
+        {
+          id: "mod-1",
+          type: "modulator.drive",
+          position: { x: 320, y: 360 },
+          params: {
+            source: "lfo",
+            shape: "sine",
+            rateHz: 0.3,
+            phase: 0,
+            bandLoHz: 20,
+            bandHiHz: 200,
+            binds: [
+              {
+                id: "b-count",
+                targetNode: "sliceShift-1",
+                targetParam: "count",
+                depth: 0.7,
+                bias: 0,
+              },
+              {
+                id: "b-amount",
+                targetNode: "sliceShift-1",
+                targetParam: "amount",
+                depth: 0.5,
+                bias: 0,
+              },
+            ],
+          },
+        },
+        { ...SCREEN, position: { x: 640, y: 160 } },
+      ],
+      edges: [
+        {
+          id: "e0",
+          source: "image-1",
+          sourceHandle: "out",
+          target: "sliceShift-1",
+          targetHandle: "src",
+        },
+        {
+          id: "e1",
+          source: "sliceShift-1",
+          sourceHandle: "out",
+          target: "screen-1",
+          targetHandle: "src",
+        },
+      ],
+    }),
+  },
 ];
 
 /** @deprecated use listPresets() — kept for callers that expect a static list. */

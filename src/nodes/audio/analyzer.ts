@@ -135,6 +135,8 @@ export const analyzerNode = defineNode<AnalyzerState>({
       step: 0.01,
       default: 0.35,
     },
+    /** Soft-binds — edited via AnalyzerBindPanel, not a generic control. */
+    { key: "binds", label: "Bindings", type: "json", default: [] },
   ],
   createState: () => ({ lastLogAt: 0, lastLogged: {} }),
   evaluate({ inputs, params, runtime, nodeId, ctx, debug }) {

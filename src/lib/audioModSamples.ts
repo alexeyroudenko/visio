@@ -59,21 +59,53 @@ export function audioModulatorSamples(
   const audioPaths = Object.entries(modulators).filter(([, m]) => m.source === "audio");
   if (audioPaths.length === 0) return out;
 
-  const media = pickAudioMedia(nodes);
-  if (!media) return out;
-  const file = fileParam(media.params);
-  if (!file) return out;
-
-  const entry = ensureAudioBuffer(file.url, file.name);
-  const buffer = entry.buffer;
-  if (!buffer) return out;
-
-  const timeSec = mediaPlayheadSec(media.params, timelineSec, buffer.duration);
+  const resolved = resolveAudioAt(nodes, timelineSec);
+  if (!resolved) return out;
 
   for (const [path, modulator] of audioPaths) {
     const lo = modulator.bandLoHz ?? 20;
     const hi = modulator.bandHiHz ?? 200;
-    out.set(path, bandDrive(buffer, timeSec, lo, hi));
+    out.set(path, bandDrive(resolved.buffer, resolved.timeSec, lo, hi));
   }
   return out;
+}
+
+/**
+ * −1..1 samples for modulator.drive nodes that use the audio source.
+ * Keys are node ids (not ParamPaths).
+ */
+export function audioModulatorDriveSamples(
+  drives: { nodeId: string; bandLoHz: number; bandHiHz: number }[],
+  nodes: MediaNodeRef[],
+  timelineSec: number,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (drives.length === 0) return out;
+
+  const resolved = resolveAudioAt(nodes, timelineSec);
+  if (!resolved) return out;
+
+  for (const drive of drives) {
+    out.set(drive.nodeId, bandDrive(resolved.buffer, resolved.timeSec, drive.bandLoHz, drive.bandHiHz));
+  }
+  return out;
+}
+
+function resolveAudioAt(
+  nodes: MediaNodeRef[],
+  timelineSec: number,
+): { buffer: AudioBuffer; timeSec: number } | null {
+  const media = pickAudioMedia(nodes);
+  if (!media) return null;
+  const file = fileParam(media.params);
+  if (!file) return null;
+
+  const entry = ensureAudioBuffer(file.url, file.name);
+  const buffer = entry.buffer;
+  if (!buffer) return null;
+
+  return {
+    buffer,
+    timeSec: mediaPlayheadSec(media.params, timelineSec, buffer.duration),
+  };
 }
