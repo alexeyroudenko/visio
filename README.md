@@ -386,5 +386,5 @@ Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)
 
 ## What’s next
 
-- (open) Timeline collapse, settings menu, preview quality scale, more resolutions
+- (open) —
 
