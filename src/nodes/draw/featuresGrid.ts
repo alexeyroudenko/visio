@@ -450,6 +450,12 @@ export const featuresGridNode = defineNode<GridState>({
     { key: "stroke", label: "Stroke", type: "range", min: 0.5, max: 8, step: 0.5, default: 1 },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, default: 1 },
     {
+      key: "filledOnly",
+      label: "Filled frames",
+      type: "toggle",
+      default: false,
+    },
+    {
       key: "useContentEdge",
       label: "Use content edge",
       type: "toggle",
@@ -623,6 +629,9 @@ export const featuresGridNode = defineNode<GridState>({
 
     const color = paramString(params, "color", "#f5f0e6");
     const stroke = paramNumber(params, "stroke", 1);
+    // Outline only what the smear filled, so the grid reads as a set of solid
+    // blocks rather than a wireframe with a few of them shaded.
+    const filledOnly = paramBool(params, "filledOnly", false);
     const showLabels = paramBool(params, "labels", true);
     const labelSize = paramNumber(params, "labelSize", 13);
     const labelText = paramString(params, "labelText", "Element");
@@ -637,7 +646,10 @@ export const featuresGridNode = defineNode<GridState>({
     overlay.textAlign = "left";
     overlay.textBaseline = "top";
 
+    let drawn = 0;
     cells.forEach((cell, index) => {
+      if (filledOnly && !effectFlags[index]) return;
+      drawn += 1;
       // Half-pixel offset keeps thin strokes crisp instead of straddling pixels.
       overlay.strokeRect(cell.x + 0.5, cell.y + 0.5, cell.w - 1, cell.h - 1);
       if (!showLabels) return;
@@ -649,7 +661,8 @@ export const featuresGridNode = defineNode<GridState>({
       );
     });
 
-    state.overlay.commit(ctx, target);
+    // Nothing to composite when the filter took every cell — skip the upload.
+    if (drawn > 0) state.overlay.commit(ctx, target);
     return { out: target, rects };
   },
 });
