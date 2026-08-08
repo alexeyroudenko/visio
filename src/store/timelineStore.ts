@@ -53,6 +53,12 @@ interface TimelineState {
   isLooping: boolean;
   paramKeyframes: ParamKeyframes;
   selectedKeyframeFrame: number | null;
+  /**
+   * Inclusive offline-render range. Both null → full timeline.
+   * Set via I / O on the scrubber; clamped when duration changes.
+   */
+  renderInFrame: number | null;
+  renderOutFrame: number | null;
   /** Auto Hook/FormWait/Dev/Climax/CTA zones for short reels. */
   reelZones: ReelZonesState;
   /** Show / hide reel zone overlay (default on). */
@@ -74,6 +80,12 @@ interface TimelineState {
   togglePlay: () => void;
   toggleRecording: () => void;
   toggleLoop: () => void;
+
+  /** Mark inclusive render-in at the playhead (or given frame). */
+  setRenderIn: (frame?: number) => void;
+  /** Mark inclusive render-out at the playhead (or given frame). */
+  setRenderOut: (frame?: number) => void;
+  clearRenderRange: () => void;
 
   /** Write / update a key at the current frame (used while recording). */
   recordParam: (nodeId: string, key: string, value: unknown) => void;
@@ -108,6 +120,34 @@ interface TimelineState {
   setDroneZoneParams: (zone: keyof ReelDroneByZone, patch: Partial<ReelDroneParams>) => void;
 }
 
+/** Inclusive [in, out] when both marks are set and span at least one frame. */
+export function resolveRenderRange(
+  durationInFrames: number,
+  renderInFrame: number | null,
+  renderOutFrame: number | null,
+): { startFrame: number; endFrame: number } {
+  const duration = Math.max(0, Math.round(durationInFrames));
+  if (renderInFrame == null || renderOutFrame == null) {
+    return { startFrame: 0, endFrame: duration };
+  }
+  let start = Math.max(0, Math.min(Math.round(renderInFrame), duration));
+  let end = Math.max(0, Math.min(Math.round(renderOutFrame), duration));
+  if (end < start) [start, end] = [end, start];
+  return { startFrame: start, endFrame: end };
+}
+
+function clampRenderMarks(
+  duration: number,
+  renderInFrame: number | null,
+  renderOutFrame: number | null,
+): { renderInFrame: number | null; renderOutFrame: number | null } {
+  if (renderInFrame == null && renderOutFrame == null) {
+    return { renderInFrame: null, renderOutFrame: null };
+  }
+  const { startFrame, endFrame } = resolveRenderRange(duration, renderInFrame, renderOutFrame);
+  return { renderInFrame: startFrame, renderOutFrame: endFrame };
+}
+
 declare global {
   interface Window {
     __visioTimelineStore?: ReturnType<typeof createTimelineStore>;
@@ -127,6 +167,8 @@ function createTimelineStore() {
     isLooping: false,
     paramKeyframes: {},
     selectedKeyframeFrame: null,
+    renderInFrame: null,
+    renderOutFrame: null,
     reelZones: reelFromDurationFrames(initialDuration, initialFps),
     reelZonesVisible: true,
     cueZoneTick: false,
@@ -168,6 +210,7 @@ function createTimelineStore() {
           state.selectedKeyframeFrame !== null && state.selectedKeyframeFrame <= next
             ? state.selectedKeyframeFrame
             : null,
+        ...clampRenderMarks(next, state.renderInFrame, state.renderOutFrame),
         reelZones,
       });
     },
@@ -183,6 +226,37 @@ function createTimelineStore() {
     },
 
     toggleLoop: () => set((s) => ({ isLooping: !s.isLooping })),
+
+    setRenderIn(frame) {
+      const state = get();
+      const mark = Math.round(frame ?? state.currentFrame);
+      const out = state.renderOutFrame ?? state.durationInFrames;
+      const next = clampRenderMarks(state.durationInFrames, mark, out);
+      set(next);
+      appLog(
+        "info",
+        "timeline",
+        `render in F${next.renderInFrame} · out F${next.renderOutFrame}`,
+      );
+    },
+
+    setRenderOut(frame) {
+      const state = get();
+      const mark = Math.round(frame ?? state.currentFrame);
+      const inn = state.renderInFrame ?? 0;
+      const next = clampRenderMarks(state.durationInFrames, inn, mark);
+      set(next);
+      appLog(
+        "info",
+        "timeline",
+        `render in F${next.renderInFrame} · out F${next.renderOutFrame}`,
+      );
+    },
+
+    clearRenderRange() {
+      set({ renderInFrame: null, renderOutFrame: null });
+      appLog("info", "timeline", "render range cleared (full timeline)");
+    },
 
     recordParam(nodeId, key, value) {
       const state = get();
@@ -231,6 +305,8 @@ function createTimelineStore() {
         currentFrame: 0,
         isPlaying: false,
         selectedKeyframeFrame: null,
+        renderInFrame: null,
+        renderOutFrame: null,
         reelZones: nextReel,
         ...(typeof cueZoneTick === "boolean" ? { cueZoneTick } : {}),
         ...(typeof cueDevMetronome === "boolean" ? { cueDevMetronome } : {}),
@@ -307,6 +383,7 @@ function createTimelineStore() {
         durationInFrames: frames,
         currentFrame: Math.min(state.currentFrame, frames),
         paramKeyframes: clampKeyframesToDuration(state.paramKeyframes, frames),
+        ...clampRenderMarks(frames, state.renderInFrame, state.renderOutFrame),
         reelZones: reelFromDurationFrames(frames, state.fps),
       });
     },
@@ -339,7 +416,7 @@ function createTimelineStore() {
 export const useTimelineStore =
   typeof window !== "undefined" &&
   window.__visioTimelineStore &&
-  "cueZoneTick" in window.__visioTimelineStore.getState()
+  "renderInFrame" in window.__visioTimelineStore.getState()
     ? window.__visioTimelineStore
     : createTimelineStore();
 

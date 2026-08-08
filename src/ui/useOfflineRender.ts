@@ -6,11 +6,12 @@ import { loadRenderFps } from "../lib/renderFps";
 import { appLog } from "../store/consoleStore";
 import { useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
-import { useTimelineStore } from "../store/timelineStore";
+import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
 
 /**
  * Offline frame-by-frame timeline export (toolbar Render). Not realtime —
  * seeks the playhead, forces video sync, ticks the graph, captures canvas.
+ * Honours the scrubber In/Out render range when set.
  */
 export function useOfflineRender(engineRef: RefObject<Engine | null>) {
   const [rendering, setRendering] = useState(false);
@@ -30,6 +31,14 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     const modulators = useModulatorStore.getState().byPath;
     const savedFrame = timeline.currentFrame;
     const outputFps = loadRenderFps();
+    const { startFrame, endFrame } = resolveRenderRange(
+      timeline.durationInFrames,
+      timeline.renderInFrame,
+      timeline.renderOutFrame,
+    );
+    const rangeFrames = Math.max(1, endFrame - startFrame + 1);
+    const ranged =
+      timeline.renderInFrame != null && timeline.renderOutFrame != null;
 
     timeline.pause();
     const controller = new AbortController();
@@ -41,7 +50,9 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     appLog(
       "info",
       "render",
-      `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps`,
+      ranged
+        ? `started · F${startFrame}–F${endFrame} (${rangeFrames} tl-frames) @ ${timeline.fps} fps → export ${outputFps} fps`
+        : `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps`,
     );
 
     try {
@@ -52,6 +63,8 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         height,
         timelineFps: timeline.fps,
         durationInFrames: timeline.durationInFrames,
+        startFrame,
+        endFrame,
         paramKeyframes: timeline.paramKeyframes,
         modulators,
         outputFps,

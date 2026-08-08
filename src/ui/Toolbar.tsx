@@ -46,6 +46,8 @@ export function Toolbar({
   const frameMs = useEngineStatsStore((state) => state.frameMs);
   const nodeCount = useEngineStatsStore((state) => state.nodeCount);
   const timelineFrame = useTimelineStore((state) => Math.round(state.currentFrame));
+  const renderInFrame = useTimelineStore((state) => state.renderInFrame);
+  const renderOutFrame = useTimelineStore((state) => state.renderOutFrame);
   const addNode = useGraphStore((state) => state.addNode);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
@@ -178,7 +180,11 @@ export function Toolbar({
             className={`button ${rendering ? "button--recording" : ""}`}
             onClick={onToggleRender}
             disabled={recording}
-            title={`Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`}
+            title={
+              renderInFrame != null && renderOutFrame != null
+                ? `Offline render F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
+                : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
+            }
           >
             {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render"}
           </button>

@@ -2398,6 +2398,21 @@ async function run(): Promise<void> {
     `default=${DEFAULT_RENDER_FPS} custom24=${clampRenderFps(24)}`,
   );
 
+  const { resolveRenderRange } = await import("./store/timelineStore");
+  check(
+    "resolveRenderRange defaults to full timeline when unset",
+    resolveRenderRange(300, null, null).startFrame === 0 &&
+      resolveRenderRange(300, null, null).endFrame === 300,
+    JSON.stringify(resolveRenderRange(300, null, null)),
+  );
+  check(
+    "resolveRenderRange keeps inclusive In/Out and swaps if reversed",
+    resolveRenderRange(300, 90, 120).startFrame === 90 &&
+      resolveRenderRange(300, 90, 120).endFrame === 120 &&
+      resolveRenderRange(300, 120, 90).startFrame === 90,
+    JSON.stringify(resolveRenderRange(300, 120, 90)),
+  );
+
   render();
 }
 

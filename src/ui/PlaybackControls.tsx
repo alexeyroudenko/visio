@@ -36,6 +36,11 @@ export function PlaybackControls() {
   const setCueDrone = useTimelineStore((s) => s.setCueDrone);
   const setDevelopmentBpm = useTimelineStore((s) => s.setDevelopmentBpm);
   const setDroneZoneParams = useTimelineStore((s) => s.setDroneZoneParams);
+  const renderInFrame = useTimelineStore((s) => s.renderInFrame);
+  const renderOutFrame = useTimelineStore((s) => s.renderOutFrame);
+  const setRenderIn = useTimelineStore((s) => s.setRenderIn);
+  const setRenderOut = useTimelineStore((s) => s.setRenderOut);
+  const clearRenderRange = useTimelineStore((s) => s.clearRenderRange);
 
   const [editingFrame, setEditingFrame] = useState(false);
   const [frameDraft, setFrameDraft] = useState("");
@@ -96,6 +101,12 @@ export function PlaybackControls() {
 
   const atEnd = currentFrame >= duration;
   const activeDrone = droneByZone[droneTab];
+  const hasRenderRange = renderInFrame != null && renderOutFrame != null;
+  const rangeStart = hasRenderRange ? Math.min(renderInFrame, renderOutFrame) : 0;
+  const rangeEnd = hasRenderRange ? Math.max(renderInFrame, renderOutFrame) : duration;
+  const rangeLeftPct = duration > 0 ? (rangeStart / duration) * 100 : 0;
+  const rangeWidthPct =
+    duration > 0 ? ((rangeEnd - rangeStart) / duration) * 100 : 100;
 
   return (
     <div className="playback">
@@ -156,17 +167,63 @@ export function PlaybackControls() {
         >
           ●
         </button>
-        <input
-          type="range"
-          className="playback__scrub"
-          min={0}
-          max={duration}
-          value={Math.min(currentFrame, duration)}
-          onChange={(e) => {
-            pause();
-            seek(Number(e.target.value));
-          }}
-        />
+        <button
+          type="button"
+          className={`button button--small playback__round${
+            renderInFrame != null ? " playback__mark--on" : ""
+          }`}
+          onClick={() => setRenderIn()}
+          title="Set render In at playhead (Render exports this range)"
+        >
+          I
+        </button>
+        <button
+          type="button"
+          className={`button button--small playback__round${
+            renderOutFrame != null ? " playback__mark--on" : ""
+          }`}
+          onClick={() => setRenderOut()}
+          title="Set render Out at playhead (Render exports this range)"
+        >
+          O
+        </button>
+        {hasRenderRange ? (
+          <button
+            type="button"
+            className="button button--small playback__round"
+            onClick={clearRenderRange}
+            title="Clear render range — Render uses the full timeline"
+          >
+            ×
+          </button>
+        ) : null}
+        <div
+          className={`playback__scrub-wrap${hasRenderRange ? " playback__scrub-wrap--ranged" : ""}`}
+        >
+          {hasRenderRange ? (
+            <div
+              className="playback__scrub-range"
+              style={{ left: `${rangeLeftPct}%`, width: `${rangeWidthPct}%` }}
+              aria-hidden
+            />
+          ) : null}
+          <input
+            type="range"
+            className="playback__scrub"
+            min={0}
+            max={duration}
+            value={Math.min(currentFrame, duration)}
+            onChange={(e) => {
+              pause();
+              seek(Number(e.target.value));
+            }}
+            title={
+              hasRenderRange
+                ? `Playhead · render F${rangeStart}–F${rangeEnd}`
+                : "Scrub playhead · I / O set render range"
+            }
+          />
+        </div>
         <div className="playback__time">
           {editingFrame ? (
             <input
@@ -224,6 +281,14 @@ export function PlaybackControls() {
               </button>
             )}
           </span>
+          {hasRenderRange ? (
+            <span
+              className="playback__range-label"
+              title="Offline Render uses this inclusive frame range"
+            >
+              R F{rangeStart}–{rangeEnd}
+            </span>
+          ) : null}
         </div>
         <button
           type="button"

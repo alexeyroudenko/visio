@@ -28,10 +28,12 @@ async function decodeUrl(url: string): Promise<AudioBuffer> {
   }
 }
 
-/** Mix sources into a mono/stereo buffer covering [0, durationSec]. */
+/** Mix sources into a mono/stereo buffer covering [0, durationSec].
+ *  `startOffsetSec` skips into each source (timeline start of a render range). */
 export async function mixRenderAudio(
   sources: RenderAudioSource[],
   durationSec: number,
+  startOffsetSec = 0,
 ): Promise<AudioBuffer | null> {
   if (sources.length === 0 || durationSec <= 0) return null;
 
@@ -53,6 +55,7 @@ export async function mixRenderAudio(
   );
   const length = Math.max(1, Math.ceil(durationSec * sampleRate));
   const offline = new OfflineAudioContext(numberOfChannels, length, sampleRate);
+  const offset = Math.max(0, startOffsetSec);
 
   for (const { buffer, speed, volume } of decoded) {
     const node = offline.createBufferSource();
@@ -62,7 +65,9 @@ export async function mixRenderAudio(
     gain.gain.value = volume;
     node.connect(gain);
     gain.connect(offline.destination);
-    node.start(0);
+    // Offset is in the source's own time (before playbackRate stretch).
+    const sourceOffset = speed > 0 ? offset * speed : 0;
+    node.start(0, sourceOffset);
   }
 
   return offline.startRendering();

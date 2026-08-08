@@ -96,6 +96,12 @@ export interface ExportTimelineOptions {
   /** Timeline fps (playhead / keyframes). */
   timelineFps: number;
   durationInFrames: number;
+  /**
+   * Inclusive timeline frames to export. Defaults to the full composition
+   * `[0, durationInFrames]`.
+   */
+  startFrame?: number;
+  endFrame?: number;
   paramKeyframes: ParamKeyframes;
   /**
    * Output file fps. Defaults to 60 — independent of the source video and of
@@ -117,6 +123,8 @@ interface RenderPassContext {
   paramKeyframes: ParamKeyframes;
   modulators: Modulators;
   timelineFps: number;
+  /** Inclusive timeline start of this export. */
+  startFrame: number;
   outputFps: number;
   outputFrames: number;
   onFrame?: (timelineFrame: number) => void;
@@ -137,7 +145,8 @@ function toGraphEdges(edges: Edge[]) {
 async function renderOneFrame(ctx: RenderPassContext, outputIndex: number): Promise<number> {
   if (ctx.signal?.aborted) throw new Error("Render cancelled");
 
-  const timelineFrame = Math.round((outputIndex / ctx.outputFps) * ctx.timelineFps);
+  const timelineFrame =
+    ctx.startFrame + Math.round((outputIndex / ctx.outputFps) * ctx.timelineFps);
   ctx.onFrame?.(timelineFrame);
 
   const keyed = applyKeyframesToNodes(
@@ -381,6 +390,8 @@ export async function exportTimelineVideo(
     height,
     timelineFps,
     durationInFrames,
+    startFrame: startFrameOpt,
+    endFrame: endFrameOpt,
     paramKeyframes,
     modulators = {},
     outputFps: outputFpsOpt,
@@ -391,8 +402,20 @@ export async function exportTimelineVideo(
 
   if (durationInFrames <= 0) throw new Error("Timeline duration is empty");
 
+  let startFrame = Math.max(0, Math.round(startFrameOpt ?? 0));
+  let endFrame = Math.max(
+    0,
+    Math.round(endFrameOpt ?? durationInFrames),
+  );
+  startFrame = Math.min(startFrame, durationInFrames);
+  endFrame = Math.min(endFrame, durationInFrames);
+  if (endFrame < startFrame) [startFrame, endFrame] = [endFrame, startFrame];
+  // Inclusive span — at least one timeline frame.
+  const rangeFrames = Math.max(1, endFrame - startFrame + 1);
+
   const outputFps = Math.max(1, Math.round(outputFpsOpt ?? 60));
-  const durationSec = durationInFrames / Math.max(1, timelineFps);
+  const durationSec = rangeFrames / Math.max(1, timelineFps);
+  const startSec = startFrame / Math.max(1, timelineFps);
   const outputFrames = Math.max(1, Math.round(durationSec * outputFps));
 
   const wasPaused = engine.isPaused;
@@ -408,6 +431,7 @@ export async function exportTimelineVideo(
     paramKeyframes,
     modulators,
     timelineFps,
+    startFrame,
     outputFps,
     outputFrames,
     onFrame,
@@ -419,7 +443,7 @@ export async function exportTimelineVideo(
   try {
     const audioSources = engine.collectRenderAudioSources();
     if (audioSources.length > 0) {
-      const mixed = await mixRenderAudio(audioSources, durationSec);
+      const mixed = await mixRenderAudio(audioSources, durationSec, startSec);
       if (mixed) {
         encodedAudio = await encodeAudioBufferOpus(mixed);
         if (!encodedAudio) {

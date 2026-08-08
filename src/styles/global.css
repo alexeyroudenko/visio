@@ -2216,10 +2216,49 @@ canvas.knob:focus-visible {
   color: #000 !important;
 }
 
-.playback__scrub {
+.playback__scrub-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-width: 80px;
+  display: flex;
+  align-items: center;
+  height: 22px;
+}
+
+.playback__scrub-range {
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 35%, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.playback__scrub-wrap--ranged .playback__scrub-range {
+  background: color-mix(in srgb, #7fe3c0 45%, transparent);
+}
+
+.playback__scrub {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   cursor: pointer;
+  background: transparent;
+}
+
+.playback__mark--on {
+  border-color: #7fe3c0 !important;
+  color: #7fe3c0 !important;
+}
+
+.playback__range-label {
+  color: #7fe3c0;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .playback__time {
