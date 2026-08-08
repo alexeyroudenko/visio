@@ -65,6 +65,8 @@ interface Cell {
   h: number;
 }
 
+const EMPTY_POINTS: PointsValue = { points: [] };
+
 /** Downscaled boolean mask of "drawn content" pixels (non-background). */
 interface ContentMask {
   data: Uint8Array;
@@ -395,21 +397,42 @@ export function trimCellsToContent(
   return trimmed;
 }
 
+/** A feature point in pixel space, carrying the score it came in with. */
+interface GridPoint {
+  x: number;
+  y: number;
+  score: number;
+}
+
 /**
  * Recursively partitions the frame (a guillotine / k-d split) using feature
  * points as split positions, producing a Mondrian-like grid of leaf cells.
  * Ported from the cv-reels brand generator.
+ *
+ * `splits` collects the medians a cut was actually made at. Most of the cloud
+ * never becomes one — the recursion bottoms out on depth or cell size long
+ * before every point has had a turn — so it is the only honest answer to which
+ * points the grid was built from.
  */
 function buildGrid(
-  points: { x: number; y: number }[],
+  points: GridPoint[],
   width: number,
   height: number,
   maxDepth: number,
   minSize: number,
-): Cell[] {
+): { cells: Cell[]; splits: GridPoint[] } {
   const cells: Cell[] = [];
+  const splits: GridPoint[] = [];
+  // A point that lands on the median of both a vertical and a horizontal cut
+  // is still one point, not two.
+  const alreadySplit = new Set<GridPoint>();
+  const markSplit = (point: GridPoint): void => {
+    if (alreadySplit.has(point)) return;
+    alreadySplit.add(point);
+    splits.push(point);
+  };
 
-  const split = (rect: Cell, inside: { x: number; y: number }[], depth: number): void => {
+  const split = (rect: Cell, inside: GridPoint[], depth: number): void => {
     const tooSmall = rect.w < minSize * 2 || rect.h < minSize * 2;
     if (depth >= maxDepth || inside.length === 0 || tooSmall) {
       cells.push(rect);
@@ -431,6 +454,7 @@ function buildGrid(
         cells.push(rect);
         return;
       }
+      markSplit(median);
       const leftWidth = splitX - rect.x;
       split(
         { x: rect.x, y: rect.y, w: leftWidth, h: rect.h },
@@ -448,6 +472,7 @@ function buildGrid(
         cells.push(rect);
         return;
       }
+      markSplit(median);
       const topHeight = splitY - rect.y;
       split(
         { x: rect.x, y: rect.y, w: rect.w, h: topHeight },
@@ -463,14 +488,46 @@ function buildGrid(
   };
 
   split({ x: 0, y: 0, w: width, h: height }, points, 0);
-  return cells;
+  return { cells, splits };
+}
+
+/**
+ * Split points that still border a surviving cell, normalized for the `points`
+ * port. Content-edge culling can delete the very cells a cut produced, and a
+ * point marking a boundary that is no longer drawn is not one the grid ended up
+ * using. Cuts land exactly on a cell edge, hence the pixel of tolerance.
+ */
+function pointsOnCells(
+  splits: readonly GridPoint[],
+  cells: readonly Cell[],
+  width: number,
+  height: number,
+): PointsValue {
+  const tol = 1;
+  const kept = splits.filter((point) =>
+    cells.some(
+      (cell) =>
+        point.x >= cell.x - tol &&
+        point.x <= cell.x + cell.w + tol &&
+        point.y >= cell.y - tol &&
+        point.y <= cell.y + cell.h + tol,
+    ),
+  );
+  return {
+    points: kept.map((point) => ({
+      x: point.x / width,
+      y: point.y / height,
+      score: point.score,
+    })),
+  };
 }
 
 export const featuresGridNode = defineNode<GridState>({
   type: "draw.featuresGrid",
   label: "Features Grid",
   category: "draw",
-  description: "Mondrian grid: frame recursively split by tracking points, with cell labels.",
+  description:
+    "Mondrian grid: frame recursively split by tracking points, with cell labels. Also outputs the points it actually cut at.",
   inputs: [
     { id: "bg", label: "bg", type: "texture" },
     { id: "frame", label: "frame", type: "frame" },
@@ -479,6 +536,7 @@ export const featuresGridNode = defineNode<GridState>({
   outputs: [
     { id: "out", label: "texture", type: "texture" },
     { id: "rects", label: "rects", type: "boxes" },
+    { id: "points", label: "points", type: "points" },
   ],
   params: [
     { key: "color", label: "Color", type: "color", default: "#f5f0e6" },
@@ -597,17 +655,26 @@ export const featuresGridNode = defineNode<GridState>({
     // With no points there is nothing to split, but the tracker still has to
     // tick — that is how held rectangles expire and their grains fade out.
     if (!data || data.points.length === 0) {
-      return { out: target, rects: trackRects(state, [], width, height, params, []) };
+      return {
+        out: target,
+        rects: trackRects(state, [], width, height, params, []),
+        points: EMPTY_POINTS,
+      };
     }
 
     const minSize = Math.max(8, paramNumber(params, "minSize", 64));
-    let cells = buildGrid(
-      data.points.map((point) => ({ x: point.x * width, y: point.y * height })),
+    const grid = buildGrid(
+      data.points.map((point) => ({
+        x: point.x * width,
+        y: point.y * height,
+        score: point.score,
+      })),
       width,
       height,
       Math.round(paramNumber(params, "maxDepth", 5)),
       minSize,
     );
+    let cells = grid.cells;
 
     const background = inputs.bg;
     const frame = inputs.frame as FrameValue | null;
@@ -677,7 +744,8 @@ export const featuresGridNode = defineNode<GridState>({
     }
 
     const rects = trackRects(state, cells, width, height, params, effectFlags);
-    if (cells.length === 0) return { out: target, rects };
+    const usedPoints = pointsOnCells(grid.splits, cells, width, height);
+    if (cells.length === 0) return { out: target, rects, points: usedPoints };
 
     const color = paramString(params, "color", "#f5f0e6");
     const stroke = paramNumber(params, "stroke", 1);
@@ -715,6 +783,6 @@ export const featuresGridNode = defineNode<GridState>({
 
     // Nothing to composite when the filter took every cell — skip the upload.
     if (drawn > 0) state.overlay.commit(ctx, target);
-    return { out: target, rects };
+    return { out: target, rects, points: usedPoints };
   },
 });

@@ -115,21 +115,39 @@ Frames and labels are built on a 2D canvas and uploaded as a texture (premultipl
 blended on top) — text has no cheap WebGL equivalent. Everything else is GPU.
 
 `Use content edge` hugs the silhouette instead of the canvas: cells touching a
-border are trimmed to the outermost content pixel in their own band. The mask
-behind it is built at 480 px wide from the Media `frame` when one is wired up,
-and otherwise from a **downscaled** readback of the background (GPU blit to
-480-wide, then `readPixels` — never the full frame). Either way it describes the
-*background*, which changes far slower than the cells riding on it, so it is
-cached and rebuilt on `Edge mask every N frames` (default 4). Without a `frame`
-input the interval is floored at 4 even if the dial is lower — that path is the
-stall. Trimming itself still runs every frame; only the mask is throttled. At
+border are trimmed to the outermost content pixel in their own band, and
+`Min content` (default 5%) then drops whatever is left sitting on the backdrop.
+That cull is what stops a point found on the background — the frame's own
+corners are strong Shi–Tomasi corners — from splitting out a block over empty
+space; edge trimming alone cannot see those, since a cell in the middle of the
+frame touches nothing. Set it to 0 to trim without culling.
+
+The mask behind it comes from a **downscaled** readback of `bg` (GPU blit to
+480-wide, then `readPixels` — never the full frame), because `bg` is the only
+input in the cells' own coordinate space. Media `frame` is the raw decoded
+picture and knows nothing of the source node's fit, zoom or mirror, so a mask
+stretched from it puts the silhouette somewhere other than where it is on
+screen; it stays as a fallback for a grid drawn with no background at all. The
+mask describes the *background*, which changes far slower than the cells riding
+on it, so it is cached and rebuilt on `Edge mask every N frames` (default 4),
+floored at 4 whenever the readback is the source — that path is the stall.
+Trimming itself still runs every frame; only the mask is throttled. At
 1080×1920 the old full-frame fallback was 24 ms per frame at interval 1; with
 the downscale + throttle it stays in the single-digit ms range.
 
 `Effect cell fraction` + `Effect seed` enable smear from the original: for cells
 picked by a seeded LCG, a 1 px-wide column from the center is stretched across the
 whole cell. Each such cell is a separate pass with `gl.viewport` set to its
-rectangle, so the shader does not iterate cells per pixel.
+rectangle, so the shader does not iterate cells per pixel. `Filled frames`
+outlines only those cells, so the grid reads as a set of solid blocks rather
+than a wireframe with a few of them shaded.
+
+The **`points` output** is the cuts, not the cloud: the medians a split was
+actually made at, each reported once however many cuts it served, and minus any
+whose cells the content cull removed. Most of an incoming cloud never becomes a
+cut — the recursion bottoms out on `Depth` or `Min cell` long before every point
+has had a turn — so this is the only honest answer to which points the grid was
+built from. Wire it into Draw Points to see the skeleton of the split.
 
 The **`rects` output** hands the same leaf cells on as normalized `boxes`, which
 is what drives Granular (and plugs into Draw Boxes unchanged). The grid is rebuilt

@@ -738,6 +738,39 @@ async function run(): Promise<void> {
     `kept=${uncalled.length}`,
   );
 
+  // The `points` port reports the cuts, not the cloud: at depth 1 only the
+  // first median is spent, and the other two test points go nowhere.
+  const gridOutputs = engine as unknown as { outputs: Map<string, Record<string, unknown>> };
+  const gridPointsAt = (maxDepth: number) => {
+    engine.setGraph(
+      [
+        { id: "pts", type: "test.points", params: {} },
+        {
+          id: "grid",
+          type: "draw.featuresGrid",
+          params: { ...defaultParams("draw.featuresGrid"), maxDepth, minSize: 40, labels: false },
+        },
+      ],
+      [{ id: "a", source: "pts", sourceHandle: "out", target: "grid", targetHandle: "points" }],
+    );
+    engine.tick();
+    return (gridOutputs.outputs.get("grid")?.points as PointsValue | undefined)?.points ?? [];
+  };
+
+  const deepSplits = gridPointsAt(4);
+  check(
+    "grid points report each split once, however often it is reused",
+    deepSplits.length === 3,
+    `points=${deepSplits.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ") || "none"}`,
+  );
+
+  const shallowSplits = gridPointsAt(1);
+  check(
+    "grid points leave out the cloud the split never reached",
+    shallowSplits.length === 1 && Math.abs(shallowSplits[0]!.x - 0.5) < 0.01,
+    `points=${shallowSplits.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ") || "none"}`,
+  );
+
   // The `rects` port is what drives Granular, so it has to carry the same cells
   // the node just drew. Painting them through Draw Boxes proves the wire.
   engine.setGraph(
