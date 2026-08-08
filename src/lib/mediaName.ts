@@ -1,14 +1,9 @@
 import { fileParam } from "../nodes/shared/fileParam";
 import { useGraphStore } from "../store/graphStore";
 import { rememberedFile } from "../store/mediaMemory";
+import { fileStem } from "./fileStem";
 
-/** Strip extension: `clip.mp4` → `clip`. */
-export function fileStem(name: string): string {
-  const base = name.trim().replace(/[/\\?%*:|"<>]/g, "-");
-  const dot = base.lastIndexOf(".");
-  if (dot <= 0) return base || "visio";
-  return base.slice(0, dot) || base;
-}
+export { fileStem };
 
 /**
  * Best-effort original media filename stem from the open graph / media memory.

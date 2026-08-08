@@ -1462,6 +1462,11 @@ async function run(): Promise<void> {
     !("file" in patch.nodes[0].params),
     `params=${Object.keys(patch.nodes[0].params).join(",")}`,
   );
+  check(
+    "the source media file name survives even when the blob param does not",
+    patch.source === "x.mp4",
+    `source=${patch.source ?? "none"}`,
+  );
 
   const roundTrip = parsePatch(JSON.parse(JSON.stringify(patch)));
   check(

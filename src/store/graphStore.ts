@@ -373,15 +373,16 @@ function createGraphStore() {
     },
     exportPatch() {
       const { nodes, edges, width, height } = get();
-      downloadPatch(serializePatch(
+      const patch = serializePatch(
         nodes,
         edges,
         width,
         height,
         currentTimeline(),
         useModulatorStore.getState().byPath,
-      ));
-      appLog("ok", "patch", "exported JSON");
+      );
+      downloadPatch(patch);
+      appLog("ok", "patch", patch.source ? `exported JSON · ${patch.source}` : "exported JSON");
     },
     async importPatch(file) {
       try {

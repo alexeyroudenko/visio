@@ -6,9 +6,11 @@ import {
   type ParamKeyframe,
   type ParamKeyframes,
 } from "../lib/keyframes";
+import { fileStem } from "../lib/fileStem";
 import { parseModulators, type Modulators } from "../lib/modulators";
 import { cutsFromUnknown } from "../lib/reelMarkers";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
+import { fileParam } from "../nodes/shared/fileParam";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
 
@@ -71,6 +73,26 @@ export interface SerializedPatch {
   timeline?: SerializedTimeline;
   /** Optional for the same reason as `timeline` — older patches simply have none. */
   modulators?: Modulators;
+  /**
+   * Name of the footage the patch was built on. Dropped files live behind a
+   * `blob:` URL that the params drop on save, so without this an exported patch
+   * says nothing about which clip it belongs to.
+   */
+  source?: string;
+}
+
+/** Original media file name, video first — the same order downloads prefer. */
+function sourceFileName(nodes: PatchNode[]): string | null {
+  for (const prefer of ["video", "audio", "image"] as const) {
+    for (const node of nodes) {
+      const legacyMode = LEGACY_SOURCE_TYPES[node.data.defType];
+      if (node.data.defType !== "source.media" && !legacyMode) continue;
+      if ((node.data.params.mode ?? legacyMode) !== prefer) continue;
+      const file = fileParam(node.data.params);
+      if (file?.name) return file.name;
+    }
+  }
+  return null;
 }
 
 /**
@@ -138,10 +160,12 @@ export function serializePatch(
   timeline?: SerializedTimeline,
   modulators?: Modulators,
 ): SerializedPatch {
+  const source = sourceFileName(nodes);
   return {
     format: FORMAT,
     width,
     height,
+    ...(source ? { source } : {}),
     nodes: nodes.map((node) => ({
       id: node.id,
       type: node.data.defType,
@@ -349,7 +373,10 @@ export function downloadPatch(patch: SerializedPatch): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `visio-patch-${new Date().toISOString().slice(0, 10)}.json`;
+  const stamp = new Date().toISOString().slice(0, 10);
+  // Native media name first, then the stamp — same shape as render downloads.
+  const stem = patch.source ? fileStem(patch.source) : null;
+  link.download = stem ? `${stem}-visio-patch-${stamp}.json` : `visio-patch-${stamp}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
