@@ -1851,6 +1851,23 @@ canvas.knob:focus-visible {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--dim);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.timeline__title:hover {
+  color: var(--text);
+}
+
+.timeline--collapsed {
+  max-height: none;
+}
+
+.timeline--collapsed .timeline__toolbar {
+  border-bottom: 0;
 }
 
 .timeline__nav {

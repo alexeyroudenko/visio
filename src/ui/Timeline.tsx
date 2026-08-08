@@ -24,6 +24,24 @@ const TRACKS = [
   { id: "params", label: "Parameters" },
 ] as const;
 
+const COLLAPSED_KEY = "visio.timelineCollapsed";
+
+function loadTimelineCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveTimelineCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private mode — preference is best-effort.
+  }
+}
+
 interface MediaClip {
   id: string;
   label: string;
@@ -244,10 +262,19 @@ export function Timeline() {
   );
   const warningText = reelWarningMessage(reelZones.warning);
   const [zoom, setZoom] = useState(3);
+  const [collapsed, setCollapsed] = useState(loadTimelineCollapsed);
   const [dragPreview, setDragPreview] = useState<number | null>(null);
   const pxPerFrame = zoom;
   const totalFrames = Math.max(durationInFrames, fps * 5);
   const trackWidth = totalFrames * pxPerFrame + 160;
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      saveTimelineCollapsed(next);
+      return next;
+    });
+  };
 
   const rulerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -294,43 +321,61 @@ export function Timeline() {
   const playheadFrame = dragPreview ?? currentFrame;
 
   return (
-    <div className="timeline">
-      <div className="timeline__toolbar">
-        <span className="timeline__title">Timeline</span>
+    <div className={`timeline${collapsed ? " timeline--collapsed" : ""}`}>
+      <div
+        className="timeline__toolbar"
+        onDoubleClick={(e) => {
+          // Buttons / knobs keep their own double-click; only empty chrome toggles.
+          if ((e.target as HTMLElement).closest("button, input, select, label, a")) return;
+          toggleCollapsed();
+        }}
+        title="Double-click to collapse or expand"
+      >
+        <button
+          type="button"
+          className="timeline__title"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Expand timeline" : "Collapse timeline"}
+        >
+          Timeline {collapsed ? "▸" : "▾"}
+        </button>
         <PlaybackControls />
-        <div className="timeline__nav">
-          <button
-            type="button"
-            className="button button--small"
-            disabled={prevKeyframe === null}
-            onClick={() => prevKeyframe !== null && jumpToKeyframe(prevKeyframe)}
-          >
-            Prev key
-          </button>
-          <button
-            type="button"
-            className="button button--small"
-            disabled={nextKeyframe === null}
-            onClick={() => nextKeyframe !== null && jumpToKeyframe(nextKeyframe)}
-          >
-            Next key
-          </button>
-          <span className="timeline__zoom-label">Zoom</span>
-          <button
-            type="button"
-            className="button button--small"
-            onClick={() => setZoom((z) => Math.max(1, z - 1))}
-          >
-            −
-          </button>
-          <button
-            type="button"
-            className="button button--small"
-            onClick={() => setZoom((z) => Math.min(12, z + 1))}
-          >
-            +
-          </button>
-        </div>
+        {!collapsed ? (
+          <div className="timeline__nav">
+            <button
+              type="button"
+              className="button button--small"
+              disabled={prevKeyframe === null}
+              onClick={() => prevKeyframe !== null && jumpToKeyframe(prevKeyframe)}
+            >
+              Prev key
+            </button>
+            <button
+              type="button"
+              className="button button--small"
+              disabled={nextKeyframe === null}
+              onClick={() => nextKeyframe !== null && jumpToKeyframe(nextKeyframe)}
+            >
+              Next key
+            </button>
+            <span className="timeline__zoom-label">Zoom</span>
+            <button
+              type="button"
+              className="button button--small"
+              onClick={() => setZoom((z) => Math.max(1, z - 1))}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="button button--small"
+              onClick={() => setZoom((z) => Math.min(12, z + 1))}
+            >
+              +
+            </button>
+          </div>
+        ) : null}
         {warningText ? (
           <span className="timeline__reel-warn" title={warningText}>
             Reel: {reelZones.warning === "short" ? "<7s" : ">15s"}
@@ -338,6 +383,7 @@ export function Timeline() {
         ) : null}
       </div>
 
+      {!collapsed ? (
       <div className="timeline__body">
         <div className="timeline__labels">
           <div
@@ -499,6 +545,7 @@ export function Timeline() {
           </div>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }
