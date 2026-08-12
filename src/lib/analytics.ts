@@ -42,6 +42,9 @@ const MASKED_TEXT = [
 const PARAM_IDLE_MS = 700;
 const QUEUE_LIMIT = 50;
 
+const OPT_OUT_KEY = "visio.analytics.optOut";
+const FIRST_VISIT_KEY = "visio.analytics.seen";
+
 type Props = Record<string, unknown>;
 type Client = {
   init: (key: string, config: Props) => unknown;
@@ -63,9 +66,34 @@ function doNotTrack(): boolean {
   return flags.some((flag) => flag === "1" || flag === "yes");
 }
 
+/**
+ * Permanent per-device opt-out, for keeping our own use out of the data.
+ * `?analytics=off` sets it, `?analytics=on` clears it. Device-scoped rather
+ * than IP-based: it survives a change of network, covers the phone separately,
+ * and stops the events at the source instead of hiding them in the UI.
+ *
+ * Read once at import — `enabled()` runs on every `track()` and has no business
+ * touching localStorage that often.
+ */
+const optedOut = ((): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    const choice = new URLSearchParams(window.location.search).get("analytics");
+    if (choice === "off") localStorage.setItem(OPT_OUT_KEY, "1");
+    else if (choice === "on") localStorage.removeItem(OPT_OUT_KEY);
+    const off = localStorage.getItem(OPT_OUT_KEY) === "1";
+    // The page looks identical either way, so say which state this device is in.
+    if (choice) console.info(`[visio] analytics ${off ? "off" : "on"} for this browser`);
+    return off;
+  } catch {
+    return false; // private mode: nothing persisted, nothing to honour
+  }
+})();
+
 function enabled(): boolean {
   if (!KEY) return false;
   if (typeof window === "undefined") return false;
+  if (optedOut) return false;
   // Dev noise would swamp real usage; opt in explicitly when testing the wiring.
   if (!import.meta.env.PROD && import.meta.env.VITE_POSTHOG_DEV !== "1") return false;
   return !doNotTrack();
@@ -109,6 +137,37 @@ export function track(event: string, props: Props = {}): void {
   queue.push({ event, props });
 }
 
+interface LaunchContext {
+  /** The patch came back from localStorage rather than the default preset. */
+  restored: boolean;
+  nodes: number;
+  edges: number;
+}
+
+let launchContext: LaunchContext | null = null;
+
+/**
+ * Called by the graph store as it hydrates. It matters because the patch
+ * survives a reload: a returning visitor never repeats `media_added` /
+ * `node_added` / `edge_connected`, so without this flag they look like someone
+ * who dropped out at step one of the setup funnel. Filter on `restored: false`
+ * to get the actual first-run funnel.
+ */
+export function setLaunchContext(context: LaunchContext): void {
+  launchContext = context;
+}
+
+/** True once per browser, ever. Cheap stand-in for the person profiles we skip. */
+function firstVisit(): boolean {
+  try {
+    if (localStorage.getItem(FIRST_VISIT_KEY)) return false;
+    localStorage.setItem(FIRST_VISIT_KEY, new Date().toISOString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * GPU string is the single most useful field when someone reports "it's slow" —
  * this app is a WebGL2 renderer first and a node editor second.
@@ -131,6 +190,10 @@ function deviceProps(): Props {
     portrait: window.innerHeight > window.innerWidth,
     touch: navigator.maxTouchPoints > 0,
     media_recorder: typeof MediaRecorder !== "undefined",
+    first_visit: firstVisit(),
+    restored: launchContext?.restored ?? null,
+    nodes: launchContext?.nodes ?? null,
+    edges: launchContext?.edges ?? null,
   };
 }
 
@@ -166,7 +229,9 @@ export function initAnalytics(): void {
         client = posthog as unknown as Client;
         for (const item of queue) client.capture(item.event, item.props);
         queue.length = 0;
-        client.capture("app_loaded", deviceProps());
+        // Through track(), not client.capture: one path for every event keeps
+        // the dev tap honest about what actually goes out.
+        track("app_loaded", deviceProps());
       })
       .catch(() => {
         /* blocked by an extension or offline — analytics is never load-bearing */

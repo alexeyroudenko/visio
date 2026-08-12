@@ -454,6 +454,12 @@ actually build, and which knobs do they turn.
 
 Off unless `VITE_POSTHOG_KEY` is set — no key, no network, no chunk. Also off
 under Do Not Track, and off in `npm run dev` unless `VITE_POSTHOG_DEV=1`.
+
+**Excluding yourself:** open `…/?analytics=off` once per browser and that device
+never sends again (`?analytics=on` undoes it); it logs which state it is in.
+Device-scoped on purpose — an IP filter breaks the moment you switch networks
+or pick up the phone, and PostHog's own internal-user filter only hides events
+in the UI after they have already been ingested and billed.
 Copy `.env.example` → `.env.local` to run it locally; CI reads the repo
 variables `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` (Settings → Secrets and
 variables → Actions → **Variables**). The key is public by design — it ships in
@@ -467,7 +473,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 
 | Event | Fired at | Why |
 |---|---|---|
-| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow” |
+| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`, and `restored`/`nodes`/`edges`: the patch survives a reload, so a returning visitor never repeats the setup events and would otherwise read as a first-step drop-out. Filter the setup funnel on `restored: false` |
 | `first_source_ready` | first source node reporting ready | time-to-first-picture, once per session. Not the output node: draw and output nodes own no async resource and never leave `idle` |
 | `media_added` | Media node created | `kind` only (image/video/camera/audio), never the file |
 | `node_added` / `node_removed` / `node_bypass` | graph edits | which nodes get reached for |

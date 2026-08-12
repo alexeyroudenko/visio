@@ -10,7 +10,7 @@ import {
 } from "@xyflow/react";
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
-import { scrub, track, trackParam } from "../lib/analytics";
+import { scrub, setLaunchContext, track, trackParam } from "../lib/analytics";
 import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
@@ -171,6 +171,11 @@ function createGraphStore() {
   const initial = restored ?? patchFromPreset(DEFAULT_PRESET_ID)!;
   const initialPresetId = restored ? readActivePresetId() : DEFAULT_PRESET_ID;
   if (!restored) writeActivePresetId(DEFAULT_PRESET_ID);
+  setLaunchContext({
+    restored: Boolean(restored),
+    nodes: initial.nodes.length,
+    edges: initial.edges.length,
+  });
   // Startup seeds the store directly instead of going through loadPatch, so the
   // timeline has to be adopted here too or a reload drops every key.
   if (initial.timeline) useTimelineStore.getState().loadTimeline(initial.timeline);
