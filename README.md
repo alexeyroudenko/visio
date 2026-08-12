@@ -419,6 +419,8 @@ double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
 stays in the main window and nothing is rendered twice.
 - **Recording** to webm — toolbar ● Record (realtime canvas capture).
 - **Render** — toolbar Render: offline frame-by-frame timeline export (not realtime).
+  On finish it downloads the video **and** a matching patch JSON with the same
+  basename (`clip-render-….webm` + `clip-render-….json`).
 Both write at the bitrate set in Settings (12 Mbps by default); fps is a Render
 setting alone, since Record follows the clock.
 - **Exported patches** lead with the footage they were built on —

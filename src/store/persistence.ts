@@ -368,15 +368,19 @@ export function clearStorage(): void {
   }
 }
 
-export function downloadPatch(patch: SerializedPatch): void {
+export function downloadPatch(patch: SerializedPatch, filename?: string): void {
   const blob = new Blob([JSON.stringify(patch, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  const stamp = new Date().toISOString().slice(0, 10);
-  // Native media name first, then the stamp — same shape as render downloads.
-  const stem = patch.source ? fileStem(patch.source) : null;
-  link.download = stem ? `${stem}-visio-patch-${stamp}.json` : `visio-patch-${stamp}.json`;
+  if (filename) {
+    link.download = filename.endsWith(".json") ? filename : `${filename}.json`;
+  } else {
+    const stamp = new Date().toISOString().slice(0, 10);
+    // Native media name first, then the stamp — same shape as render downloads.
+    const stem = patch.source ? fileStem(patch.source) : null;
+    link.download = stem ? `${stem}-visio-patch-${stamp}.json` : `visio-patch-${stamp}.json`;
+  }
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

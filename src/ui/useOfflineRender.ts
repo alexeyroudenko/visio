@@ -5,8 +5,9 @@ import { downloadTimelineRender, exportTimelineVideo } from "../lib/exportTimeli
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
 import { appLog } from "../store/consoleStore";
-import { useGraphStore } from "../store/graphStore";
+import { currentTimeline, useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
+import { downloadPatch, serializePatch } from "../store/persistence";
 import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
 
 /**
@@ -77,11 +78,18 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         },
         onProgress: setProgress,
       });
-      downloadTimelineRender(blob);
+      const stem = downloadTimelineRender(blob);
+      // Same basename as the video so a finished render and its graph stay paired.
+      // A short delay keeps Chromium from collapsing the second save into one click.
+      const patch = serializePatch(nodes, edges, width, height, currentTimeline(), modulators);
+      window.setTimeout(() => {
+        downloadPatch(patch, `${stem}.json`);
+      }, 250);
+      const videoExt = blob.type.includes("mp4") ? "mp4" : "webm";
       appLog(
         "ok",
         "render",
-        `saved · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
+        `saved · ${stem}.${videoExt} + ${stem}.json · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

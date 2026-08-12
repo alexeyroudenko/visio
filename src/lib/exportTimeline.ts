@@ -486,9 +486,19 @@ export async function exportTimelineVideo(
   }
 }
 
-export function downloadTimelineRender(blob: Blob): void {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+/** Shared basename for a render download pair (video + patch), without extension. */
+export function timelineRenderStem(now = new Date()): string {
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  return withSourcePrefix(`render-${stamp}`);
+}
+
+/**
+ * Save the finished timeline export. Returns the basename (no extension) so a
+ * matching patch JSON can reuse it — browsers treat each `a[download]` click
+ * separately, so the caller fires the second download a tick later.
+ */
+export function downloadTimelineRender(blob: Blob, stem = timelineRenderStem()): string {
   const ext = blob.type.includes("mp4") ? "mp4" : "webm";
-  // Native media name first, then the render stamp we used to ship alone.
-  downloadBlob(blob, `${withSourcePrefix(`render-${stamp}`)}.${ext}`);
+  downloadBlob(blob, `${stem}.${ext}`);
+  return stem;
 }
