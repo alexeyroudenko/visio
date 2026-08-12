@@ -15,8 +15,11 @@
  */
 import type { ParamSpec } from "../engine/types";
 
-const KEY = import.meta.env.VITE_POSTHOG_KEY ?? "";
-const HOST = import.meta.env.VITE_POSTHOG_HOST ?? "https://eu.i.posthog.com";
+// `||`, not `??`: an unset GitHub Actions variable arrives as an empty string,
+// and an empty api_host makes posthog-js post to the current origin instead of
+// the default — events would 404 against our own nginx and vanish silently.
+const KEY = import.meta.env.VITE_POSTHOG_KEY?.trim() || "";
+const HOST = import.meta.env.VITE_POSTHOG_HOST?.trim() || "https://eu.i.posthog.com";
 
 /** Share of sessions that get a replay recording. Free tier is 5k/month. */
 const REPLAY_SAMPLE = 0.3;
