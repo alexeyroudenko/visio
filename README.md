@@ -446,6 +446,58 @@ CI: push to `main` (or Actions → **Deploy** → Run workflow) builds and rsync
 Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)  
 (New subdomain needs LE expand: `certbot --cert-name aa.arthew0.online --expand -d … -d visio.aa.arthew0.online`.)
 
+## Analytics
+
+Product analytics via **PostHog Cloud (EU)**, wired in [`src/lib/analytics.ts`](src/lib/analytics.ts).
+It answers three questions: where do people give up, which node chains do they
+actually build, and which knobs do they turn.
+
+Off unless `VITE_POSTHOG_KEY` is set — no key, no network, no chunk. Also off
+under Do Not Track, and off in `npm run dev` unless `VITE_POSTHOG_DEV=1`.
+Copy `.env.example` → `.env.local` to run it locally; CI reads the repo
+variables `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` (Settings → Secrets and
+variables → Actions → **Variables**). The key is public by design — it ships in
+the bundle, so it is a variable, not a secret.
+
+`posthog-js` is a dynamic import fired on `requestIdleCallback`, so it never
+competes with MediaPipe or the first GL frame: a separate 82 kB gzip chunk that
+loads after the app is interactive. Events fired before it lands are queued.
+
+### Events
+
+| Event | Fired at | Why |
+|---|---|---|
+| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow” |
+| `first_source_ready` | first source node reporting ready | time-to-first-picture, once per session. Not the output node: draw and output nodes own no async resource and never leave `idle` |
+| `media_added` | Media node created | `kind` only (image/video/camera/audio), never the file |
+| `node_added` / `node_removed` / `node_bypass` | graph edits | which nodes get reached for |
+| `edge_connected` | wire accepted | the chains people build — from/to type and port |
+| `edge_refused` | type mismatch | a wrong mental model of the graph, i.e. a затык |
+| `param_changed` | 700 ms after the last change | the knobs; a drag is one event with a `moves` count |
+| `preset_applied`, `patch_imported`/`_exported`/`_reset`, `resolution_changed` | toolbar & modals | entry points |
+| `render_started` / `_finished` / `_cancelled` / `_failed` | offline render | the main conversion, plus how long people wait |
+| `record_started` / `_saved` / `_failed` | canvas recording | where MediaRecorder support gives out (Safari/iOS) |
+| `node_error`, `app_error` | node status, app console | catch-all; `app_error` overlaps the specific ones by design |
+
+Autocapture is limited to `button`/`a`, so clicks on chrome are free but node
+bodies are not captured. Uncaught exceptions go to PostHog Error Tracking.
+
+### What is never sent
+
+File names, blob URLs and Windows paths (`scrub()` strips them from every
+message), and the value of any `file`, `text`, `code` or `json` param — shader
+source and prompts report only that they changed and how long they are. Only
+`range`/`toggle`/`select`/`color` params, which we author ourselves, report a value.
+
+Session replay records 30% of sessions (sticky per tab via `sessionStorage`;
+the free tier is 5k recordings/month). React Flow is DOM, so the graph replays
+properly — the canvas does not, because rrweb skips canvas unless asked, which
+keeps camera and footage frames out of recordings entirely. Inputs are masked,
+as is the text of `.media-info__value`, `.timeline__clip-label`, `.param__hint`,
+`.editor__backdrop-caption`, `.modal__status` and anything marked `.ph-mask`.
+Known gap: a `title` attribute on those same elements can still carry a file
+name into a replay.
+
 ## What’s next
 
 - (open) —

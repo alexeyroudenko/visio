@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { scrub, track } from "../lib/analytics";
 
 export type LogLevel = "info" | "ok" | "warn" | "error";
 
@@ -71,6 +72,16 @@ if (typeof window !== "undefined") {
   window.__visioConsoleStore = useConsoleStore;
 }
 
+/** `circles-3` → `circles`: node ids would otherwise explode the breakdown. */
+function sourceGroup(source: string): string {
+  return source.replace(/-\d+$/, "");
+}
+
 export function appLog(level: LogLevel, source: string, message: string): void {
   useConsoleStore.getState().push(level, source, message);
+  if (level === "error") {
+    // Catch-all net under the hand-written events: anything that reaches the
+    // app console as an error is a session that went wrong somewhere.
+    track("app_error", { source: sourceGroup(source), message: scrub(message) });
+  }
 }

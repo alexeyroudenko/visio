@@ -6,6 +6,8 @@
  * we try that next and surface a clear error when nothing is supported.
  */
 import { useCallback, useRef, useState } from "react";
+// Aliased: `track` is already a MediaStream track in this file.
+import { scrub, track as trackEvent } from "../lib/analytics";
 import { withSourcePrefix } from "../lib/mediaName";
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { appLog } from "../store/consoleStore";
@@ -46,23 +48,31 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
   }, []);
 
   const start = useCallback(() => {
+    // Recording is where browser support falls apart (Safari/iOS especially);
+    // every bail-out reports so the gap shows up as a number, not a bug report.
+    const fail = (message: string) => {
+      appLog("error", "record", message);
+      trackEvent("record_failed", { reason: scrub(message) });
+    };
+
     const canvas = getCanvas();
     if (!canvas) {
       appLog("warn", "record", "no canvas to capture");
+      trackEvent("record_failed", { reason: "no canvas" });
       return;
     }
     if (typeof MediaRecorder === "undefined") {
-      appLog("error", "record", "MediaRecorder is not supported in this browser");
+      fail("MediaRecorder is not supported in this browser");
       return;
     }
     if (typeof canvas.captureStream !== "function") {
-      appLog("error", "record", "canvas.captureStream is not supported in this browser");
+      fail("canvas.captureStream is not supported in this browser");
       return;
     }
 
     const mimeType = pickRecorderMimeType();
     if (mimeType === null) {
-      appLog("error", "record", "no supported video MIME for MediaRecorder");
+      fail("no supported video MIME for MediaRecorder");
       return;
     }
 
@@ -70,11 +80,7 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
     try {
       stream = canvas.captureStream(60);
     } catch (error) {
-      appLog(
-        "error",
-        "record",
-        error instanceof Error ? error.message : "captureStream failed",
-      );
+      fail(error instanceof Error ? error.message : "captureStream failed");
       return;
     }
 
@@ -87,9 +93,7 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
         : new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
     } catch (error) {
       stream.getTracks().forEach((track) => track.stop());
-      appLog(
-        "error",
-        "record",
+      fail(
         error instanceof Error
           ? `MediaRecorder failed: ${error.message}`
           : "MediaRecorder failed to start",
@@ -98,12 +102,14 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
     }
 
     chunksRef.current = [];
+    /** Set once the recorder actually starts; onstop reads it for the duration. */
+    let startedAt = 0;
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onerror = () => {
-      appLog("error", "record", "MediaRecorder error — recording stopped");
+      fail("MediaRecorder error — recording stopped");
       stream.getTracks().forEach((track) => track.stop());
       recorderRef.current = null;
       setRecording(false);
@@ -111,8 +117,9 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
     recorder.onstop = () => {
       const type = recorder.mimeType || mimeType || "video/webm";
       const blob = new Blob(chunksRef.current, { type });
+      const sec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
       if (blob.size === 0) {
-        appLog("error", "record", "empty recording — nothing saved");
+        fail("empty recording — nothing saved");
       } else {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -122,6 +129,11 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 10_000);
         appLog("ok", "record", `saved ${link.download}`);
+        trackEvent("record_saved", {
+          sec,
+          format: extensionForMime(type),
+          size_mb: Number((blob.size / (1024 * 1024)).toFixed(1)),
+        });
       }
       stream.getTracks().forEach((track) => track.stop());
       recorderRef.current = null;
@@ -130,14 +142,11 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
 
     try {
       recorder.start(1000);
+      startedAt = performance.now();
     } catch (error) {
       stream.getTracks().forEach((track) => track.stop());
       recorderRef.current = null;
-      appLog(
-        "error",
-        "record",
-        error instanceof Error ? error.message : "MediaRecorder.start failed",
-      );
+      fail(error instanceof Error ? error.message : "MediaRecorder.start failed");
       return;
     }
 
@@ -148,6 +157,7 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
       "record",
       `started · ${recorder.mimeType || mimeType || "default"} · ${formatBitrate(bitrate)}`,
     );
+    trackEvent("record_started", { mime: recorder.mimeType || mimeType || "default", bitrate });
   }, [getCanvas]);
 
   const toggle = useCallback(() => {

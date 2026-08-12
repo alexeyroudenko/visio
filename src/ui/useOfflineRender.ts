@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { Engine } from "../engine/runtime";
+import { scrub, track } from "../lib/analytics";
 import { downloadTimelineRender, exportTimelineVideo } from "../lib/exportTimeline";
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
@@ -58,6 +59,19 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         : `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`,
     );
 
+    const startedAt = performance.now();
+    let latestProgress = 0;
+    track("render_started", {
+      frames: rangeFrames,
+      ranged,
+      timeline_fps: timeline.fps,
+      output_fps: outputFps,
+      bitrate,
+      w: width,
+      h: height,
+      nodes: nodes.length,
+    });
+
     try {
       const { blob, outputFps: writtenFps, outputFrames } = await exportTimelineVideo(engine, {
         nodes,
@@ -76,7 +90,12 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);
         },
-        onProgress: setProgress,
+        onProgress: (value) => {
+          // Mirrored into a local: the state value read from the catch block
+          // would be the one captured when this callback was created.
+          latestProgress = value;
+          setProgress(value);
+        },
       });
       const stem = downloadTimelineRender(blob);
       // Same basename as the video so a finished render and its graph stay paired.
@@ -91,12 +110,24 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         "render",
         `saved · ${stem}.${videoExt} + ${stem}.json · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
       );
+      track("render_finished", {
+        frames: outputFrames,
+        output_fps: writtenFps,
+        format: videoExt,
+        size_mb: Number((blob.size / (1024 * 1024)).toFixed(1)),
+        // How long a user is willing to wait — pair with render_started drop-off.
+        wait_sec: Number(((performance.now() - startedAt) / 1000).toFixed(1)),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const waitSec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
       if (controller.signal.aborted || /cancel/i.test(message)) {
         appLog("warn", "render", "cancelled");
+        // Cancelling at 80% means something different from cancelling at 5%.
+        track("render_cancelled", { wait_sec: waitSec, progress: Number(latestProgress.toFixed(2)) });
       } else {
         appLog("error", "render", message);
+        track("render_failed", { reason: scrub(message), wait_sec: waitSec });
       }
     } finally {
       abortRef.current = null;

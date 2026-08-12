@@ -10,6 +10,7 @@ import {
 } from "@xyflow/react";
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
+import { scrub, track, trackParam } from "../lib/analytics";
 import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
@@ -98,6 +99,8 @@ function writeActivePresetId(id: string | null): void {
 }
 
 let nodeCounter = 0;
+/** `first_source_ready` is a once-per-session milestone, not a status echo. */
+let reportedFirstSource = false;
 function nextId(defType: string, taken: Set<string>): string {
   const base = defType.split(".")[1] ?? defType;
   let id: string;
@@ -209,6 +212,14 @@ function createGraphStore() {
           "graph",
           `refused ${connection.source}.${connection.sourceHandle} → ${connection.target}.${connection.targetHandle} (type mismatch)`,
         );
+        // A refused wire is someone's mental model of the graph being wrong —
+        // the clearest "затык" signal the editor produces.
+        track("edge_refused", {
+          from_type: sourceNode.data.defType,
+          from_port: connection.sourceHandle,
+          to_type: targetNode.data.defType,
+          to_port: connection.targetHandle,
+        });
         return;
       }
 
@@ -223,6 +234,15 @@ function createGraphStore() {
         "graph",
         `linked ${connection.source}.${connection.sourceHandle} → ${connection.target}.${connection.targetHandle}`,
       );
+      // Which chains people actually build — the payoff event of the whole setup.
+      track("edge_connected", {
+        from_type: sourceNode.data.defType,
+        from_port: connection.sourceHandle,
+        to_type: targetNode.data.defType,
+        to_port: connection.targetHandle,
+        port_type: sourcePort.type,
+        replaced: cleaned.length !== edges.length,
+      });
     },
     addNode(defType, position, params) {
       const id = nextId(defType, new Set(get().nodes.map((node) => node.id)));
@@ -237,6 +257,18 @@ function createGraphStore() {
         selectedId: id,
       });
       appLog("ok", "graph", `added ${defType} (${id})`);
+      track("node_added", {
+        node_type: defType,
+        category: NODE_DEFS[defType]?.category ?? null,
+        graph_size: get().nodes.length,
+      });
+      if (defType === "source.media") {
+        // Only the kind travels — never the name, size or blob URL of the file.
+        track("media_added", {
+          kind: typeof merged.mode === "string" ? merged.mode : null,
+          via: merged.file ? "drop" : "toolbar",
+        });
+      }
       return id;
     },
     removeNode(id) {
@@ -247,9 +279,11 @@ function createGraphStore() {
         selectedId: get().selectedId === id ? null : get().selectedId,
       });
       appLog("info", "graph", `removed ${node?.data.defType ?? "node"} (${id})`);
+      track("node_removed", { node_type: node?.data.defType ?? null });
       publishMediaInfo(id, null);
     },
     setParam(id, key, value) {
+      const target = get().nodes.find((node) => node.id === id);
       set({
         nodes: get().nodes.map((node) => {
           if (node.id !== id) return node;
@@ -278,6 +312,15 @@ function createGraphStore() {
             : "file";
         appLog("info", id, `file → ${name}`);
       }
+      if (target) {
+        // Debounced inside trackParam: a knob drag is one event, not one per pixel.
+        trackParam(
+          target.data.defType,
+          key,
+          value,
+          NODE_DEFS[target.data.defType]?.params.find((spec) => spec.key === key),
+        );
+      }
     },
     setBypass(id, bypass) {
       set({
@@ -286,6 +329,10 @@ function createGraphStore() {
         ),
       });
       appLog("info", id, bypass ? "bypass on" : "bypass off");
+      track("node_bypass", {
+        node_type: get().nodes.find((node) => node.id === id)?.data.defType ?? null,
+        bypass,
+      });
     },
     setDebug(id, debug) {
       set({
@@ -313,11 +360,39 @@ function createGraphStore() {
                 : "info";
         const detail = next.message ? `${next.status}: ${next.message}` : next.status;
         appLog(level, id, detail);
+        if (next.status === "error") {
+          // Denied camera, a model that never downloaded, an unplayable file —
+          // the затыки that leave the user staring at an empty output.
+          track("node_error", {
+            node_type: get().nodes.find((node) => node.id === id)?.data.defType ?? null,
+            message: next.message ? scrub(next.message) : null,
+          });
+        }
+      }
+      if (!reportedFirstSource) {
+        // Output and draw nodes never report `ready` — they own no async
+        // resource and sit at `idle` for the whole session. The source going
+        // ready is the moment a picture actually exists: image decoded, video
+        // loaded, or camera permission granted (usually the slow one).
+        const source = get().nodes.find(
+          (node) =>
+            NODE_DEFS[node.data.defType]?.category === "source" &&
+            statuses[node.id]?.status === "ready",
+        );
+        if (source) {
+          reportedFirstSource = true;
+          track("first_source_ready", {
+            node_type: source.data.defType,
+            mode: typeof source.data.params.mode === "string" ? source.data.params.mode : null,
+            ms_since_load: Math.round(performance.now()),
+          });
+        }
       }
     },
     setResolution(width, height) {
       set({ width, height });
       appLog("info", "app", `resolution ${width}×${height}`);
+      track("resolution_changed", { w: width, h: height, ratio: `${width}:${height}` });
     },
     loadPatch(patch, note) {
       nodeCounter = patch.nodes.length;
@@ -369,6 +444,7 @@ function createGraphStore() {
       get().loadPatch(parsed, `preset “${preset?.label ?? id}”`);
       writeActivePresetId(id);
       set({ activePresetId: id });
+      track("preset_applied", { preset: id, nodes: parsed.nodes.length });
       return true;
     },
     exportPatch() {
@@ -383,21 +459,25 @@ function createGraphStore() {
       );
       downloadPatch(patch);
       appLog("ok", "patch", patch.source ? `exported JSON · ${patch.source}` : "exported JSON");
+      track("patch_exported", { nodes: nodes.length, edges: edges.length });
     },
     async importPatch(file) {
       try {
         const parsed = parsePatch(JSON.parse(await file.text()));
         if (!parsed) {
           appLog("error", "patch", "import failed — not a visio patch");
+          track("patch_import_failed", { reason: "not a visio patch" });
           return "file does not look like a visio patch";
         }
         get().loadPatch(parsed, `imported ${file.name}`);
         writeActivePresetId(null);
         set({ activePresetId: null });
+        track("patch_imported", { nodes: parsed.nodes.length, edges: parsed.edges.length });
         return null;
       } catch (error) {
         const message = error instanceof Error ? error.message : "failed to read file";
         appLog("error", "patch", `import failed — ${message}`);
+        track("patch_import_failed", { reason: scrub(message) });
         return message;
       }
     },
@@ -406,6 +486,7 @@ function createGraphStore() {
       const fresh = patchFromPreset(DEFAULT_PRESET_ID);
       if (!fresh) return;
       get().loadPatch(fresh, "reset to default preset");
+      track("patch_reset");
       writeActivePresetId(DEFAULT_PRESET_ID);
       set({ activePresetId: DEFAULT_PRESET_ID });
     },
