@@ -490,7 +490,10 @@ source and prompts report only that they changed and how long they are. Only
 `range`/`toggle`/`select`/`color` params, which we author ourselves, report a value.
 
 Session replay records 30% of sessions (sticky per tab via `sessionStorage`;
-the free tier is 5k recordings/month). React Flow is DOM, so the graph replays
+the free tier is 5k recordings/month) — but only once **Session replay is
+switched on in the PostHog project settings**. Until then the client asks and
+the server declines: `recorder.js` never loads and no `/s/` snapshots are sent,
+with nothing in the console to say so. React Flow is DOM, so the graph replays
 properly — the canvas does not, because rrweb skips canvas unless asked, which
 keeps camera and footage frames out of recordings entirely. Inputs are masked,
 as is the text of `.media-info__value`, `.timeline__clip-label`, `.param__hint`,
