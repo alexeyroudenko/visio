@@ -2678,11 +2678,13 @@ async function run(): Promise<void> {
   );
 
   const { findTopLevelBox } = await import("./lib/mp4Boxes");
-  const tailFile = new Blob([
-    mp4Box("ftyp", fourcc("qt  "), u32Bytes(0), fourcc("qt  ")),
-    mp4Box("mdat", new Uint8Array(4096)),
-    appleMoov,
-  ]);
+  const tailFile = new Blob(
+    [
+      mp4Box("ftyp", fourcc("qt  "), u32Bytes(0), fourcc("qt  ")),
+      mp4Box("mdat", new Uint8Array(4096)),
+      appleMoov,
+    ] as BlobPart[],
+  );
   const foundMoov = await findTopLevelBox(tailFile, "moov");
   check(
     "moov is found behind the samples, where a phone writes it",

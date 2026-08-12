@@ -8,7 +8,7 @@
  *  - pull sample-rate / channels from a decoded AudioBuffer when available
  */
 import { emptyCaptureMeta, readCaptureMeta, type CaptureMeta } from "./captureMeta";
-import { asciiAt, findTopLevelBox, looksLikeMp4, readU32, walkMp4 } from "./mp4Boxes";
+import { asciiAt, findTopLevelBox, looksLikeMp4, walkMp4 } from "./mp4Boxes";
 
 export interface MediaMeta {
   sizeBytes: number | null;
