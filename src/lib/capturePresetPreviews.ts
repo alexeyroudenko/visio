@@ -31,6 +31,10 @@ const TRACKING_PRESET_IDS = new Set([
   "track-hough-circles",
   "track-hough-lines",
   "features-connectors",
+  "features-voronoi",
+  "features-delaunay",
+  "features-mst",
+  "features-radial",
   "features-particles",
   "corners-features-grid",
 ]);

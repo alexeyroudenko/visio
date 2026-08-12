@@ -11,10 +11,11 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (136 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (144 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
-capture metadata off synthetic MP4 boxes, lazy MediaPipe import). Dev-only page: it is not built into `dist`.
+capture metadata off synthetic MP4 boxes, lazy MediaPipe import, point-mesh
+Voronoi/Delaunay/MST/Radial). Dev-only page: it is not built into `dist`.
 
 > Test gradients are drawn column-by-column, not via `createLinearGradient`:
 > Chrome dithers gradients, so identical rows stop matching byte-for-byte and
@@ -69,7 +70,7 @@ to be read at module top level and dragged the whole package into the main bundl
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Sources  | Media (camera · image · video · audio)                                                                                           |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
-| Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, Quadtree, **Particles**             |
+| Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
 | FX       | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**                                                 |
 | Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
@@ -161,6 +162,21 @@ whole cell. Each such cell is a separate pass with `gl.viewport` set to its
 rectangle, so the shader does not iterate cells per pixel. `Filled frames`
 outlines only those cells, so the grid reads as a set of solid blocks rather
 than a wireframe with a few of them shaded.
+
+**Voronoi** — dual of Delaunay over the point cloud. Modes: `edges` (cell
+borders), `mosaic` (each cell filled with the colour sampled at its seed —
+stained-glass), or `both`. Mosaic uses a CPU readback + canvas upload like
+Quadtree; throttle with `Every N frames`.
+
+**Delaunay** — triangulation of the same cloud. Modes: `edges`, `low-poly`
+(fill each triangle with the colour at its centroid), or `both`. The classic
+feature-point low-poly look.
+
+**MST** — Prim minimum spanning tree: a constellation / star-sign web with
+exactly `n−1` segments — cleaner than dense Connectors.
+
+**Radial** — hub-and-spoke. `centroid` links every point to the cloud centre;
+`k-nearest` links each point to its `k` neighbours.
 
 The **`points` output** is the cuts, not the cloud: the medians a split was
 actually made at, each reported once however many cuts it served, and minus any

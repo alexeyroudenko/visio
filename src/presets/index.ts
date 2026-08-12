@@ -1384,6 +1384,69 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
       }),
   },
   {
+    id: "features-voronoi",
+    label: "Corners + Voronoi",
+    description: "Image → corners → Voronoi mosaic (stained glass)",
+    builtin: true,
+    build: () =>
+      pointsChain("voronoi-1", "draw.voronoi", {
+        mode: "both",
+        color: "#f5f0e6",
+        width: 1,
+        opacity: 0.85,
+        fillOpacity: 1,
+        replace: false,
+        interval: 2,
+      }),
+  },
+  {
+    id: "features-delaunay",
+    label: "Corners + Delaunay",
+    description: "Image → corners → low-poly Delaunay fill",
+    builtin: true,
+    build: () =>
+      pointsChain("delaunay-1", "draw.delaunay", {
+        mode: "fill",
+        color: "#f5f0e6",
+        width: 1,
+        opacity: 0.6,
+        fillOpacity: 1,
+        replace: true,
+        interval: 2,
+      }),
+  },
+  {
+    id: "features-mst",
+    label: "Corners + MST",
+    description: "Image → corners → constellation spanning tree",
+    builtin: true,
+    build: () =>
+      pointsChain("mst-1", "draw.mst", {
+        color: "#7fe3c0",
+        width: 1.5,
+        opacity: 0.9,
+        showPoints: true,
+        pointSize: 3,
+      }),
+  },
+  {
+    id: "features-radial",
+    label: "Corners + Radial",
+    description: "Image → corners → hub-and-spoke rays from centroid",
+    builtin: true,
+    build: () =>
+      pointsChain("radial-1", "draw.radial", {
+        mode: "centroid",
+        k: 2,
+        color: "#f5f0e6",
+        width: 1.5,
+        opacity: 0.8,
+        fade: true,
+        showHub: true,
+        hubSize: 6,
+      }),
+  },
+  {
     id: "features-particles",
     label: "Corners + Particles",
     description: "Image → corner points → particles pulled toward them → output",

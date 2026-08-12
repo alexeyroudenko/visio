@@ -18,6 +18,10 @@ import { drawCirclesNode } from "./draw/circles";
 import { drawLinesNode } from "./draw/lines";
 import { featuresGridNode } from "./draw/featuresGrid";
 import { connectorsNode } from "./draw/connectors";
+import { voronoiNode } from "./draw/voronoi";
+import { delaunayNode } from "./draw/delaunay";
+import { mstNode } from "./draw/mst";
+import { radialNode } from "./draw/radial";
 import { quadtreeNode } from "./draw/quadtree";
 import { particlesNode } from "./draw/particles";
 import { feedbackNode } from "./fx/feedback";
@@ -61,6 +65,10 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   drawLinesNode,
   featuresGridNode,
   connectorsNode,
+  voronoiNode,
+  delaunayNode,
+  mstNode,
+  radialNode,
   quadtreeNode,
   particlesNode,
   feedbackNode,

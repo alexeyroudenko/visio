@@ -42,6 +42,12 @@ import {
 import { defineNode } from "./nodes/defineNode";
 import { cutoffForScale, rectScale, sliceLoop } from "./nodes/audio/granular";
 import { trimCellsToContent } from "./nodes/draw/featuresGrid";
+import {
+  delaunayTriangles,
+  mstSegments,
+  radialSegments,
+  voronoiSegments,
+} from "./nodes/draw/pointMesh";
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
@@ -1327,6 +1333,104 @@ async function run(): Promise<void> {
     "particles expire and stop emitting",
     afterLifetime[1] < 10,
     `rgba=${afterLifetime.join(",")}`,
+  );
+
+  // --- 4f. point-mesh geometry (Delaunay / Voronoi / MST / Radial) ----------
+  {
+    const cloud = [
+      { x: 20, y: 20 },
+      { x: 180, y: 30 },
+      { x: 100, y: 140 },
+      { x: 40, y: 160 },
+      { x: 160, y: 120 },
+    ];
+    const { points, triangles } = delaunayTriangles(cloud);
+    check(
+      "delaunay yields triangles for five sites",
+      triangles.length >= 3 && points.length === 5,
+      `tris=${triangles.length} pts=${points.length}`,
+    );
+    const edges = voronoiSegments(points, triangles, 200, 200);
+    check("voronoi dual produces clipped edges", edges.length >= 3, `edges=${edges.length}`);
+    const tree = mstSegments(cloud);
+    check(
+      "mst is a tree (n−1 edges)",
+      tree.length === cloud.length - 1,
+      `edges=${tree.length}`,
+    );
+    const spokes = radialSegments(cloud, "centroid");
+    check(
+      "radial centroid links every site",
+      spokes.segments.length === cloud.length && spokes.hubs.length === 1,
+      `segs=${spokes.segments.length}`,
+    );
+  }
+
+  const runPointDraw = (type: string, params: Record<string, unknown>) => {
+    engine.setGraph(
+      [
+        { id: "grad", type: "test.gradient", params: { reverse: false } },
+        { id: "pts", type: "test.points", params: {} },
+        { id: "draw", type: type, params: { ...defaultParams(type), ...params } },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "grad", sourceHandle: "out", target: "draw", targetHandle: "bg" },
+        { id: "b", source: "pts", sourceHandle: "out", target: "draw", targetHandle: "points" },
+        { id: "c", source: "draw", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+    engine.tick();
+  };
+
+  runPointDraw("draw.mst", {
+    color: "#00ff00",
+    opacity: 1,
+    showPoints: true,
+    pointSize: 10,
+    width: 3,
+  });
+  const mstPx = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  check("mst draws points on sites", mstPx[1] > 40, `rgba=${mstPx.join(",")}`);
+
+  runPointDraw("draw.radial", {
+    mode: "centroid",
+    color: "#00ff00",
+    opacity: 1,
+    fade: false,
+    showHub: true,
+    hubSize: 12,
+    width: 3,
+  });
+  const radialPx = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  check("radial draws the centroid hub", radialPx[1] > 40, `rgba=${radialPx.join(",")}`);
+
+  runPointDraw("draw.delaunay", {
+    mode: "fill",
+    replace: true,
+    fillOpacity: 1,
+    bgColor: "#000000",
+    interval: 1,
+  });
+  const lowPoly = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  check(
+    "delaunay low-poly fills from image colour",
+    lowPoly[0] > 40,
+    `rgba=${lowPoly.join(",")}`,
+  );
+
+  runPointDraw("draw.voronoi", {
+    mode: "mosaic",
+    replace: true,
+    fillOpacity: 1,
+    bgColor: "#000000",
+    interval: 1,
+  });
+  const mosaic = readPixel(engine, Math.round(WIDTH * 0.5), Math.round(HEIGHT * 0.5));
+  check(
+    "voronoi mosaic fills cells from seed colour",
+    mosaic[0] > 40,
+    `rgba=${mosaic.join(",")}`,
   );
 
   // --- 5. Hough detectors on a synthetic frame -----------------------------
