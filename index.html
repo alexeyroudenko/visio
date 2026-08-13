@@ -25,6 +25,18 @@
     <meta name="apple-mobile-web-app-title" content="visio" />
     <!-- The UI is black edge-to-edge, so let it run under the status bar. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Site-wide AA traffic (GA4). Product events stay in PostHog — they do
+         not share a global and do not double-count each other. Same ID as every
+         *.aa.arthew0.online subdomain: G-CX8EBX3V58. -->
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CX8EBX3V58"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-CX8EBX3V58');
+    </script>
   </head>
   <body>
     <div id="root"></div>
