@@ -8,6 +8,9 @@ import {
 } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 import { trackNoiseGlitch } from "./trackNoiseGlitch";
+import { particlesFeedback } from "./particlesFeedback";
+import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
+import { noiseElementGrid } from "./noiseElementGrid";
 
 export interface PatchPreset {
   id: string;
@@ -1080,11 +1083,238 @@ function blendSplit(): SerializedPatch {
   };
 }
 
-export const DEFAULT_PRESET_ID = "image-slice-shift";
+export const DEFAULT_PRESET_ID = "particles-feedback";
+
+/** Noise TOP → Output — animated monochrome field. */
+function noiseField(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "noise-1",
+        type: "source.noise",
+        position: { x: 0, y: 140 },
+        params: {
+          seed: 1,
+          period: 0.4,
+          harmonics: 2,
+          harmonicSpread: 2,
+          harmonicGain: 0.7,
+          exponent: 1.2,
+          amplitude: 0.5,
+          offset: 0.5,
+          monochrome: true,
+          translateX: 0,
+          translateY: 0,
+          translateZ: 0,
+          speed: 0.2,
+        },
+      },
+      { ...SCREEN, position: { x: 360, y: 160 } },
+    ],
+    edges: [
+      { id: "e-out", source: "noise-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
+/** Noise → Threshold → Output — keep only bright islands. */
+function noiseThreshold(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "noise-1",
+        type: "source.noise",
+        position: { x: 0, y: 140 },
+        params: {
+          seed: 3,
+          period: 0.55,
+          harmonics: 3,
+          harmonicSpread: 2,
+          harmonicGain: 0.65,
+          exponent: 1,
+          amplitude: 0.55,
+          offset: 0.45,
+          monochrome: true,
+          translateX: 0,
+          translateY: 0,
+          translateZ: 0,
+          speed: 0.12,
+        },
+      },
+      {
+        id: "threshold-1",
+        type: "fx.threshold",
+        position: { x: 340, y: 140 },
+        params: { compare: "gt", threshold: 0.55, tolerance: 0.05 },
+      },
+      { ...SCREEN, position: { x: 680, y: 160 } },
+    ],
+    edges: [
+      { id: "e-n", source: "noise-1", sourceHandle: "out", target: "threshold-1", targetHandle: "src" },
+      { id: "e-out", source: "threshold-1", sourceHandle: "out", target: "screen-1", targetHandle: "src" },
+    ],
+  };
+}
+
+/**
+ * Thresholded noise as content, a second noise as the displacement map —
+ * Displace Feedback trails that flow with the field.
+ */
+function noiseDisplaceFeedback(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "noise-content",
+        type: "source.noise",
+        position: { x: 0, y: 40 },
+        params: {
+          seed: 1,
+          period: 0.5,
+          harmonics: 2,
+          harmonicSpread: 2,
+          harmonicGain: 0.7,
+          exponent: 1,
+          amplitude: 0.5,
+          offset: 0.5,
+          monochrome: true,
+          translateX: 0,
+          translateY: 0,
+          translateZ: 0,
+          speed: 0.08,
+        },
+      },
+      {
+        id: "threshold-1",
+        type: "fx.threshold",
+        position: { x: 320, y: 40 },
+        params: { compare: "gt", threshold: 0.52, tolerance: 0.05 },
+      },
+      {
+        id: "noise-disp",
+        type: "source.noise",
+        position: { x: 0, y: 320 },
+        params: {
+          seed: 42,
+          period: 0.8,
+          harmonics: 1,
+          harmonicSpread: 2,
+          harmonicGain: 0.7,
+          exponent: 1,
+          amplitude: 0.5,
+          offset: 0.5,
+          monochrome: false,
+          translateX: 0,
+          translateY: 0,
+          translateZ: 0,
+          speed: 0.15,
+        },
+      },
+      {
+        id: "displaceFeedback-1",
+        type: "fx.displaceFeedback",
+        position: { x: 640, y: 160 },
+        params: {
+          decay: 0.94,
+          zoom: 1.005,
+          rotate: 0,
+          offsetX: 0,
+          offsetY: 0,
+          mode: "over",
+          amount: 0.025,
+          dispSource: "rg",
+          displace: "prev",
+          clear: false,
+        },
+      },
+      { ...SCREEN, position: { x: 980, y: 180 } },
+    ],
+    edges: [
+      {
+        id: "e-thresh",
+        source: "noise-content",
+        sourceHandle: "out",
+        target: "threshold-1",
+        targetHandle: "src",
+      },
+      {
+        id: "e-src",
+        source: "threshold-1",
+        sourceHandle: "out",
+        target: "displaceFeedback-1",
+        targetHandle: "src",
+      },
+      {
+        id: "e-disp",
+        source: "noise-disp",
+        sourceHandle: "out",
+        target: "displaceFeedback-1",
+        targetHandle: "disp",
+      },
+      {
+        id: "e-out",
+        source: "displaceFeedback-1",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
 
 export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: DEFAULT_PRESET_ID,
+    label: "Particles Feedback",
+    description: "Corners → Particles → Feedback trails with breathing zoom (1080×1920)",
+    builtin: true,
+    build: particlesFeedback,
+  },
+  {
+    id: "particles-feedback-closeup",
+    label: "Particles Feedback Close-up",
+    description: "Same particle feedback chain with a tighter zoom on the still",
+    builtin: true,
+    build: particlesFeedbackCloseup,
+  },
+  {
+    id: "noise-element-grid",
+    label: "Noise Element Grid",
+    description: "Points Noise → Features Grid (Element labels) → Points → Connectors",
+    builtin: true,
+    build: noiseElementGrid,
+  },
+  {
+    id: "noise-field",
+    label: "Noise Field",
+    description: "GPU Noise TOP → output — seed / period / harmonics like TouchDesigner",
+    builtin: true,
+    build: noiseField,
+  },
+  {
+    id: "noise-threshold",
+    label: "Noise + Threshold",
+    description: "Noise → luma threshold (keep bright) → output",
+    builtin: true,
+    build: noiseThreshold,
+  },
+  {
+    id: "noise-displace-feedback",
+    label: "Noise Displace Feedback",
+    description: "Thresholded noise as content, RGB noise as map → Displace Feedback trails",
+    builtin: true,
+    build: noiseDisplaceFeedback,
+  },
+  {
+    id: "image-slice-shift",
     label: "Image + Slice Shift",
     description: "Default image → slice shift → output (1080×1920)",
     builtin: true,

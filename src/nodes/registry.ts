@@ -10,6 +10,7 @@ import { houghCirclesNode } from "./tracking/houghCircles";
 import { houghLinesNode } from "./tracking/houghLines";
 import { landmarksToPointsNode } from "./convert/landmarksToPoints";
 import { pointsNoiseNode } from "./generate/pointsNoise";
+import { noiseNode } from "./generate/noise";
 import { drawLandmarksNode } from "./draw/landmarks";
 import { drawPointsNode } from "./draw/points";
 import { drawBoxesNode } from "./draw/boxes";
@@ -25,9 +26,11 @@ import { radialNode } from "./draw/radial";
 import { quadtreeNode } from "./draw/quadtree";
 import { particlesNode } from "./draw/particles";
 import { feedbackNode } from "./fx/feedback";
+import { displaceFeedbackNode } from "./fx/displaceFeedback";
 import { blendNode } from "./fx/blend";
 import { colorNode } from "./fx/color";
 import { colorCorrectionNode } from "./fx/colorCorrection";
+import { thresholdNode } from "./fx/threshold";
 import { pixelSortNode } from "./fx/pixelSort";
 import { sliceShiftNode } from "./fx/sliceShift";
 import { blockScatterNode } from "./fx/blockScatter";
@@ -47,6 +50,7 @@ declare global {
 
 export const NODE_LIST: NodeDefinition<never>[] = [
   mediaNode,
+  noiseNode,
   poseNode,
   handsNode,
   faceNode,
@@ -72,9 +76,11 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   quadtreeNode,
   particlesNode,
   feedbackNode,
+  displaceFeedbackNode,
   blendNode,
   colorNode,
   colorCorrectionNode,
+  thresholdNode,
   pixelSortNode,
   sliceShiftNode,
   blockScatterNode,

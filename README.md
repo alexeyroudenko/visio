@@ -68,10 +68,10 @@ to be read at module top level and dragged the whole package into the main bundl
 
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Sources  | Media (camera · image · video · audio)                                                                                           |
+| Sources  | Media (camera · image · video · audio), **Noise**                                                                                |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
-| FX       | Feedback, Blend, Color, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**                                                 |
+| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**           |
 | Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
 
@@ -303,8 +303,10 @@ same layout. Block Scatter adds `Jitter` — at zero the scatter is static like 
 original; above zero the seed is re-rolled over time.
 
 **Feedback** keeps its accumulator inside (ping-pong of two FBOs), so trails do not
-need a cycle in the graph. For real cycles a node can declare `delayedInputs` —
-those edges are excluded from topo-sort.
+need a cycle in the graph. **Displace Feedback** reuses the same ping-pong and adds
+a second texture input that warps the accumulation (or the incoming content) each
+frame. For real cycles a node can declare `delayedInputs` — those edges are
+excluded from topo-sort.
 
 ### Audio (approach from [granular-video](../granular-video))
 
