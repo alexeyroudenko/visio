@@ -33,8 +33,10 @@ import {
   AUTHOR_FULL,
   AUTHOR_HANDLE,
   AUTHOR_URL,
+  WELCOME_CAMERA_LABEL,
   WELCOME_HINT,
   WELCOME_TEMPLATE_LABEL,
+  welcomeCameraParams,
 } from "./lib/appVersion";
 import { sourceMediaStem } from "./lib/mediaName";
 import { DEFAULT_PRESET_ID } from "./presets";
@@ -172,6 +174,17 @@ export default function App() {
 
   const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
   const loadPreset = useGraphStore((state) => state.loadPreset);
+  const setParam = useGraphStore((state) => state.setParam);
+  const startWelcomeCamera = useCallback(() => {
+    if (!loadPreset(DEFAULT_PRESET_ID)) return;
+    const camera = welcomeCameraParams();
+    for (const node of useGraphStore.getState().nodes) {
+      if (node.data.defType !== "source.media") continue;
+      setParam(node.id, "mode", camera.mode);
+      setParam(node.id, "facing", camera.facing);
+      setParam(node.id, "mirror", camera.mirror);
+    }
+  }, [loadPreset, setParam]);
   const [presetNudge, setPresetNudge] = useState(0);
   const [holdUntilPresets, setHoldUntilPresets] = useState(false);
 
@@ -296,6 +309,11 @@ export default function App() {
           >
             {WELCOME_TEMPLATE_LABEL}
           </button>
+          {vertical ? (
+            <button type="button" className="welcome__camera" onClick={startWelcomeCamera}>
+              {WELCOME_CAMERA_LABEL}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <Toolbar

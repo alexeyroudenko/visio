@@ -287,6 +287,31 @@ input[type="checkbox"] {
   color: var(--accent);
 }
 
+.welcome__camera {
+  margin-top: 8px;
+  margin-bottom: 0;
+  padding: 14px 28px;
+  min-height: 48px;
+  border: 1px solid var(--text);
+  background: #fff;
+  color: #000;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.welcome__camera:hover,
+.welcome__camera:active {
+  background: var(--accent-hover);
+}
+
+.app--vertical .welcome {
+  padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+}
+
 /* Thin dark scrollbars like cv-reels sidebar */
 .inspector,
 .menu__panel,

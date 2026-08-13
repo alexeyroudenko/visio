@@ -7,6 +7,16 @@ export const AUTHOR_HANDLE = "arthew0";
 export const AUTHOR_FULL = "Alexey Roudenko";
 export const WELCOME_HINT = "drop vertical video or image here...";
 export const WELCOME_TEMPLATE_LABEL = "use template";
+/** Portrait / iPhone empty screen — under the template link, thumb reach. */
+export const WELCOME_CAMERA_LABEL = "enable camera";
+
+export function welcomeCameraParams(): {
+  mode: "camera";
+  facing: "user";
+  mirror: true;
+} {
+  return { mode: "camera", facing: "user", mirror: true };
+}
 
 /**
  * Credit link. UTMs so GA on the site tags the session as in-app;

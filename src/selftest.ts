@@ -51,7 +51,7 @@ import {
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
-import { APP_MARK, welcomeText } from "./lib/appVersion";
+import { APP_MARK, WELCOME_CAMERA_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import { mediaKind } from "./nodes/shared/fileParam";
@@ -412,6 +412,16 @@ async function run(): Promise<void> {
       textDefault.default === welcomeText() &&
       textDefault.default.includes(APP_MARK),
     `default=${typeof textDefault?.default === "string" ? textDefault.default.slice(0, 40) : "none"}`,
+  );
+  const cameraOffer = welcomeCameraParams();
+  check(
+    "welcome camera offer is front-facing and not in the title-card copy",
+    cameraOffer.mode === "camera" &&
+      cameraOffer.facing === "user" &&
+      cameraOffer.mirror === true &&
+      WELCOME_CAMERA_LABEL.length > 0 &&
+      !welcomeText().includes(WELCOME_CAMERA_LABEL),
+    `params=${JSON.stringify(cameraOffer)} label=${WELCOME_CAMERA_LABEL}`,
   );
 
   engine.setGraph(

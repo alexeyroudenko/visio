@@ -38,7 +38,20 @@ function waitMs(ms: number): Promise<void> {
 }
 
 function waitAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const frame = requestAnimationFrame(finish);
+    // Hidden / background tabs may never fire rAF (selftest, locked browser).
+    window.setTimeout(() => {
+      cancelAnimationFrame(frame);
+      finish();
+    }, 50);
+  });
 }
 
 function engineNodeType(defType: string): string {
@@ -56,7 +69,9 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("PNG encode timed out")), 8_000);
     canvas.toBlob((blob) => {
+      window.clearTimeout(timer);
       if (!blob || blob.size === 0) reject(new Error("PNG encode failed"));
       else resolve(blob);
     }, "image/png");
