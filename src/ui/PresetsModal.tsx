@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   addUserPreset,
   builtinPreviewUrl,
@@ -9,9 +10,13 @@ import {
   removeUserPreset,
   type PatchPreset,
 } from "../presets";
+import { isOmitted, setPresetShipped } from "../presets/ship";
+import { recapturePresetPreview } from "../lib/capturePresetPreviews";
+import { saveBuiltinPreset } from "../presets/saveBuiltin";
 import { appLog } from "../store/consoleStore";
-import { serializePatch } from "../store/persistence";
 import { currentTimeline, useGraphStore } from "../store/graphStore";
+import { useModulatorStore } from "../store/modulatorStore";
+import { serializePatch } from "../store/persistence";
 
 function presetThumb(preset: PatchPreset): string | null {
   if (preset.preview) return preset.preview;
@@ -24,6 +29,8 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
   const [presets, setPresets] = useState<PatchPreset[]>(() => listPresets());
   const [status, setStatus] = useState<string | null>(null);
   const [brokenThumbs, setBrokenThumbs] = useState<Record<string, true>>({});
+  const [thumbRev, setThumbRev] = useState<Record<string, number>>({});
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const loadPreset = useGraphStore((state) => state.loadPreset);
   const exportPatch = useGraphStore((state) => state.exportPatch);
@@ -76,8 +83,8 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
     onClose();
   };
 
-  return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
+  return createPortal(
+    <div className="modal-backdrop modal-backdrop--presets" onClick={onClose} role="presentation">
       <div
         className="modal modal--presets"
         role="dialog"
@@ -98,13 +105,43 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
               const saved = preset.builtin !== true;
               const active = preset.id === selected?.id;
               const thumb = brokenThumbs[preset.id] ? null : presetThumb(preset);
+              const thumbSrc =
+                thumb && thumbRev[preset.id] ? `${thumb}?v=${thumbRev[preset.id]}` : thumb;
+              const omitted = preset.builtin === true && isOmitted(preset.id);
               return (
                 <div
                   key={preset.id}
-                  className={`preset-list__row ${active ? "preset-list__row--active" : ""}`}
+                  className={`preset-list__row ${active ? "preset-list__row--active" : ""}${omitted ? " preset-list__row--omitted" : ""}`}
                   role="option"
                   aria-selected={active}
                 >
+                  {import.meta.env.DEV && preset.builtin === true ? (
+                    <label
+                      className="preset-list__ship"
+                      title={
+                        preset.id === DEFAULT_PRESET_ID
+                          ? "Default preset always ships"
+                          : omitted
+                            ? "Unchecked: left out of the production build"
+                            : "Checked: included in the production build"
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onDoubleClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!omitted}
+                        disabled={preset.id === DEFAULT_PRESET_ID}
+                        aria-label={`Include ${preset.label} in the production build`}
+                        onChange={async (event) => {
+                          const ship = event.target.checked;
+                          const ok = await setPresetShipped(preset.id, ship);
+                          if (!ok) event.target.checked = !ship;
+                          refresh();
+                        }}
+                      />
+                    </label>
+                  ) : null}
                   {saved ? (
                     <button
                       type="button"
@@ -140,9 +177,9 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                     onDoubleClick={() => applyLoad(preset)}
                   >
                     <span className="preset-list__thumb" aria-hidden="true">
-                      {thumb ? (
+                      {thumbSrc ? (
                         <img
-                          src={thumb}
+                          src={thumbSrc}
                           alt=""
                           loading="lazy"
                           onError={() =>
@@ -212,12 +249,12 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
               type="button"
               className="button"
               onClick={() => {
-                if (window.confirm("Reset patch to the starter? Current patch will be lost.")) {
+                if (window.confirm("Clear the patch? Current patch will be lost.")) {
                   resetPatch();
                   onClose();
                 }
               }}
-              title="Restore starter patch"
+              title="Clear the patch — same as first launch"
             >
               Reset
             </button>
@@ -262,6 +299,62 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
             <button type="button" className="button" onClick={onClose}>
               Cancel
             </button>
+            {import.meta.env.DEV && selected?.builtin === true ? (
+              <button
+                type="button"
+                className="button button--render"
+                disabled={saving}
+                title="Overwrite this builtin with the current patch and recapture its thumb"
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      `Overwrite builtin “${selected.label}” with the current patch?`,
+                    )
+                  ) {
+                    return;
+                  }
+                  setSaving(true);
+                  const { nodes, edges, width, height } = useGraphStore.getState();
+                  const patch = serializePatch(
+                    nodes,
+                    edges,
+                    width,
+                    height,
+                    currentTimeline(),
+                    useModulatorStore.getState().byPath,
+                  );
+                  const ok = await saveBuiltinPreset(selected.id, patch);
+                  if (!ok) {
+                    setSaving(false);
+                    setStatus(`Failed to save “${selected.label}”`);
+                    return;
+                  }
+                  setStatus(`Saved “${selected.label}” · capturing preview…`);
+                  const thumbOk = await recapturePresetPreview(selected.id);
+                  setThumbRev((prev) => ({ ...prev, [selected.id]: Date.now() }));
+                  setBrokenThumbs((prev) => {
+                    const next = { ...prev };
+                    delete next[selected.id];
+                    return next;
+                  });
+                  setSaving(false);
+                  setStatus(
+                    thumbOk
+                      ? `Saved builtin “${selected.label}”`
+                      : `Saved builtin “${selected.label}” (preview failed)`,
+                  );
+                  appLog(
+                    thumbOk ? "ok" : "warn",
+                    "preset",
+                    thumbOk
+                      ? `saved builtin “${selected.label}”`
+                      : `saved builtin “${selected.label}” but preview capture failed`,
+                  );
+                }}
+              >
+                Save
+              </button>
+            ) : null}
             <button
               type="button"
               className="button button--accent"
@@ -275,6 +368,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
           </div>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

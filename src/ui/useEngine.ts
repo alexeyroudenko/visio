@@ -265,14 +265,25 @@ export function useEngine(
     };
   }, [canvasRef, layoutKey]);
 
-  const togglePause = useCallback(() => {
+  const setEnginePaused = useCallback((next: boolean) => {
     const engine = engineRef.current;
-    if (!engine) return;
-    const next = !engine.isPaused;
+    if (!engine) {
+      setPaused(next);
+      return;
+    }
+    if (engine.isPaused === next) {
+      setPaused(next);
+      return;
+    }
     engine.setPaused(next);
     setPaused(next);
     appLog("info", "engine", next ? "paused" : "playing");
   }, []);
 
-  return { engineRef, error, paused, togglePause };
+  const togglePause = useCallback(() => {
+    const engine = engineRef.current;
+    setEnginePaused(!(engine?.isPaused ?? paused));
+  }, [paused, setEnginePaused]);
+
+  return { engineRef, error, paused, togglePause, setEnginePaused };
 }

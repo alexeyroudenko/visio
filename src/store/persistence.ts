@@ -283,7 +283,10 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
   };
 }
 
-/** Returns null for anything that isn't a patch we can safely load. */
+/**
+ * Returns null for anything that isn't a patch we can safely load.
+ * An empty node list is valid — that is first launch and Reset.
+ */
 export function parsePatch(raw: unknown): ParsedPatch | null {
   if (!raw || typeof raw !== "object") return null;
   const patch = raw as Partial<SerializedPatch>;
@@ -329,8 +332,6 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
       target: edge.target,
       targetHandle: edge.targetHandle,
     }));
-
-  if (nodes.length === 0) return null;
 
   return {
     nodes,

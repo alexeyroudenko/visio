@@ -6,6 +6,8 @@ import { particlesFeedback } from "./particlesFeedback";
 import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
 import { pixelSortStart } from "./pixelSortStart";
+import { isOmitted } from "./ship";
+import { builtinOverride } from "./saveBuiltin";
 
 export interface PatchPreset {
   id: string;
@@ -13,11 +15,6 @@ export interface PatchPreset {
   description: string;
   /** Built-in presets cannot be removed from the list. */
   builtin?: boolean;
-  /**
-   * Kept in the build but out of the picker. `getPreset` still resolves it, so
-   * a patch or a stored `activePresetId` that names a hidden preset survives.
-   */
-  hidden?: boolean;
   /** Thumbnail under `public/presets/` (shown in the presets picker). */
   preview?: string;
   build: () => SerializedPatch;
@@ -867,7 +864,7 @@ function blendSplit(): SerializedPatch {
   };
 }
 
-/** What a fresh session and Reset land on. */
+/** What “use template” on the empty screen loads. */
 export const DEFAULT_PRESET_ID = "pixel-sort-start";
 
 /** Noise TOP → Output — animated monochrome field. */
@@ -1087,7 +1084,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     label: "Particles Feedback Close-up",
     description: "Same particle feedback chain with a tighter zoom on the still",
     builtin: true,
-    hidden: true,
     build: particlesFeedbackCloseup,
   },
   {
@@ -1095,7 +1091,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     label: "Noise Element Grid",
     description: "Points Noise → Features Grid (Element labels) → Points → Connectors",
     builtin: true,
-    hidden: true,
     build: noiseElementGrid,
   },
   {
@@ -1161,7 +1156,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     label: "Points Noise + Grid",
     description: "Noise-driven point cloud → Features Grid — animates without a camera",
     builtin: true,
-    hidden: true,
     build: noiseGrid,
   },
   {
@@ -1178,7 +1172,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description:
       "Corners → Points Noise (RMS → Displacement) → Features Grid — default track + still",
     builtin: true,
-    hidden: true,
     build: audioNoiseGrid,
   },
   {
@@ -1627,17 +1620,32 @@ function toPreset(entry: StoredUserPreset): PatchPreset {
   };
 }
 
-/** What the picker shows: hidden builtins are excluded, saved presets are not. */
-export function listPresets(): PatchPreset[] {
-  return [...BUILTIN_PRESETS.filter((preset) => !preset.hidden), ...readStored().map(toPreset)];
+function withOverride(preset: PatchPreset): PatchPreset {
+  if (preset.builtin !== true) return preset;
+  const original = preset.build;
+  return {
+    ...preset,
+    build: () => builtinOverride(preset.id) ?? original(),
+  };
 }
 
-/** Resolves hidden presets too — an old `activePresetId` must still load. */
+/**
+ * What the picker shows. Production drops ids in `visio.ship.json`; dev keeps them
+ * so the ship-checkbox can put them back. Saved presets are never omitted.
+ */
+export function listPresets(): PatchPreset[] {
+  const builtins = import.meta.env.DEV
+    ? BUILTIN_PRESETS
+    : BUILTIN_PRESETS.filter((preset) => !isOmitted(preset.id));
+  return [...builtins.map(withOverride), ...readStored().map(toPreset)];
+}
+
+/** Resolves omitted builtins too — an old `activePresetId` must still load. */
 export function getPreset(id: string): PatchPreset | undefined {
-  return (
+  const found =
     BUILTIN_PRESETS.find((preset) => preset.id === id) ??
-    readStored().map(toPreset).find((preset) => preset.id === id)
-  );
+    readStored().map(toPreset).find((preset) => preset.id === id);
+  return found ? withOverride(found) : undefined;
 }
 
 /** Persist the current graph as a user preset; returns the new preset id. */

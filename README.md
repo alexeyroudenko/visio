@@ -11,11 +11,11 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (145 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (148 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 capture metadata off synthetic MP4 boxes, lazy MediaPipe import, point-mesh
-Voronoi/Delaunay/MST/Radial, source type of a dropped file). Dev-only page: it
+Voronoi/Delaunay/MST/Radial, source type of a dropped file, visio.ship.json). Dev-only page: it
 is not built into `dist`.
 
 > Test gradients are drawn column-by-column, not via `createLinearGradient`:
@@ -363,14 +363,26 @@ when a line actually changes.
 ## Patches and output
 
 - **Autosave** to localStorage on every edit (400 ms debounce).
-Export/import JSON via toolbar buttons; “Reset” restores the starter patch.
+Export/import JSON via toolbar buttons; “Reset” clears the patch to the same
+empty screen as first launch — black field, drop prompt, “use template”.
 The preset list covers most nodes, including two that exist to
 demonstrate the timeline itself — one keyframed, one modulated. A selftest walks
 every preset and checks each edge names a real handle of a matching type: a
 wrong handle name is not an error anywhere, the input simply never arrives.
-A preset marked `hidden` stays in the build but out of the picker — `getPreset`
-still resolves it, so a saved patch or a stored `activePresetId` that names one
-keeps working, and unhiding is a one-word edit.
+A builtin left unchecked in `npm run dev` (the checkbox on the card) is written
+to [`visio.ship.json`](visio.ship.json) and skipped by the next `npm run build`:
+out of the picker, thumb stripped from `dist`. The default preset cannot be omitted.
+`getPreset` still resolves an omitted id, so a stored `activePresetId` keeps
+working. Dev shows omitted cards dimmed so they can be checked back in.
+The same file stores + Node checkboxes (`omitNodes`). Production hides those
+types from the menu; existing patches still load them. Media and Output cannot
+be omitted. Restarting `npm run dev` keeps the last set of ticks.
+In `npm run dev` the picker also has a red **Save**: it overwrites the selected
+builtin with the current patch (`src/presets/overrides/<id>.json`, and the
+standalone `.ts` source when that preset has one) and recaptures
+`public/presets/<id>.jpg` from the live output.
+An empty node list is a valid patch (first launch / Reset); `parsePatch`
+used to reject it.
 Video files are not saved: their `blob:` URLs die with the tab, so the patch
 loads with all connections, but you must pick the file again.
 - **Dropping a file replaces the source, it does not add a node.** A drag over
@@ -380,7 +392,10 @@ browser would otherwise navigate the tab to the file and take the session with
 it. `.drop-hint` is the highlight. The file lands on the Media node you have
 selected, else one already on that kind (an mp3 goes to the audio node, not the
 image one), else the first; the node switches image/video/audio to match, and a
-patch with no Media node gets one. Only the first usable file is taken: the
+patch with no Media node gets one (and an Output wired to it, if the graph was
+empty). A drop onto that empty graph pauses playback, blinks Presets for a
+second, then opens the picker; video starts when the modal closes or a preset
+loads. Only the first usable file is taken: the
 memory below keeps one `blob:` URL per kind and revokes the one it replaces, so
 two images in a single drop would leave the first node holding a dead URL.
 - **The footage outlives the patch.** Presets ship their own source type and
@@ -388,8 +403,8 @@ file, and loading one used to throw away the video you had just dropped.
 `mediaMemory` remembers the last file per source type plus the type itself, and
 a patch load (preset, import) applies both over whatever the patch said —
 so you can flip through presets against your own material. Reset is the one
-exception: it forgets the remembered footage too, or the default patch could
-never come back as authored. Switching type in the
+exception: it forgets the remembered footage too, and lands on the empty drop
+screen rather than the template. Switching type in the
 Inspector swaps its file back in too, so image → video → image gets both back;
 a type you have never opened a file for clears the field instead of leaving a
 video source pointed at a PNG. It also owns the `blob:` URLs, releasing one only

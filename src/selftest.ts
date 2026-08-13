@@ -51,13 +51,16 @@ import {
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
-import { defaultParams, NODE_DEFS } from "./nodes/registry";
+import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
+import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import { mediaKind } from "./nodes/shared/fileParam";
-import { BUILTIN_PRESETS } from "./presets";
+import { BUILTIN_PRESETS, DEFAULT_PRESET_ID } from "./presets";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
 import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
+import { OMITTED_PRESET_IDS } from "virtual:preset-omit";
+import { OMITTED_NODE_TYPES } from "virtual:node-omit";
 
 const WIDTH = 320;
 const HEIGHT = 200;
@@ -1674,6 +1677,13 @@ async function run(): Promise<void> {
 
   check("garbage input is rejected", parsePatch({ hello: 1 }) === null, "parsePatch({hello:1})");
 
+  const emptyRound = parsePatch({ format: 1, width: 1080, height: 1920, nodes: [], edges: [] });
+  check(
+    "empty patch is a valid document",
+    emptyRound !== null && emptyRound.nodes.length === 0 && emptyRound.width === 1080,
+    `nodes=${emptyRound?.nodes.length ?? "null"} width=${emptyRound?.width ?? "none"}`,
+  );
+
   // Keyframes ride along in the patch, minus the ones that cannot survive a
   // reload: file params hold blob URLs, and tracks for deleted nodes are dead.
   const keyed = serializePatch(
@@ -1781,6 +1791,20 @@ async function run(): Promise<void> {
     "every builtin preset is wired correctly",
     presetProblems.length === 0,
     presetProblems.slice(0, 3).join(" | ") || `${BUILTIN_PRESETS.length} presets`,
+  );
+
+  check(
+    "ship config names real builtins and never the default",
+    OMITTED_PRESET_IDS.every((id) => BUILTIN_PRESETS.some((preset) => preset.id === id)) &&
+      !OMITTED_PRESET_IDS.includes(DEFAULT_PRESET_ID),
+    OMITTED_PRESET_IDS.join(",") || "empty",
+  );
+
+  check(
+    "ship config names real types and never Media or Output",
+    OMITTED_NODE_TYPES.every((type) => NODE_LIST.some((definition) => definition.type === type)) &&
+      LOCKED_NODE_TYPES.every((type) => !OMITTED_NODE_TYPES.includes(type)),
+    OMITTED_NODE_TYPES.join(",") || "empty",
   );
 
   // The presets that exist to demonstrate keyframes and modulators must

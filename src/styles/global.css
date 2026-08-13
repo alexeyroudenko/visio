@@ -201,6 +201,90 @@ input[type="checkbox"] {
   }
 }
 
+/* First launch / Reset: black field, drop copy, template link. Below the
+   toolbar (z 20) and drop-hint (z 200) so chrome and the drag overlay win. */
+.welcome {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #000;
+  color: var(--text);
+  text-align: center;
+  padding: 24px;
+  padding-top: 56px;
+}
+
+.welcome__hint {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.welcome__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.welcome__mark {
+  margin: 0;
+  font-size: 70px;
+  font-weight: 200;
+  line-height: 0.9;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.welcome__ver {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--dim);
+}
+
+.welcome__credit {
+  margin: 4px 0 0;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.welcome__credit a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.welcome__credit a:hover {
+  color: var(--accent);
+}
+
+.welcome__link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.welcome__link:hover {
+  color: var(--accent);
+}
+
 /* Thin dark scrollbars like cv-reels sidebar */
 .inspector,
 .menu__panel,
@@ -442,6 +526,11 @@ input[type="checkbox"] {
   text-align: right;
 }
 
+.toolbar__stats-ver {
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
 .toolbar__actions {
   grid-column: 2;
   display: flex;
@@ -490,6 +579,28 @@ input[type="checkbox"] {
   border-color: var(--render-hover);
   background: var(--render-hover);
   color: #fff;
+}
+
+@keyframes presets-nudge {
+  0%,
+  100% {
+    filter: none;
+  }
+  15%,
+  45%,
+  75% {
+    filter: brightness(1.8);
+    box-shadow: 0 0 0 2px #fff;
+  }
+  30%,
+  60%,
+  90% {
+    filter: brightness(0.55);
+  }
+}
+
+.button--nudge {
+  animation: presets-nudge 1s ease-in-out;
 }
 
 /* Rendering: the button is now Cancel, and white outranks the red — hence the
@@ -544,6 +655,14 @@ input[type="checkbox"] {
   justify-content: center;
   padding: 24px;
   background: rgb(0 0 0 / 55%);
+}
+
+.modal-backdrop--settings {
+  z-index: 100;
+}
+
+.modal-backdrop--presets {
+  z-index: 110;
 }
 
 .modal {
@@ -672,6 +791,10 @@ input[type="checkbox"] {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.preset-list__row--omitted {
+  opacity: 0.4;
+}
+
 .preset-list__item {
   display: flex;
   flex-direction: column;
@@ -757,6 +880,33 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
+.preset-list__ship {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  cursor: pointer;
+}
+
+.preset-list__ship input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.preset-list__ship:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .preset-list__delete {
   position: absolute;
   top: 6px;
@@ -802,10 +952,43 @@ input[type="checkbox"] {
   color: var(--dim);
 }
 
+.menu__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.menu__row--omitted {
+  opacity: 0.4;
+}
+
+.menu__ship {
+  display: flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.menu__ship input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.menu__ship:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .menu__item {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
   width: 100%;
   padding: 5px 6px;
   background: none;

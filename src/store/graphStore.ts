@@ -160,6 +160,21 @@ const EMPTY_TIMELINE: SerializedTimeline = {
   keyframes: {},
 };
 
+const EMPTY_WIDTH = 1080;
+const EMPTY_HEIGHT = 1920;
+
+/** First launch and Reset: no nodes, black output, drop / template overlay. */
+function emptyPatch(): ParsedPatch {
+  return {
+    nodes: [],
+    edges: [],
+    width: EMPTY_WIDTH,
+    height: EMPTY_HEIGHT,
+    timeline: { ...EMPTY_TIMELINE },
+    modulators: {},
+  };
+}
+
 function patchFromPreset(id: string): ParsedPatch | null {
   const preset = getPreset(id) ?? getPreset(DEFAULT_PRESET_ID);
   if (!preset) return null;
@@ -177,9 +192,9 @@ declare global {
 
 function createGraphStore() {
   const restored = loadFromStorage();
-  const initial = restored ?? patchFromPreset(DEFAULT_PRESET_ID)!;
-  const initialPresetId = restored ? readActivePresetId() : DEFAULT_PRESET_ID;
-  if (!restored) writeActivePresetId(DEFAULT_PRESET_ID);
+  const initial = restored ?? emptyPatch();
+  const initialPresetId = restored ? readActivePresetId() : null;
+  if (!restored) writeActivePresetId(null);
   setLaunchContext({
     restored: Boolean(restored),
     nodes: initial.nodes.length,
@@ -311,11 +326,23 @@ function createGraphStore() {
         media[0];
 
       if (!target) {
-        get().addNode(
+        const mediaId = get().addNode(
           "source.media",
-          { x: 120, y: 120 },
+          { x: 120, y: 180 },
           { mode: kind, file: fileParamFromFile(file), mirror: false },
         );
+        const screen =
+          get().nodes.find((node) => node.data.defType === "output.screen")?.id ??
+          get().addNode("output.screen", { x: 480, y: 180 });
+        get().onConnect({
+          source: mediaId,
+          sourceHandle: "out",
+          target: screen,
+          targetHandle: "src",
+        });
+        // Empty-graph drop opens the presets picker next — don't leave Output
+        // selected or its settings panel sits on top of that modal.
+        get().select(null);
         return;
       }
 
@@ -543,17 +570,16 @@ function createGraphStore() {
     },
     resetPatch() {
       clearStorage();
-      // Reset means the default patch as authored — otherwise the last footage
-      // you opened outranks its still and you never see the default again.
+      // Empty, not the template: last footage would otherwise outrank a drop,
+      // and Reset is how you get back to first launch.
       forgetAllMedia();
-      const fresh = patchFromPreset(DEFAULT_PRESET_ID);
-      if (!fresh) return;
-      get().loadPatch(fresh, "reset to default preset");
+      const fresh = emptyPatch();
+      get().loadPatch(fresh, "reset to empty");
       // Installed app only — a tab cannot resize itself.
       fitAppWindowToPatch(fresh.width, fresh.height);
       track("patch_reset");
-      writeActivePresetId(DEFAULT_PRESET_ID);
-      set({ activePresetId: DEFAULT_PRESET_ID });
+      writeActivePresetId(null);
+      set({ activePresetId: null });
     },
     clearActivePreset() {
       writeActivePresetId(null);

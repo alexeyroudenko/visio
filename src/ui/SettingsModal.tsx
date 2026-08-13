@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   loadPreviewQuality,
   PREVIEW_QUALITY_OPTIONS,
@@ -69,8 +70,8 @@ export function SettingsModal({
   );
   const bitratePresetMatch = RENDER_BITRATE_PRESETS.includes(renderBitrate);
 
-  return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
+  return createPortal(
+    <div className="modal-backdrop modal-backdrop--settings" onClick={onClose} role="presentation">
       <div
         className="modal modal--settings"
         role="dialog"
@@ -218,6 +219,7 @@ export function SettingsModal({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -25,8 +25,11 @@ import { useOfflineRender } from "./ui/useOfflineRender";
 import { useOutputWindow } from "./ui/useOutputWindow";
 import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
+import { mediaKind } from "./nodes/shared/fileParam";
 import { fitAppWindowOnFirstLaunch } from "./lib/appWindow";
+import { APP_MARK, APP_VERSION_LABEL, AUTHOR_URL } from "./lib/appVersion";
 import { sourceMediaStem } from "./lib/mediaName";
+import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
 const LEFT_WIDTH_KEY = "visio.leftWidth";
@@ -145,7 +148,7 @@ export default function App() {
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
   const vertical = usePortraitWindow();
-  const { engineRef, error, paused, togglePause } = useEngine(
+  const { engineRef, error, paused, togglePause, setEnginePaused } = useEngine(
     canvasRef,
     vertical ? "vertical" : "horizontal",
   );
@@ -154,7 +157,34 @@ export default function App() {
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
   const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
-  const dropOver = useFileDrop(dropMediaFiles);
+  const loadPreset = useGraphStore((state) => state.loadPreset);
+  const [presetNudge, setPresetNudge] = useState(0);
+  const [holdUntilPresets, setHoldUntilPresets] = useState(false);
+
+  const onDropFiles = useCallback(
+    (files: File[]) => {
+      const empty = useGraphStore.getState().nodes.length === 0;
+      const usable = files.some((file) => mediaKind(file));
+      if (empty && usable) {
+        setHoldUntilPresets(true);
+        setEnginePaused(true);
+      }
+      dropMediaFiles(files);
+      if (empty && usable) setPresetNudge((nudge) => nudge + 1);
+    },
+    [dropMediaFiles, setEnginePaused],
+  );
+  const dropOver = useFileDrop(onDropFiles);
+
+  const onPresetsGateClose = useCallback(() => {
+    setHoldUntilPresets(false);
+    setEnginePaused(false);
+  }, [setEnginePaused]);
+
+  const onTogglePause = useCallback(() => {
+    if (holdUntilPresets) return;
+    togglePause();
+  }, [holdUntilPresets, togglePause]);
 
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
@@ -190,9 +220,23 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, button, [contenteditable='true']")
+      ) {
+        return;
+      }
+
+      if (event.code === "Space") {
+        if (event.repeat) return;
+        event.preventDefault();
+        if (holdUntilPresets) return;
+        togglePause();
+        return;
+      }
+
       if (event.key !== "Delete") return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
       const { selectedId, removeNode } = useGraphStore.getState();
       if (!selectedId) return;
       event.preventDefault();
@@ -200,13 +244,13 @@ export default function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [holdUntilPresets, togglePause]);
 
   const stage = (
     <>
       <canvas ref={canvasRef} />
       {error ? <div className="preview__error">{error}</div> : null}
-      {paused ? <div className="preview__paused">❚❚ paused</div> : null}
+      {paused && !holdUntilPresets ? <div className="preview__paused">❚❚ paused</div> : null}
     </>
   );
 
@@ -217,6 +261,29 @@ export default function App() {
           <span>Drop to load — image · video · audio</span>
         </div>
       ) : null}
+      {nodes.length === 0 ? (
+        <div className="welcome">
+          <div className="welcome__brand">
+            <p className="welcome__mark">{APP_MARK}</p>
+            <p className="welcome__ver">{APP_VERSION_LABEL}</p>
+            <p className="welcome__credit">
+              by{" "}
+              <a href={AUTHOR_URL} target="_blank" rel="noopener">
+                arthew0
+              </a>{" "}
+              (Alexey Roudenko)
+            </p>
+          </div>
+          <p className="welcome__hint">drop vertical video or image here...</p>
+          <button
+            type="button"
+            className="welcome__link"
+            onClick={() => loadPreset(DEFAULT_PRESET_ID)}
+          >
+            use template
+          </button>
+        </div>
+      ) : null}
       <Toolbar
         recording={recording}
         onToggleRecord={toggle}
@@ -224,8 +291,10 @@ export default function App() {
         renderProgress={renderProgress}
         onToggleRender={toggleRender}
         paused={paused}
-        onTogglePause={togglePause}
+        onTogglePause={onTogglePause}
         hideRecord={vertical}
+        presetNudge={presetNudge}
+        onPresetsGateClose={onPresetsGateClose}
       />
 
       <main className="app__body">

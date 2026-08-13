@@ -1,4 +1,5 @@
 import { BUILTIN_PRESETS } from "../presets";
+import { isOmitted } from "../presets/ship";
 import { useGraphStore } from "../store/graphStore";
 import { useMediaInfoStore } from "../store/mediaInfoStore";
 import { setPreferAuthoredMedia } from "../store/mediaMemory";
@@ -132,6 +133,14 @@ async function saveThumbToDevServer(id: string, dataUrl: string): Promise<boolea
   }
 }
 
+/** Grab the live output as this builtin's picker thumb. Does not reload the graph. */
+export async function recapturePresetPreview(id: string): Promise<boolean> {
+  const canvas = window.__visioPreviewCanvas;
+  if (!canvas) return false;
+  await waitFrames(8);
+  return saveThumbToDevServer(id, canvasToPresetThumb(canvas));
+}
+
 /**
  * Load every builtin preset, settle a few frames, and return JPEG thumbs.
  * In `vite` dev, each thumb is also written to `public/presets/<id>.jpg`.
@@ -143,11 +152,11 @@ export async function captureBuiltinPresetPreviews(
 ): Promise<PresetPreviewCapture[]> {
   const settleMs = opts?.settleMs ?? 1200;
   const save = opts?.save !== false;
-  // Hidden presets have no card in the picker to put a thumb on; asking for one
-  // by id still works, for the session that unhides it.
+  // Hidden / omitted presets have no card in the production picker; asking for
+  // one by id still works, for the session that ships it again.
   const wanted = opts?.ids?.length
     ? BUILTIN_PRESETS.filter((preset) => opts.ids!.includes(preset.id))
-    : BUILTIN_PRESETS.filter((preset) => !preset.hidden);
+    : BUILTIN_PRESETS.filter((preset) => !isOmitted(preset.id));
   const out: PresetPreviewCapture[] = [];
   const graph = useGraphStore.getState();
 

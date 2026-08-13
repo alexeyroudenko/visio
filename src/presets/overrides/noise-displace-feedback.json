@@ -1,0 +1,242 @@
+{
+  "format": 1,
+  "width": 1080,
+  "height": 1920,
+  "nodes": [
+    {
+      "id": "noise-content",
+      "type": "source.noise",
+      "position": {
+        "x": 0,
+        "y": 40
+      },
+      "params": {
+        "seed": 1,
+        "period": 0.13,
+        "harmonics": 0,
+        "harmonicSpread": 1,
+        "harmonicGain": 0.78,
+        "exponent": 0.35,
+        "amplitude": 0.93,
+        "offset": -0.6599999999999999,
+        "monochrome": true,
+        "translateX": 0.8700000000000001,
+        "translateY": 0.4900000000000002,
+        "translateZ": 1.7700000000000005,
+        "speed": 0.1
+      }
+    },
+    {
+      "id": "threshold-1",
+      "type": "fx.threshold",
+      "position": {
+        "x": 320,
+        "y": 40
+      },
+      "params": {
+        "compare": "lt",
+        "threshold": 0.08,
+        "tolerance": 0.1
+      }
+    },
+    {
+      "id": "noise-disp",
+      "type": "source.noise",
+      "position": {
+        "x": 5.274242899953407,
+        "y": 182.89571092629228
+      },
+      "params": {
+        "seed": 400,
+        "period": 0.11,
+        "harmonics": 2,
+        "harmonicSpread": 1,
+        "harmonicGain": 0.92,
+        "exponent": 0.9,
+        "amplitude": 0.87,
+        "offset": 0.08000000000000007,
+        "monochrome": false,
+        "translateX": -0.08999999999999986,
+        "translateY": 0,
+        "translateZ": 0,
+        "speed": 0.11
+      }
+    },
+    {
+      "id": "displaceFeedback-1",
+      "type": "fx.displaceFeedback",
+      "position": {
+        "x": 640,
+        "y": 160
+      },
+      "params": {
+        "decay": 0.9450000000000001,
+        "zoom": 1.0050000000000001,
+        "rotate": 0.050000000000000266,
+        "offsetX": 0,
+        "offsetY": 0.002999999999999999,
+        "mode": "add",
+        "amount": 0.012999999999999984,
+        "dispSource": "rg",
+        "displace": "both",
+        "clear": false
+      }
+    },
+    {
+      "id": "screen-1",
+      "type": "output.screen",
+      "position": {
+        "x": 980,
+        "y": 180
+      },
+      "params": {
+        "background": "#000000"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-thresh",
+      "source": "noise-content",
+      "sourceHandle": "out",
+      "target": "threshold-1",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-src",
+      "source": "threshold-1",
+      "sourceHandle": "out",
+      "target": "displaceFeedback-1",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-disp",
+      "source": "noise-disp",
+      "sourceHandle": "out",
+      "target": "displaceFeedback-1",
+      "targetHandle": "disp"
+    },
+    {
+      "id": "e-983b9ab3-a221-4ee6-8eab-2ebae8aef5f2",
+      "source": "displaceFeedback-1",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    }
+  ],
+  "timeline": {
+    "fps": 30,
+    "durationInFrames": 450,
+    "keyframes": {},
+    "reelZones": {
+      "cutsSec": [
+        1,
+        1.2,
+        9,
+        12
+      ],
+      "dirty": false
+    },
+    "cueZoneTick": false,
+    "cueDevMetronome": false,
+    "cueDrone": false,
+    "developmentBpm": 120,
+    "droneByZone": {
+      "hook": {
+        "enabled": true,
+        "freq": 218.5,
+        "gain": 0.06,
+        "type": "sawtooth",
+        "detune": 18,
+        "cutoff": 1800,
+        "lfoRate": 6.5,
+        "lfoDepth": 0.4,
+        "subGain": 0.25,
+        "ratio": 3.13,
+        "fm": 0.35,
+        "ring": 0.45,
+        "noise": 0.2,
+        "crush": 0.4,
+        "comb": 0.3,
+        "glitch": 0.5,
+        "drift": 0.25
+      },
+      "formwait": {
+        "enabled": true,
+        "freq": 247.7,
+        "gain": 0.05,
+        "type": "triangle",
+        "detune": 33,
+        "cutoff": 1100,
+        "lfoRate": 0.7,
+        "lfoDepth": 0.6,
+        "subGain": 0.1,
+        "ratio": 1.41,
+        "fm": 0.2,
+        "ring": 0.6,
+        "noise": 0.35,
+        "crush": 0.25,
+        "comb": 0.55,
+        "glitch": 0.75,
+        "drift": 0.5
+      },
+      "development": {
+        "enabled": true,
+        "freq": 67,
+        "gain": 0.05,
+        "type": "square",
+        "detune": 12,
+        "cutoff": 800,
+        "lfoRate": 3.2,
+        "lfoDepth": 0.55,
+        "subGain": 0.5,
+        "ratio": 2.07,
+        "fm": 0.15,
+        "ring": 0.2,
+        "noise": 0.15,
+        "crush": 0.55,
+        "comb": 0.4,
+        "glitch": 0.35,
+        "drift": 0.3
+      },
+      "climax": {
+        "enabled": true,
+        "freq": 149,
+        "gain": 0.085,
+        "type": "sawtooth",
+        "detune": 26,
+        "cutoff": 3200,
+        "lfoRate": 8.5,
+        "lfoDepth": 0.5,
+        "subGain": 0.55,
+        "ratio": 5.19,
+        "fm": 0.6,
+        "ring": 0.5,
+        "noise": 0.45,
+        "crush": 0.7,
+        "comb": 0.25,
+        "glitch": 0.2,
+        "drift": 0.2
+      },
+      "cta": {
+        "enabled": true,
+        "freq": 81.7,
+        "gain": 0.055,
+        "type": "triangle",
+        "detune": 8,
+        "cutoff": 700,
+        "lfoRate": 0.5,
+        "lfoDepth": 0.25,
+        "subGain": 0.45,
+        "ratio": 1.49,
+        "fm": 0.1,
+        "ring": 0.15,
+        "noise": 0.1,
+        "crush": 0.2,
+        "comb": 0.65,
+        "glitch": 0.1,
+        "drift": 0.4
+      }
+    }
+  }
+}
