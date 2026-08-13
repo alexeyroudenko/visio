@@ -201,12 +201,14 @@ input[type="checkbox"] {
   }
 }
 
-/* First launch / Reset: black field, drop copy, template link. Below the
-   toolbar (z 20) and drop-hint (z 200) so chrome and the drag overlay win. */
+/* First launch / Reset: black field, drop copy, template link. Above every
+   chrome button (toolbar 20, shutter 30, console 30, modals 100) so Node /
+   Presets / Render cannot sit on the empty-screen copy. Drop-hint (z 200)
+   still wins so a file can be dropped onto this overlay. */
 .welcome {
   position: absolute;
   inset: 0;
-  z-index: 15;
+  z-index: 150;
   display: flex;
   flex-direction: column;
   align-items: center;
