@@ -177,7 +177,7 @@ function FileParamControl({
         />
         {current ? <em className="param__hint">{current.name}</em> : null}
       </label>
-      {showLibrary ? (
+      {showLibrary && BUNDLED_IMAGE_FILES.length > 0 ? (
         <div className="media-library" aria-label="Stock images">
           <span className="param__label">Library</span>
           <div className="media-library__row">

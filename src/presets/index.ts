@@ -1,16 +1,11 @@
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
-import {
-  DEFAULT_AUDIO_FILE,
-  DEFAULT_IMAGE_FILE,
-  FACE_IMAGE_FILE,
-  POSE_IMAGE_FILE,
-  type FileParam,
-} from "../nodes/shared/fileParam";
+import { DEFAULT_AUDIO_FILE, DEFAULT_IMAGE_FILE } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 import { trackNoiseGlitch } from "./trackNoiseGlitch";
 import { particlesFeedback } from "./particlesFeedback";
 import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
+import { pixelSortStart } from "./pixelSortStart";
 
 export interface PatchPreset {
   id: string;
@@ -18,6 +13,11 @@ export interface PatchPreset {
   description: string;
   /** Built-in presets cannot be removed from the list. */
   builtin?: boolean;
+  /**
+   * Kept in the build but out of the picker. `getPreset` still resolves it, so
+   * a patch or a stored `activePresetId` that names a hidden preset survives.
+   */
+  hidden?: boolean;
   /** Thumbnail under `public/presets/` (shown in the presets picker). */
   preview?: string;
   build: () => SerializedPatch;
@@ -44,8 +44,6 @@ type SourceKind = "camera" | "image";
 /** Camera/image → tracker → draw overlay → output. */
 function trackingViz(opts: {
   source: SourceKind;
-  /** Still used when `source` is image (defaults to the road frame). */
-  imageFile?: FileParam;
   trackType: string;
   trackId: string;
   drawType: string;
@@ -56,12 +54,7 @@ function trackingViz(opts: {
   const sourceId = opts.source === "camera" ? "camera-1" : "image-1";
   const sourceParams =
     opts.source === "image"
-      ? {
-          mode: "image",
-          file: opts.imageFile ?? DEFAULT_IMAGE_FILE,
-          mirror: false,
-          fit: "cover",
-        }
+      ? { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" }
       : { mode: "camera", mirror: true, fit: "cover" };
 
   return {
@@ -164,215 +157,6 @@ function imageSliceShift(): SerializedPatch {
       {
         id: "e2",
         source: "sliceShift-6",
-        sourceHandle: "out",
-        target: "screen-1",
-        targetHandle: "src",
-      },
-    ],
-  };
-}
-
-function objectsFeedback(): SerializedPatch {
-  return {
-    format: 1,
-    width: W,
-    height: H,
-    nodes: [
-      {
-        id: "image-1",
-        type: "source.media",
-        position: { x: 0, y: 120 },
-        params: { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" },
-      },
-      {
-        id: "objects-1",
-        type: "tracking.objects",
-        position: { x: 300, y: 40 },
-        params: {},
-      },
-      {
-        id: "boxes-1",
-        type: "draw.boxes",
-        position: { x: 620, y: 120 },
-        params: {},
-      },
-      {
-        id: "feedback-1",
-        type: "fx.feedback",
-        position: { x: 940, y: 160 },
-        params: {},
-      },
-      {
-        id: "screen-1",
-        type: "output.screen",
-        position: { x: 1240, y: 200 },
-        params: {},
-      },
-    ],
-    edges: [
-      {
-        id: "e1",
-        source: "image-1",
-        sourceHandle: "frame",
-        target: "objects-1",
-        targetHandle: "frame",
-      },
-      {
-        id: "e2",
-        source: "image-1",
-        sourceHandle: "out",
-        target: "boxes-1",
-        targetHandle: "bg",
-      },
-      {
-        id: "e3",
-        source: "objects-1",
-        sourceHandle: "out",
-        target: "boxes-1",
-        targetHandle: "boxes",
-      },
-      {
-        id: "e4",
-        source: "boxes-1",
-        sourceHandle: "out",
-        target: "feedback-1",
-        targetHandle: "src",
-      },
-      {
-        id: "e5",
-        source: "feedback-1",
-        sourceHandle: "out",
-        target: "screen-1",
-        targetHandle: "src",
-      },
-    ],
-  };
-}
-
-/** Pose → skeleton + landmarks→points → Features Grid (saved from live session). */
-function poseFeaturesGrid(): SerializedPatch {
-  return {
-    format: 1,
-    width: W,
-    height: H,
-    nodes: [
-      {
-        id: "camera-1",
-        type: "source.media",
-        position: { x: 0, y: 140 },
-        params: {
-          mode: "image",
-          file: POSE_IMAGE_FILE,
-          mirror: false,
-          fit: "cover",
-        },
-      },
-      {
-        id: "pose-1",
-        type: "tracking.pose",
-        position: { x: 320, y: -10 },
-        params: { confidence: 0.5, interval: 1, model: "lite", numPoses: 1 },
-      },
-      {
-        id: "landmarks-1",
-        type: "draw.landmarks",
-        position: { x: 640, y: 140 },
-        params: {
-          blend: "normal",
-          boneColor: "#7fe3c0",
-          boneWidth: 1,
-          opacity: 0.2,
-          pointColor: "#f5f0e6",
-          pointSize: 0,
-          scoreFade: true,
-        },
-      },
-      {
-        id: "landmarksToPoints-5",
-        type: "convert.landmarksToPoints",
-        position: { x: 630, y: -52 },
-        params: { minScore: 0.2, subject: -1 },
-      },
-      {
-        id: "featuresGrid-6",
-        type: "draw.featuresGrid",
-        position: { x: 878, y: 57 },
-        params: {
-          color: "#f5f0e6",
-          maxDepth: 8,
-          minSize: 52,
-          stroke: 1,
-          opacity: 1,
-          labels: false,
-          labelSize: 11,
-          labelText: "Element",
-          effectChance: 1,
-          effectMinArea: 0,
-          effectMaxArea: 0.15,
-          effectSeed: 0,
-          useContentEdge: true,
-        },
-      },
-      {
-        id: "screen-1",
-        type: "output.screen",
-        position: { x: 1147, y: 78 },
-        params: { background: "#000000" },
-      },
-    ],
-    edges: [
-      {
-        id: "e-frame",
-        source: "camera-1",
-        sourceHandle: "frame",
-        target: "pose-1",
-        targetHandle: "frame",
-      },
-      {
-        id: "e-bg",
-        source: "camera-1",
-        sourceHandle: "out",
-        target: "landmarks-1",
-        targetHandle: "bg",
-      },
-      {
-        id: "e-data",
-        source: "pose-1",
-        sourceHandle: "out",
-        target: "landmarks-1",
-        targetHandle: "landmarks",
-      },
-      {
-        id: "e-l2p",
-        source: "pose-1",
-        sourceHandle: "out",
-        target: "landmarksToPoints-5",
-        targetHandle: "landmarks",
-      },
-      {
-        id: "e-points",
-        source: "landmarksToPoints-5",
-        sourceHandle: "points",
-        target: "featuresGrid-6",
-        targetHandle: "points",
-      },
-      {
-        id: "e-grid-bg",
-        source: "landmarks-1",
-        sourceHandle: "out",
-        target: "featuresGrid-6",
-        targetHandle: "bg",
-      },
-      {
-        id: "e-grid-frame",
-        source: "camera-1",
-        sourceHandle: "frame",
-        target: "featuresGrid-6",
-        targetHandle: "frame",
-      },
-      {
-        id: "e-out",
-        source: "featuresGrid-6",
         sourceHandle: "out",
         target: "screen-1",
         targetHandle: "src",
@@ -1083,7 +867,8 @@ function blendSplit(): SerializedPatch {
   };
 }
 
-export const DEFAULT_PRESET_ID = "particles-feedback";
+/** What a fresh session and Reset land on. */
+export const DEFAULT_PRESET_ID = "pixel-sort-start";
 
 /** Noise TOP → Output — animated monochrome field. */
 function noiseField(): SerializedPatch {
@@ -1151,7 +936,7 @@ function noiseThreshold(): SerializedPatch {
         id: "threshold-1",
         type: "fx.threshold",
         position: { x: 340, y: 140 },
-        params: { compare: "gt", threshold: 0.55, tolerance: 0.05 },
+        params: { compare: "lt", threshold: 0.67, tolerance: 0.05 },
       },
       { ...SCREEN, position: { x: 680, y: 160 } },
     ],
@@ -1164,7 +949,9 @@ function noiseThreshold(): SerializedPatch {
 
 /**
  * Thresholded noise as content, a second noise as the displacement map —
- * Displace Feedback trails that flow with the field.
+ * Displace Feedback trails that flow with the field. Values are a session
+ * export (2026-08-13): a fine content field, a coarse warped map, and a decay
+ * short enough that the trail keeps drifting instead of caking up.
  */
 function noiseDisplaceFeedback(): SerializedPatch {
   return {
@@ -1178,13 +965,13 @@ function noiseDisplaceFeedback(): SerializedPatch {
         position: { x: 0, y: 40 },
         params: {
           seed: 1,
-          period: 0.5,
+          period: 0.21,
           harmonics: 2,
-          harmonicSpread: 2,
-          harmonicGain: 0.7,
-          exponent: 1,
+          harmonicSpread: 1.55,
+          harmonicGain: 0.83,
+          exponent: 1.1,
           amplitude: 0.5,
-          offset: 0.5,
+          offset: 0.51,
           monochrome: true,
           translateX: 0,
           translateY: 0,
@@ -1196,21 +983,21 @@ function noiseDisplaceFeedback(): SerializedPatch {
         id: "threshold-1",
         type: "fx.threshold",
         position: { x: 320, y: 40 },
-        params: { compare: "gt", threshold: 0.52, tolerance: 0.05 },
+        params: { compare: "lt", threshold: 0.73, tolerance: 0.05 },
       },
       {
         id: "noise-disp",
         type: "source.noise",
-        position: { x: 0, y: 320 },
+        position: { x: 0, y: 297.57 },
         params: {
-          seed: 42,
-          period: 0.8,
-          harmonics: 1,
-          harmonicSpread: 2,
-          harmonicGain: 0.7,
-          exponent: 1,
-          amplitude: 0.5,
-          offset: 0.5,
+          seed: 0,
+          period: 2.53,
+          harmonics: 6,
+          harmonicSpread: 2.4,
+          harmonicGain: 0.69,
+          exponent: 1.95,
+          amplitude: 0.9,
+          offset: 0.48,
           monochrome: false,
           translateX: 0,
           translateY: 0,
@@ -1223,11 +1010,11 @@ function noiseDisplaceFeedback(): SerializedPatch {
         type: "fx.displaceFeedback",
         position: { x: 640, y: 160 },
         params: {
-          decay: 0.94,
-          zoom: 1.005,
-          rotate: 0,
-          offsetX: 0,
-          offsetY: 0,
+          decay: 0.815,
+          zoom: 0.975,
+          rotate: -1.75,
+          offsetX: 0.0035,
+          offsetY: 0.0145,
           mode: "over",
           amount: 0.025,
           dispSource: "rg",
@@ -1267,12 +1054,29 @@ function noiseDisplaceFeedback(): SerializedPatch {
         targetHandle: "src",
       },
     ],
+    timeline: {
+      fps: 30,
+      durationInFrames: 450,
+      keyframes: {},
+      reelZones: { cutsSec: [1, 1.2, 9, 12], dirty: false },
+      cueZoneTick: false,
+      cueDevMetronome: false,
+      cueDrone: false,
+      developmentBpm: 120,
+    },
   };
 }
 
 export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: DEFAULT_PRESET_ID,
+    label: "Pixel Sort Keyframed",
+    description: "Still → Pixel Sort → Color Correction, keyframed threshold and direction",
+    builtin: true,
+    build: pixelSortStart,
+  },
+  {
+    id: "particles-feedback",
     label: "Particles Feedback",
     description: "Corners → Particles → Feedback trails with breathing zoom (1080×1920)",
     builtin: true,
@@ -1283,6 +1087,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     label: "Particles Feedback Close-up",
     description: "Same particle feedback chain with a tighter zoom on the still",
     builtin: true,
+    hidden: true,
     build: particlesFeedbackCloseup,
   },
   {
@@ -1290,6 +1095,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     label: "Noise Element Grid",
     description: "Points Noise → Features Grid (Element labels) → Points → Connectors",
     builtin: true,
+    hidden: true,
     build: noiseElementGrid,
   },
   {
@@ -1302,7 +1108,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "noise-threshold",
     label: "Noise + Threshold",
-    description: "Noise → luma threshold (keep bright) → output",
+    description: "Noise → luma threshold (keep the dark side) → output",
     builtin: true,
     build: noiseThreshold,
   },
@@ -1321,54 +1127,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     build: imageSliceShift,
   },
   {
-    id: "track-pose",
-    label: "Pose + Skeleton",
-    description: "Pose still → Pose → Draw Skeleton → output",
-    builtin: true,
-    build: () =>
-      trackingViz({
-        source: "image",
-        imageFile: POSE_IMAGE_FILE,
-        trackType: "tracking.pose",
-        trackId: "pose-1",
-        drawType: "draw.landmarks",
-        drawId: "landmarks-1",
-        drawHandle: "landmarks",
-      }),
-  },
-  {
-    id: "track-hands",
-    label: "Hands + Skeleton",
-    description: "Pose still → Hands → Draw Skeleton → output",
-    builtin: true,
-    build: () =>
-      trackingViz({
-        source: "image",
-        imageFile: POSE_IMAGE_FILE,
-        trackType: "tracking.hands",
-        trackId: "hands-1",
-        drawType: "draw.landmarks",
-        drawId: "landmarks-1",
-        drawHandle: "landmarks",
-      }),
-  },
-  {
-    id: "track-face",
-    label: "Face Mesh + Skeleton",
-    description: "Face still → Face Mesh → Draw Skeleton → output",
-    builtin: true,
-    build: () =>
-      trackingViz({
-        source: "image",
-        imageFile: FACE_IMAGE_FILE,
-        trackType: "tracking.face",
-        trackId: "face-1",
-        drawType: "draw.landmarks",
-        drawId: "landmarks-1",
-        drawHandle: "landmarks",
-      }),
-  },
-  {
     id: "track-objects",
     label: "Objects + Boxes",
     description: "Image → Object detection → Draw Boxes → output",
@@ -1382,13 +1140,6 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawId: "boxes-1",
         drawHandle: "boxes",
       }),
-  },
-  {
-    id: "objects-feedback",
-    label: "Objects + Feedback",
-    description: "Image → object boxes → feedback trail (1080×1920)",
-    builtin: true,
-    build: objectsFeedback,
   },
   {
     id: "track-features",
@@ -1406,18 +1157,11 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
       }),
   },
   {
-    id: "pose-features-grid",
-    label: "Pose + Features Grid",
-    description:
-      "Pose still → Pose → skeleton + Points → Features Grid (effect on small cells)",
-    builtin: true,
-    build: poseFeaturesGrid,
-  },
-  {
     id: "noise-grid",
     label: "Points Noise + Grid",
     description: "Noise-driven point cloud → Features Grid — animates without a camera",
     builtin: true,
+    hidden: true,
     build: noiseGrid,
   },
   {
@@ -1434,6 +1178,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description:
       "Corners → Points Noise (RMS → Displacement) → Features Grid — default track + still",
     builtin: true,
+    hidden: true,
     build: audioNoiseGrid,
   },
   {
@@ -1882,12 +1627,17 @@ function toPreset(entry: StoredUserPreset): PatchPreset {
   };
 }
 
+/** What the picker shows: hidden builtins are excluded, saved presets are not. */
 export function listPresets(): PatchPreset[] {
-  return [...BUILTIN_PRESETS, ...readStored().map(toPreset)];
+  return [...BUILTIN_PRESETS.filter((preset) => !preset.hidden), ...readStored().map(toPreset)];
 }
 
+/** Resolves hidden presets too — an old `activePresetId` must still load. */
 export function getPreset(id: string): PatchPreset | undefined {
-  return listPresets().find((preset) => preset.id === id);
+  return (
+    BUILTIN_PRESETS.find((preset) => preset.id === id) ??
+    readStored().map(toPreset).find((preset) => preset.id === id)
+  );
 }
 
 /** Persist the current graph as a user preset; returns the new preset id. */

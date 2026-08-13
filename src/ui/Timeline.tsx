@@ -26,11 +26,12 @@ const TRACKS = [
 
 const COLLAPSED_KEY = "visio.timelineCollapsed";
 
+/** Collapsed until the user says otherwise — the graph gets the height by default. */
 function loadTimelineCollapsed(): boolean {
   try {
-    return localStorage.getItem(COLLAPSED_KEY) === "1";
+    return localStorage.getItem(COLLAPSED_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 

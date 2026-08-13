@@ -183,7 +183,7 @@ export function Toolbar({
 
           <button
             type="button"
-            className={`button ${rendering ? "button--recording" : ""}`}
+            className={`button button--render ${rendering ? "button--recording" : ""}`}
             onClick={onToggleRender}
             disabled={recording}
             title={

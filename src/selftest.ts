@@ -52,6 +52,7 @@ import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
 import { defaultParams, NODE_DEFS } from "./nodes/registry";
+import { mediaKind } from "./nodes/shared/fileParam";
 import { BUILTIN_PRESETS } from "./presets";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
@@ -1987,6 +1988,19 @@ async function run(): Promise<void> {
     "switching to a type with no file clears the preset's",
     ontoCamera.mode === "camera" && ontoCamera.file === null,
     `mode=${String(ontoCamera.mode)} file=${JSON.stringify(ontoCamera.file)}`,
+  );
+
+  // A drag from the desktop often carries no MIME at all — Windows has none for
+  // `.mov`, and some file managers send an empty type — so the extension has to
+  // decide, or the drop lands in the wrong mode.
+  const kindOf = (name: string, type: string) => mediaKind(new File([], name, { type }));
+  check(
+    "a dropped file finds its source type, MIME or not",
+    kindOf("shot.png", "image/png") === "image" &&
+      kindOf("clip.mov", "") === "video" &&
+      kindOf("take.MP3", "") === "audio" &&
+      kindOf("patch.json", "application/json") === null,
+    `mov=${kindOf("clip.mov", "")} MP3=${kindOf("take.MP3", "")} json=${kindOf("patch.json", "application/json")}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------

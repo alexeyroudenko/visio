@@ -12,3 +12,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "virtual:image-library" {
+  /** File names found in `public/imgs`, provided by the imageLibrary plugin. */
+  export const IMAGE_LIBRARY_FILES: string[];
+}

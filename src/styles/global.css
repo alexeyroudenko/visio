@@ -43,6 +43,10 @@
   --accent: #ffffff;
   --accent-hover: #e8e8e8;
   --danger: #ffffff;
+  /* The one hue in the shell, spent on Render so the export is never a
+     misclick away from Pause. */
+  --render: #d61f2c;
+  --render-hover: #f02635;
   --success: #c8c8c8;
   --warn: #b0b0b0;
   --font: Telegraf, system-ui, -apple-system, sans-serif;
@@ -163,6 +167,38 @@ input[type="checkbox"] {
   overflow: hidden;
   min-width: 0;
   position: relative;
+}
+
+/* ---------- file drop ---------- */
+
+/* Above the modals (z 100): a file can be dropped while one is open, and the
+   hint is a lie if it does not cover what the pointer is actually over.
+   Transparent to the pointer, or it would swallow the drop it advertises. */
+.drop-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 55%);
+  box-shadow: inset 0 0 0 2px var(--text);
+  pointer-events: none;
+  animation: drop-hint-in 120ms ease-out;
+}
+
+.drop-hint span {
+  padding: 10px 18px;
+  border: 1px dashed var(--text);
+  color: var(--text);
+  font-size: var(--label-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes drop-hint-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* Thin dark scrollbars like cv-reels sidebar */
@@ -344,9 +380,11 @@ input[type="checkbox"] {
   top: 0;
   left: 0;
   right: 0;
-  display: flex;
+  /* Empty third column mirrors the brand so the actions land on the screen
+     centre, not the centre of what is left over. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 6px 10px;
   padding-top: max(6px, env(safe-area-inset-top, 0px));
@@ -367,6 +405,9 @@ input[type="checkbox"] {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  /* Never widen past its column, or it would shove the actions off centre. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .toolbar__brand strong {
@@ -381,6 +422,9 @@ input[type="checkbox"] {
   font-size: var(--label-size);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toolbar__stats {
@@ -399,9 +443,16 @@ input[type="checkbox"] {
 }
 
 .toolbar__actions {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Portrait leaves no room for the brand — dropping it keeps the row centred
+   instead of showing a single clipped letter next to it. */
+.app--vertical .toolbar__brand {
+  display: none;
 }
 
 .button,
@@ -429,6 +480,20 @@ input[type="checkbox"] {
   color: var(--danger);
 }
 
+.button--render {
+  border-color: var(--render);
+  background: var(--render);
+  color: #fff;
+}
+
+.button--render:hover {
+  border-color: var(--render-hover);
+  background: var(--render-hover);
+  color: #fff;
+}
+
+/* Rendering: the button is now Cancel, and white outranks the red — hence the
+   source order, since both are plain class selectors. */
 .button--recording {
   border-color: var(--text);
   background: var(--text);
@@ -1417,6 +1482,13 @@ canvas.knob:focus-visible {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+/* File names come straight from `public/imgs`, so they can be any length. */
+.media-library__item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .media-library__item img {

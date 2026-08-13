@@ -195,6 +195,16 @@ export function clearMediaMemory(): void {
   writeStoredMode(null);
 }
 
+/**
+ * Reset: forget everything, IndexedDB included, so the next patch loads with
+ * the media it was authored with instead of the last session's footage.
+ */
+export function forgetAllMedia(): void {
+  for (const mode of ["image", "video", "audio"] as FileMode[]) forgetMediaFile(mode);
+  memory.mode = null;
+  writeStoredMode(null);
+}
+
 /** Drop a remembered mode's file from memory + IndexedDB. */
 export function forgetMediaFile(mode: unknown): void {
   const key = asFileMode(mode);

@@ -11,12 +11,20 @@ import {
 import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
 import { scrub, setLaunchContext, track, trackParam } from "../lib/analytics";
+import { fitAppWindowToPatch } from "../lib/appWindow";
 import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
+import { fileParamFromFile, mediaKind } from "../nodes/shared/fileParam";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
-import { mediaMemoryReady, recallMediaParams, rememberedFile, rememberMedia } from "./mediaMemory";
+import {
+  forgetAllMedia,
+  mediaMemoryReady,
+  recallMediaParams,
+  rememberedFile,
+  rememberMedia,
+} from "./mediaMemory";
 import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
@@ -64,6 +72,7 @@ interface GraphState {
     params?: Record<string, unknown>,
   ) => string;
   removeNode: (id: string) => void;
+  dropMediaFiles: (files: File[]) => void;
   setParam: (id: string, key: string, value: unknown) => void;
   setBypass: (id: string, bypass: boolean) => void;
   setDebug: (id: string, debug: boolean) => void;
@@ -275,6 +284,52 @@ function createGraphStore() {
         });
       }
       return id;
+    },
+    dropMediaFiles(files) {
+      // One file only: the memory keeps a single blob URL per kind and revokes
+      // the one it replaces, so two images in one drop would leave the first
+      // node pointing at a dead URL.
+      const usable = files.flatMap((candidate) => {
+        const kind = mediaKind(candidate);
+        return kind ? [{ file: candidate, kind }] : [];
+      });
+      if (usable.length === 0) {
+        appLog("warn", "media", "dropped file is not an image, video or audio");
+        return;
+      }
+      const { file, kind } = usable[0];
+      if (usable.length > 1) {
+        appLog("info", "media", `using ${file.name}, ignored ${usable.length - 1} more`);
+      }
+
+      const media = get().nodes.filter((node) => node.data.defType === "source.media");
+      // The node you are looking at wins; failing that, one already on the
+      // dropped kind — an mp3 on an audio + image patch means the audio node.
+      const target =
+        media.find((node) => node.id === get().selectedId) ??
+        media.find((node) => node.data.params.mode === kind) ??
+        media[0];
+
+      if (!target) {
+        get().addNode(
+          "source.media",
+          { x: 120, y: 120 },
+          { mode: kind, file: fileParamFromFile(file), mirror: false },
+        );
+        return;
+      }
+
+      const params = { ...target.data.params, mode: kind, file: fileParamFromFile(file) };
+      rememberMedia(params, file);
+      set({
+        nodes: get().nodes.map((node) =>
+          node.id === target.id ? { ...node, data: { ...node.data, params } } : node,
+        ),
+        selectedId: target.id,
+      });
+      appLog("ok", "media", `${file.name} → ${target.id} (${kind})`);
+      // Only the kind travels — never the name, size or blob URL of the file.
+      track("media_dropped", { kind });
     },
     removeNode(id) {
       const node = get().nodes.find((n) => n.id === id);
@@ -488,9 +543,14 @@ function createGraphStore() {
     },
     resetPatch() {
       clearStorage();
+      // Reset means the default patch as authored — otherwise the last footage
+      // you opened outranks its still and you never see the default again.
+      forgetAllMedia();
       const fresh = patchFromPreset(DEFAULT_PRESET_ID);
       if (!fresh) return;
       get().loadPatch(fresh, "reset to default preset");
+      // Installed app only — a tab cannot resize itself.
+      fitAppWindowToPatch(fresh.width, fresh.height);
       track("patch_reset");
       writeActivePresetId(DEFAULT_PRESET_ID);
       set({ activePresetId: DEFAULT_PRESET_ID });

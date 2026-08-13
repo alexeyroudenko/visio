@@ -4,7 +4,6 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
-  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -13,18 +12,20 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PatchNode } from "./ui/PatchNode";
 import { FloatingInspector } from "./ui/FloatingInspector";
 import { Inspector } from "./ui/Inspector";
 import { Toolbar } from "./ui/Toolbar";
 import { AppConsole } from "./ui/AppConsole";
 import { useEngine } from "./ui/useEngine";
+import { useFileDrop } from "./ui/useFileDrop";
 import { useRecorder } from "./ui/useRecorder";
 import { useOfflineRender } from "./ui/useOfflineRender";
 import { useOutputWindow } from "./ui/useOutputWindow";
 import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
+import { fitAppWindowOnFirstLaunch } from "./lib/appWindow";
 import { sourceMediaStem } from "./lib/mediaName";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
@@ -88,17 +89,6 @@ function useSideResize(
   );
 }
 
-function mediaKind(file: File): "image" | "video" | "audio" | null {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type.startsWith("video/")) return "video";
-  if (file.type.startsWith("audio/")) return "audio";
-  const lower = file.name.toLowerCase();
-  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "image";
-  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "video";
-  if (/\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/.test(lower)) return "audio";
-  return null;
-}
-
 interface GraphCanvasProps {
   nodes: PatchNodeType[];
   edges: Edge[];
@@ -125,47 +115,6 @@ function GraphCanvas({
   onPaneClick,
   vertical = false,
 }: GraphCanvasProps) {
-  const { screenToFlowPosition } = useReactFlow();
-  const addNode = useGraphStore((state) => state.addNode);
-
-  const onDragOver = useCallback((event: DragEvent) => {
-    if (![...event.dataTransfer.types].includes("Files")) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-  }, []);
-
-  const onDrop = useCallback(
-    (event: DragEvent) => {
-      event.preventDefault();
-      const files = Array.from(event.dataTransfer.files);
-      if (files.length === 0) return;
-
-      const origin = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      let offset = 0;
-      for (const file of files) {
-        const kind = mediaKind(file);
-        if (!kind) continue;
-        addNode(
-          "source.media",
-          { x: origin.x + offset, y: origin.y + offset },
-          {
-            mode: kind,
-            file: {
-              name: file.name,
-              url: URL.createObjectURL(file),
-              mime: file.type || undefined,
-              sizeBytes: file.size,
-              fileObj: file,
-            },
-            mirror: false,
-          },
-        );
-        offset += 48;
-      }
-    },
-    [addNode, screenToFlowPosition],
-  );
-
   return (
     <ReactFlow
       nodes={nodes}
@@ -177,8 +126,6 @@ function GraphCanvas({
       onNodeClick={onNodeClick}
       onNodeDoubleClick={onNodeDoubleClick}
       onPaneClick={onPaneClick}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       deleteKeyCode={null}
       fitView
       proOptions={{ hideAttribution: false }}
@@ -205,6 +152,9 @@ export default function App() {
   const { recording, toggle } = useRecorder(() => canvasRef.current);
   const { rendering, progress: renderProgress, toggle: toggleRender } = useOfflineRender(engineRef);
   const outputWindow = useOutputWindow(() => canvasRef.current);
+
+  const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
+  const dropOver = useFileDrop(dropMediaFiles);
 
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
@@ -235,6 +185,10 @@ export default function App() {
   );
 
   useEffect(() => {
+    fitAppWindowOnFirstLaunch(useGraphStore.getState().width, useGraphStore.getState().height);
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Delete") return;
       const target = event.target as HTMLElement | null;
@@ -258,6 +212,11 @@ export default function App() {
 
   return (
     <div className={`app${vertical ? " app--vertical" : ""}`}>
+      {dropOver ? (
+        <div className="drop-hint" aria-hidden="true">
+          <span>Drop to load — image · video · audio</span>
+        </div>
+      ) : null}
       <Toolbar
         recording={recording}
         onToggleRecord={toggle}

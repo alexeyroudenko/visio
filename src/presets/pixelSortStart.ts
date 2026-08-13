@@ -1,0 +1,302 @@
+import { libraryImage } from "../nodes/shared/fileParam";
+import type { SerializedPatch } from "../store/persistence";
+
+/**
+ * Media → Pixel Sort → Color Correction → Output, keyframed (from pixelsort.json).
+ * The original was cut against a phone clip; the still keeps it self-contained.
+ */
+export function pixelSortStart(): SerializedPatch {
+  return {
+  "format": 1,
+  "width": 1080,
+  "height": 1920,
+  "source": "img1.jpg",
+  "nodes": [
+    {
+      "id": "screen-1",
+      "type": "output.screen",
+      "position": {
+        "x": 829.4319805437722,
+        "y": 488.03751353977475
+      },
+      "params": {
+        "background": "#000000"
+      }
+    },
+    {
+      "id": "pixelSort-5",
+      "type": "fx.pixelSort",
+      "position": {
+        "x": 511.3965756693477,
+        "y": 156.0148032416315
+      },
+      "params": {
+        "thresh": 19,
+        "vert": true,
+        "scale": 1,
+        "interval": 1,
+        "asyncRead": true,
+        "worker": true
+      },
+      "debug": true
+    },
+    {
+      "id": "colorCorrection-4",
+      "type": "fx.colorCorrection",
+      "position": {
+        "x": 671.7503503816976,
+        "y": 368.0324324785026
+      },
+      "params": {
+        "hue": 0,
+        "saturation": 0,
+        "value": 1,
+        "gamma": 0.8,
+        "brightness": 0,
+        "contrast": 1,
+        "alpha": 1
+      }
+    },
+    {
+      "id": "media-1",
+      "type": "source.media",
+      "position": {
+        "x": 118.53899887928213,
+        "y": -32.94965614485287
+      },
+      "params": {
+        "mode": "image",
+        "facing": "user",
+        "file": libraryImage("img1.jpg"),
+        "playing": true,
+        "muted": false,
+        "volume": 1,
+        "speed": 1,
+        "syncTimeline": false,
+        "mirror": false,
+        "fit": "cover",
+        "zoom": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-9dc2608b-4cc2-4319-9586-2364de14d8cf",
+      "source": "pixelSort-5",
+      "sourceHandle": "out",
+      "target": "colorCorrection-4",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-6d186db6-9b64-4ef7-a68a-a9e19e3923fa",
+      "source": "media-1",
+      "sourceHandle": "out",
+      "target": "pixelSort-5",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-85a12f29-e630-4832-adca-55c63dff4ab0",
+      "source": "colorCorrection-4",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    }
+  ],
+  "timeline": {
+    "fps": 30,
+    "durationInFrames": 1473,
+    "keyframes": {
+      "pixelSort-5:vert": [
+        {
+          "frame": 3,
+          "value": true
+        },
+        {
+          "frame": 21,
+          "value": true
+        },
+        {
+          "frame": 126,
+          "value": false
+        },
+        {
+          "frame": 205,
+          "value": true
+        }
+      ],
+      "pixelSort-5:thresh": [
+        {
+          "frame": 0,
+          "value": 19
+        },
+        {
+          "frame": 3,
+          "value": 20
+        },
+        {
+          "frame": 21,
+          "value": 20
+        },
+        {
+          "frame": 43,
+          "value": 45
+        },
+        {
+          "frame": 126,
+          "value": 39
+        },
+        {
+          "frame": 134,
+          "value": 50
+        },
+        {
+          "frame": 278,
+          "value": 23
+        }
+      ],
+      "colorCorrection-4:saturation": [
+        {
+          "frame": 0,
+          "value": 0
+        },
+        {
+          "frame": 3,
+          "value": 0
+        },
+        {
+          "frame": 21,
+          "value": 0
+        },
+        {
+          "frame": 25,
+          "value": 1
+        }
+      ],
+      "colorCorrection-4:gamma": [
+        {
+          "frame": 3,
+          "value": 0.9
+        },
+        {
+          "frame": 21,
+          "value": 0.55
+        },
+        {
+          "frame": 25,
+          "value": 1
+        }
+      ]
+    },
+    "reelZones": {
+      "cutsSec": [
+        1,
+        1.2,
+        29.46,
+        39.28
+      ],
+      "dirty": false
+    },
+    "cueZoneTick": false,
+    "cueDevMetronome": false,
+    "cueDrone": false,
+    "developmentBpm": 120,
+    "droneByZone": {
+      "hook": {
+        "enabled": true,
+        "freq": 218.5,
+        "gain": 0.06,
+        "type": "sawtooth",
+        "detune": 18,
+        "cutoff": 1800,
+        "lfoRate": 6.5,
+        "lfoDepth": 0.4,
+        "subGain": 0.25,
+        "ratio": 3.13,
+        "fm": 0.35,
+        "ring": 0.45,
+        "noise": 0.2,
+        "crush": 0.4,
+        "comb": 0.3,
+        "glitch": 0.5,
+        "drift": 0.25
+      },
+      "formwait": {
+        "enabled": true,
+        "freq": 247.7,
+        "gain": 0.05,
+        "type": "triangle",
+        "detune": 33,
+        "cutoff": 1100,
+        "lfoRate": 0.7,
+        "lfoDepth": 0.6,
+        "subGain": 0.1,
+        "ratio": 1.41,
+        "fm": 0.2,
+        "ring": 0.6,
+        "noise": 0.35,
+        "crush": 0.25,
+        "comb": 0.55,
+        "glitch": 0.75,
+        "drift": 0.5
+      },
+      "development": {
+        "enabled": true,
+        "freq": 67,
+        "gain": 0.05,
+        "type": "square",
+        "detune": 12,
+        "cutoff": 800,
+        "lfoRate": 3.2,
+        "lfoDepth": 0.55,
+        "subGain": 0.5,
+        "ratio": 2.07,
+        "fm": 0.15,
+        "ring": 0.2,
+        "noise": 0.15,
+        "crush": 0.55,
+        "comb": 0.4,
+        "glitch": 0.35,
+        "drift": 0.3
+      },
+      "climax": {
+        "enabled": true,
+        "freq": 149,
+        "gain": 0.085,
+        "type": "sawtooth",
+        "detune": 26,
+        "cutoff": 3200,
+        "lfoRate": 8.5,
+        "lfoDepth": 0.5,
+        "subGain": 0.55,
+        "ratio": 5.19,
+        "fm": 0.6,
+        "ring": 0.5,
+        "noise": 0.45,
+        "crush": 0.7,
+        "comb": 0.25,
+        "glitch": 0.2,
+        "drift": 0.2
+      },
+      "cta": {
+        "enabled": true,
+        "freq": 81.7,
+        "gain": 0.055,
+        "type": "triangle",
+        "detune": 8,
+        "cutoff": 700,
+        "lfoRate": 0.5,
+        "lfoDepth": 0.25,
+        "subGain": 0.45,
+        "ratio": 1.49,
+        "fm": 0.1,
+        "ring": 0.15,
+        "noise": 0.1,
+        "crush": 0.2,
+        "comb": 0.65,
+        "glitch": 0.1,
+        "drift": 0.4
+      }
+    }
+  }
+} as SerializedPatch;
+}

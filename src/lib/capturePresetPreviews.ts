@@ -19,13 +19,8 @@ const THUMB_H = 284 * 4;
 
 /** Tracking models need longer to download + detect on a still. */
 const TRACKING_PRESET_IDS = new Set([
-  "track-pose",
-  "track-hands",
-  "track-face",
   "track-objects",
-  "objects-feedback",
   "track-features",
-  "pose-features-grid",
   "track-features-points",
   "features-tracking",
   "track-hough-circles",
@@ -148,9 +143,11 @@ export async function captureBuiltinPresetPreviews(
 ): Promise<PresetPreviewCapture[]> {
   const settleMs = opts?.settleMs ?? 1200;
   const save = opts?.save !== false;
+  // Hidden presets have no card in the picker to put a thumb on; asking for one
+  // by id still works, for the session that unhides it.
   const wanted = opts?.ids?.length
     ? BUILTIN_PRESETS.filter((preset) => opts.ids!.includes(preset.id))
-    : BUILTIN_PRESETS;
+    : BUILTIN_PRESETS.filter((preset) => !preset.hidden);
   const out: PresetPreviewCapture[] = [];
   const graph = useGraphStore.getState();
 

@@ -1,3 +1,5 @@
+import { IMAGE_LIBRARY_FILES } from "virtual:image-library";
+
 /** The UI stores a picked / dropped file as this shape (blob: or public URL). */
 export interface FileParam {
   name: string;
@@ -19,6 +21,35 @@ export function fileParam(params: Record<string, unknown>, key = "file"): FilePa
     return value as FileParam;
   }
   return null;
+}
+
+export type MediaKind = "image" | "video" | "audio";
+
+/**
+ * Which Media mode a file belongs in. The extension is the fallback because a
+ * drag from the desktop often arrives with an empty `type` (Windows has no MIME
+ * for `.mov`, and some file managers send none at all).
+ */
+export function mediaKind(file: File): MediaKind | null {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  const lower = file.name.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "image";
+  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "video";
+  if (/\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/.test(lower)) return "audio";
+  return null;
+}
+
+/** A picked / dropped File as a param. The blob URL lives until nothing recalls it. */
+export function fileParamFromFile(file: File): FileParam {
+  return {
+    name: file.name,
+    url: URL.createObjectURL(file),
+    mime: file.type || undefined,
+    sizeBytes: file.size,
+    fileObj: file,
+  };
 }
 
 function publicFile(name: string): FileParam {
@@ -64,12 +95,41 @@ export const EXAMPLE_AUDIO_03_FILE: FileParam = {
   mime: "audio/mpeg",
 };
 
-/** Stock images shown in the Media inspector library. */
-export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] = [
-  { file: DEFAULT_IMAGE_FILE, label: "Frame" },
-  { file: POSE_IMAGE_FILE, label: "Pose" },
-  { file: FACE_IMAGE_FILE, label: "Face" },
-];
+const IMAGE_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+};
+
+/**
+ * Stock images shown in the Media inspector library — whatever sits in
+ * `public/imgs`, listed by the imageLibrary Vite plugin.
+ */
+export const BUNDLED_IMAGE_FILES: readonly { file: FileParam; label: string }[] =
+  IMAGE_LIBRARY_FILES.map((name) => {
+    const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+    return {
+      file: {
+        name,
+        url: `${import.meta.env.BASE_URL}imgs/${encodeURIComponent(name)}`,
+        mime: IMAGE_MIME[ext],
+      },
+      label: name.replace(/\.[^.]+$/, ""),
+    };
+  });
+
+/**
+ * A library still by file name, for presets that want a specific one. The
+ * folder is the user's, so a missing name falls back rather than breaking the
+ * patch: first the library's first image, then the bundled frame.
+ */
+export function libraryImage(name: string): FileParam {
+  const match = BUNDLED_IMAGE_FILES.find((entry) => entry.file.name === name);
+  return match?.file ?? BUNDLED_IMAGE_FILES[0]?.file ?? DEFAULT_IMAGE_FILE;
+}
 
 /** Stock audio shown in the Media inspector library (audio mode). */
 export const BUNDLED_AUDIO_FILES: readonly { file: FileParam; label: string }[] = [

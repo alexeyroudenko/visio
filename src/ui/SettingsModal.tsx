@@ -19,6 +19,8 @@ import {
   saveRenderFps,
 } from "../lib/renderFps";
 import { promptInstall, useInstallState } from "../lib/pwa";
+import { fitAppWindowToPatch } from "../lib/appWindow";
+import { useGraphStore } from "../store/graphStore";
 
 const RENDER_FPS_PRESETS = [60, 30, 24] as const;
 const RENDER_BITRATE_PRESETS = [4, 8, 12, 20, 40, 80].map((mbps) => mbps * 1_000_000);
@@ -40,6 +42,8 @@ export function SettingsModal({
 }) {
   const [quality, setQuality] = useState<PreviewQuality>(() => loadPreviewQuality());
   const install = useInstallState();
+  const patchWidth = useGraphStore((state) => state.width);
+  const patchHeight = useGraphStore((state) => state.height);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -192,6 +196,26 @@ export function SettingsModal({
                   ? "iPhone / iPad: open the Share menu and pick “Add to Home Screen”. Works from Chrome and Safari alike — both use WebKit."
                   : "Chrome and Edge put an install icon in the address bar once the page has been open for a moment. Desktop Safari and Firefox don’t install web apps."}
           </p>
+
+          {install.installed ? (
+            <>
+              <div className="modal__field">
+                <span>Window size</span>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => fitAppWindowToPatch(patchWidth, patchHeight)}
+                >
+                  Fit to {patchWidth}×{patchHeight}
+                </button>
+              </div>
+              <p className="modal__hint">
+                Resizes the app window to the patch, or to the tallest window of the same shape
+                the screen can hold. Done once on the first launch after install and on Reset;
+                this is the manual trigger.
+              </p>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

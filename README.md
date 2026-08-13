@@ -1,8 +1,8 @@
 # visio
 
 Node environment in the browser: **image, video, camera, or audio → tracking →
-WebGL graphics → granular audio**. Drop a file onto the graph to create a Media
-source. A simplified cables.gl for one job — visualizing tracking data in real
+WebGL graphics → granular audio**. Drop a file anywhere on the window to load it
+into the Media source. A simplified cables.gl for one job — visualizing tracking data in real
 time, and letting the picture drive the sound when you wire Features Grid
 `rects` into **Granular**.
 
@@ -11,11 +11,12 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (144 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (145 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 capture metadata off synthetic MP4 boxes, lazy MediaPipe import, point-mesh
-Voronoi/Delaunay/MST/Radial). Dev-only page: it is not built into `dist`.
+Voronoi/Delaunay/MST/Radial, source type of a dropped file). Dev-only page: it
+is not built into `dist`.
 
 > Test gradients are drawn column-by-column, not via `createLinearGradient`:
 > Chrome dithers gradients, so identical rows stop matching byte-for-byte and
@@ -53,6 +54,10 @@ with fit and mirror, and the tracker gets **the same canvas**. So landmarks in `
 land on the output texture one-to-one — draw nodes do no remapping.
 - **Premultiplied alpha.** Draw nodes write premultiplied, so `over` is simply
 `src + dst*(1-src.a)`.
+- **The image library is a folder.** The Media inspector’s Library row lists whatever
+sits in `public/imgs` — drop a `.png/.jpg/.webp/.gif/.avif` in and it appears (dev reloads
+on add/remove). The `vite.imageLibrary.ts` plugin reads the folder and serves the names as
+`virtual:image-library`, because `public/` is copied verbatim and never seen by the bundler.
 - **State lives in the node.** Models, cameras, and accumulators survive graph edits:
 `setGraph` diffs by id and type and only recreates what changed.
 - **MediaPipe loads on demand.** `@mediapipe/tasks-vision` is a separate chunk
@@ -359,17 +364,32 @@ when a line actually changes.
 
 - **Autosave** to localStorage on every edit (400 ms debounce).
 Export/import JSON via toolbar buttons; “Reset” restores the starter patch.
-The preset list covers every node at least once, including two that exist to
+The preset list covers most nodes, including two that exist to
 demonstrate the timeline itself — one keyframed, one modulated. A selftest walks
 every preset and checks each edge names a real handle of a matching type: a
 wrong handle name is not an error anywhere, the input simply never arrives.
+A preset marked `hidden` stays in the build but out of the picker — `getPreset`
+still resolves it, so a saved patch or a stored `activePresetId` that names one
+keeps working, and unhiding is a one-word edit.
 Video files are not saved: their `blob:` URLs die with the tab, so the patch
 loads with all connections, but you must pick the file again.
+- **Dropping a file replaces the source, it does not add a node.** A drag over
+the window is caught on `window` — panels, toolbar and timeline included, since
+a drop zone the size of the graph is a target you have to aim at, and the
+browser would otherwise navigate the tab to the file and take the session with
+it. `.drop-hint` is the highlight. The file lands on the Media node you have
+selected, else one already on that kind (an mp3 goes to the audio node, not the
+image one), else the first; the node switches image/video/audio to match, and a
+patch with no Media node gets one. Only the first usable file is taken: the
+memory below keeps one `blob:` URL per kind and revokes the one it replaces, so
+two images in a single drop would leave the first node holding a dead URL.
 - **The footage outlives the patch.** Presets ship their own source type and
 file, and loading one used to throw away the video you had just dropped.
 `mediaMemory` remembers the last file per source type plus the type itself, and
-a patch load (preset, import, Reset) applies both over whatever the patch said —
-so you can flip through presets against your own material. Switching type in the
+a patch load (preset, import) applies both over whatever the patch said —
+so you can flip through presets against your own material. Reset is the one
+exception: it forgets the remembered footage too, or the default patch could
+never come back as authored. Switching type in the
 Inspector swaps its file back in too, so image → video → image gets both back;
 a type you have never opened a file for clears the field instead of leaving a
 video source pointed at a PNG. It also owns the `blob:` URLs, releasing one only
@@ -461,6 +481,15 @@ Share → Add to Home Screen instructions where WebKit does not.
 | Worker | [`public/sw.js`](public/sw.js) | plain JS in `public/` so it lands at the dist root and gets scope `/` |
 | Wiring | [`src/lib/pwa.ts`](src/lib/pwa.ts) | captures `beforeinstallprompt` at module scope — it fires once, early, and only that object can open the dialog later |
 | Icons | `public/icons/`, `public/apple-touch-icon.png` | regenerate with `python scripts/generate-icons.py` after replacing `assets/icon-master.png` |
+| Window size | [`src/lib/appWindow.ts`](src/lib/appWindow.ts) | no manifest field exists for it — `resizeTo` is the only lever, and only installed windows are allowed to pull it |
+
+The installed window takes the patch's shape (1080×1920 by default): once on the
+first launch after install, again on Reset, and on demand from Settings. A
+1920-tall window does not fit a 1080p monitor, so it is scaled down to the
+tallest 9:16 window the work area holds rather than clamped on one axis into the
+wrong shape. Later launches reopen at whatever size the window was dragged to —
+the browser remembers that, and re-imposing a size every launch would be a fight
+with the user. In a tab every one of these calls is a no-op.
 
 Caching is three strategies, chosen per request: network-first for navigations
 (HTML must follow deploys), cache-first for hashed `/assets/` (immutable by
@@ -509,6 +538,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 | `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`, and `restored`/`nodes`/`edges`: the patch survives a reload, so a returning visitor never repeats the setup events and would otherwise read as a first-step drop-out. Filter the setup funnel on `restored: false` |
 | `first_source_ready` | first source node reporting ready | time-to-first-picture, once per session. Not the output node: draw and output nodes own no async resource and never leave `idle` |
 | `media_added` | Media node created | `kind` only (image/video/camera/audio), never the file |
+| `media_dropped` | file dropped on the window | `kind` only — how often footage arrives by drag rather than the file picker |
 | `node_added` / `node_removed` / `node_bypass` | graph edits | which nodes get reached for |
 | `edge_connected` | wire accepted | the chains people build — from/to type and port |
 | `edge_refused` | type mismatch | a wrong mental model of the graph, i.e. a затык |
