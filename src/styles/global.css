@@ -571,6 +571,33 @@ input[type="checkbox"] {
   display: none;
 }
 
+/* iPhone / portrait: toolbar chips become thumb-sized (≈44px) and wrap
+   instead of shrinking under a finger. */
+.app--vertical .toolbar {
+  grid-template-columns: 1fr;
+  padding: 8px 8px;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+}
+
+.app--vertical .toolbar__actions {
+  grid-column: 1;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.app--vertical .toolbar .button,
+.app--vertical .toolbar .select {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 14px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .button,
 .select {
   background: transparent;
