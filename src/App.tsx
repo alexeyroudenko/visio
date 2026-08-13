@@ -34,6 +34,7 @@ import {
   AUTHOR_HANDLE,
   AUTHOR_URL,
   WELCOME_CAMERA_LABEL,
+  WELCOME_DESKTOP_NOTE,
   WELCOME_HINT,
   WELCOME_PLUS_LABEL,
   WELCOME_TEMPLATE_LABEL,
@@ -364,6 +365,7 @@ export default function App() {
             >
               {WELCOME_TEMPLATE_LABEL}
             </button>
+            <p className="welcome__desktop">{WELCOME_DESKTOP_NOTE}</p>
           </div>
           <button
             type="button"

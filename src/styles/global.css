@@ -294,6 +294,13 @@ input[type="checkbox"] {
   color: var(--accent);
 }
 
+.welcome__desktop {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+
 .welcome__camera {
   margin-top: 8px;
   margin-bottom: 0;

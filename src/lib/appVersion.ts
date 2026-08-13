@@ -7,6 +7,7 @@ export const AUTHOR_HANDLE = "arthew0";
 export const AUTHOR_FULL = "Alexey Roudenko";
 export const WELCOME_HINT = "drop vertical video or image here...";
 export const WELCOME_TEMPLATE_LABEL = "use template";
+export const WELCOME_DESKTOP_NOTE = "works even better on desktop for now";
 /** Empty-graph + where the Output node / right preview will sit. */
 export const WELCOME_PLUS_LABEL = "+";
 /** Portrait / iPhone empty screen — under the template link, thumb reach. */
@@ -35,5 +36,6 @@ export function welcomeText(): string {
     `by ${AUTHOR_HANDLE} (${AUTHOR_FULL})`,
     WELCOME_HINT,
     WELCOME_TEMPLATE_LABEL,
+    WELCOME_DESKTOP_NOTE,
   ].join("\n");
 }
