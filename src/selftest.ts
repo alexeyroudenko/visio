@@ -51,7 +51,7 @@ import {
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
-import { APP_MARK, WELCOME_CAMERA_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
+import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import { mediaKind } from "./nodes/shared/fileParam";
@@ -422,6 +422,11 @@ async function run(): Promise<void> {
       WELCOME_CAMERA_LABEL.length > 0 &&
       !welcomeText().includes(WELCOME_CAMERA_LABEL),
     `params=${JSON.stringify(cameraOffer)} label=${WELCOME_CAMERA_LABEL}`,
+  );
+  check(
+    "welcome plus is a single + and stays out of the title-card copy",
+    WELCOME_PLUS_LABEL === "+" && !welcomeText().includes(WELCOME_PLUS_LABEL),
+    `plus=${WELCOME_PLUS_LABEL}`,
   );
 
   engine.setGraph(
@@ -2918,6 +2923,45 @@ async function run(): Promise<void> {
       resolveRenderRange(300, 120, 90).startFrame === 90,
     JSON.stringify(resolveRenderRange(300, 120, 90)),
   );
+
+  const { rankPresets } = await import("./presets");
+  check(
+    "preset picker ranks saved patches ahead of builtins",
+    rankPresets([
+      { id: "b", builtin: true },
+      { id: "u1", builtin: false },
+      { id: "u2" },
+    ])
+      .map((preset) => preset.id)
+      .join(",") === "u1,u2,b",
+    rankPresets([
+      { id: "b", builtin: true },
+      { id: "u1", builtin: false },
+      { id: "u2" },
+    ])
+      .map((preset) => preset.id)
+      .join(","),
+  );
+
+  const { CHROME_HINT_CYCLES, chromeHintsPending, markChromeHintsDone } = await import(
+    "./lib/firstRun"
+  );
+  const hintsKey = "visio.firstRun.hints.v1";
+  const hintsPrev = localStorage.getItem(hintsKey);
+  localStorage.removeItem(hintsKey);
+  check(
+    "first-run chrome hints are 5–7 cycles and pending until marked",
+    CHROME_HINT_CYCLES >= 5 && CHROME_HINT_CYCLES <= 7 && chromeHintsPending(),
+    `cycles=${CHROME_HINT_CYCLES} pending=${chromeHintsPending()}`,
+  );
+  markChromeHintsDone();
+  check(
+    "first-run chrome hints mark as done",
+    !chromeHintsPending(),
+    `pending=${chromeHintsPending()}`,
+  );
+  if (hintsPrev == null) localStorage.removeItem(hintsKey);
+  else localStorage.setItem(hintsKey, hintsPrev);
 
   render();
 }

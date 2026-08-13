@@ -35,9 +35,15 @@ import {
   AUTHOR_URL,
   WELCOME_CAMERA_LABEL,
   WELCOME_HINT,
+  WELCOME_PLUS_LABEL,
   WELCOME_TEMPLATE_LABEL,
   welcomeCameraParams,
 } from "./lib/appVersion";
+import {
+  chromeHintDurationMs,
+  chromeHintsPending,
+  markChromeHintsDone,
+} from "./lib/firstRun";
 import { sourceMediaStem } from "./lib/mediaName";
 import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
@@ -63,6 +69,19 @@ function usePortraitWindow(): boolean {
     return () => window.removeEventListener("resize", sync);
   }, []);
   return portrait;
+}
+
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(
+    () => typeof navigator !== "undefined" && navigator.maxTouchPoints > 0,
+  );
+  useEffect(() => {
+    const sync = () => setCoarse(navigator.maxTouchPoints > 0);
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+  return coarse;
 }
 
 function loadWidth(key: string, fallback: number): number {
@@ -114,6 +133,8 @@ interface GraphCanvasProps {
   onPaneClick: () => void;
   /** Hide the dotted grid so the output backdrop reads through. */
   vertical?: boolean;
+  /** Coarse pointer — larger wires, tap-to-connect, drag threshold. */
+  touch?: boolean;
 }
 
 function GraphCanvas({
@@ -127,7 +148,9 @@ function GraphCanvas({
   onNodeDoubleClick,
   onPaneClick,
   vertical = false,
+  touch = false,
 }: GraphCanvasProps) {
+  const finger = vertical || touch;
   return (
     <ReactFlow
       nodes={nodes}
@@ -142,8 +165,14 @@ function GraphCanvas({
       deleteKeyCode={null}
       fitView
       proOptions={{ hideAttribution: false }}
-      defaultEdgeOptions={{ animated: true, style: { stroke: "#ffffff", strokeWidth: 1.5 } }}
+      defaultEdgeOptions={{ animated: true, style: { stroke: "#ffffff", strokeWidth: finger ? 3 : 1.5 } }}
       className={vertical ? "react-flow--vertical" : undefined}
+      connectOnClick={finger}
+      nodeDragThreshold={finger ? 8 : 0}
+      zoomOnPinch
+      panOnDrag
+      minZoom={0.2}
+      maxZoom={2.5}
     >
       {vertical ? null : (
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2e2e2e" />
@@ -158,6 +187,7 @@ export default function App() {
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
   const vertical = usePortraitWindow();
+  const touch = useCoarsePointer();
   const { engineRef, error, paused, togglePause, setEnginePaused } = useEngine(
     canvasRef,
     vertical ? "vertical" : "horizontal",
@@ -186,7 +216,10 @@ export default function App() {
     }
   }, [loadPreset, setParam]);
   const [presetNudge, setPresetNudge] = useState(0);
+  const [openPresetsTick, setOpenPresetsTick] = useState(0);
+  const [chromeHint, setChromeHint] = useState(false);
   const [holdUntilPresets, setHoldUntilPresets] = useState(false);
+  const sawGraph = useRef<boolean | null>(null);
 
   const onDropFiles = useCallback(
     (files: File[]) => {
@@ -208,6 +241,11 @@ export default function App() {
     setEnginePaused(false);
   }, [setEnginePaused]);
 
+  const ackChromeHint = useCallback(() => {
+    setChromeHint(false);
+    markChromeHintsDone();
+  }, []);
+
   const onTogglePause = useCallback(() => {
     if (holdUntilPresets) return;
     togglePause();
@@ -223,6 +261,22 @@ export default function App() {
   const mediaStem = sourceMediaStem();
 
   const nodeTypes = useMemo(() => ({ patch: PatchNode }), []);
+
+  useEffect(() => {
+    if (sawGraph.current === null) {
+      sawGraph.current = nodes.length > 0;
+      return;
+    }
+    if (sawGraph.current || nodes.length === 0) return;
+    sawGraph.current = true;
+    if (!chromeHintsPending()) return;
+    setChromeHint(true);
+    const timer = window.setTimeout(() => {
+      setChromeHint(false);
+      markChromeHintsDone();
+    }, chromeHintDurationMs());
+    return () => window.clearTimeout(timer);
+  }, [nodes.length]);
 
   const [leftWidth, setLeftWidth] = useState(() => loadWidth(LEFT_WIDTH_KEY, 300));
   const [rightWidth, setRightWidth] = useState(() => loadWidth(RIGHT_WIDTH_KEY, 380));
@@ -282,7 +336,7 @@ export default function App() {
   );
 
   return (
-    <div className={`app${vertical ? " app--vertical" : ""}`}>
+    <div className={`app${vertical ? " app--vertical" : ""}${touch ? " app--touch" : ""}`}>
       {dropOver ? (
         <div className="drop-hint" aria-hidden="true">
           <span>Drop to load — image · video · audio</span>
@@ -290,24 +344,35 @@ export default function App() {
       ) : null}
       {nodes.length === 0 ? (
         <div className="welcome">
-          <div className="welcome__brand">
-            <p className="welcome__mark">{APP_MARK}</p>
-            <p className="welcome__ver">{APP_VERSION_LABEL}</p>
-            <p className="welcome__credit">
-              by{" "}
-              <a href={AUTHOR_URL} target="_blank" rel="noopener">
-                {AUTHOR_HANDLE}
-              </a>{" "}
-              ({AUTHOR_FULL})
-            </p>
+          <div className="welcome__copy">
+            <div className="welcome__brand">
+              <p className="welcome__mark">{APP_MARK}</p>
+              <p className="welcome__ver">{APP_VERSION_LABEL}</p>
+              <p className="welcome__credit">
+                by{" "}
+                <a href={AUTHOR_URL} target="_blank" rel="noopener">
+                  {AUTHOR_HANDLE}
+                </a>{" "}
+                ({AUTHOR_FULL})
+              </p>
+            </div>
+            <p className="welcome__hint">{WELCOME_HINT}</p>
+            <button
+              type="button"
+              className="welcome__link"
+              onClick={() => loadPreset(DEFAULT_PRESET_ID)}
+            >
+              {WELCOME_TEMPLATE_LABEL}
+            </button>
           </div>
-          <p className="welcome__hint">{WELCOME_HINT}</p>
           <button
             type="button"
-            className="welcome__link"
-            onClick={() => loadPreset(DEFAULT_PRESET_ID)}
+            className="welcome__plus"
+            onClick={() => setOpenPresetsTick((tick) => tick + 1)}
+            title="Add output — open the preset grid"
+            aria-label="Add output — choose a preset"
           >
-            {WELCOME_TEMPLATE_LABEL}
+            {WELCOME_PLUS_LABEL}
           </button>
           {vertical ? (
             <button type="button" className="welcome__camera" onClick={startWelcomeCamera}>
@@ -328,6 +393,9 @@ export default function App() {
         onTogglePause={onTogglePause}
         hideRecord={vertical}
         presetNudge={presetNudge}
+        openPresetsTick={openPresetsTick}
+        chromeHint={chromeHint}
+        onChromeHintAck={ackChromeHint}
         onPresetsGateClose={onPresetsGateClose}
       />
 
@@ -379,6 +447,7 @@ export default function App() {
                 onNodeDoubleClick={onNodeDoubleClick}
                 onPaneClick={() => select(null)}
                 vertical={vertical}
+                touch={touch}
               />
             </ReactFlowProvider>
           </div>

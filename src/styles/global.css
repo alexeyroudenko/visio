@@ -209,16 +209,23 @@ input[type="checkbox"] {
   position: absolute;
   inset: 0;
   z-index: 150;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr minmax(160px, 32vw);
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   gap: 16px;
   background: #000;
   color: var(--text);
   text-align: center;
   padding: 24px;
   padding-top: 56px;
+}
+
+.welcome__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 
 .welcome__hint {
@@ -309,7 +316,37 @@ input[type="checkbox"] {
 }
 
 .app--vertical .welcome {
+  display: flex;
+  flex-direction: column;
   padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+}
+
+.welcome__plus {
+  width: min(220px, 28vw);
+  height: min(220px, 28vw);
+  border: 2px solid var(--text);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: clamp(56px, 8vw, 96px);
+  font-weight: 200;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.welcome__plus:hover,
+.welcome__plus:active {
+  background: #fff;
+  color: #000;
+}
+
+.app--vertical .welcome__plus {
+  width: 96px;
+  height: 96px;
+  font-size: 56px;
 }
 
 /* Thin dark scrollbars like cv-reels sidebar */
@@ -657,6 +694,10 @@ input[type="checkbox"] {
   animation: presets-nudge 1s ease-in-out;
 }
 
+.button--hint {
+  animation: presets-nudge 1s ease-in-out 6;
+}
+
 /* Rendering: the button is now Cancel, and white outranks the red — hence the
    source order, since both are plain class selectors. */
 .button--recording {
@@ -716,7 +757,7 @@ input[type="checkbox"] {
 }
 
 .modal-backdrop--presets {
-  z-index: 110;
+  z-index: 160;
 }
 
 .modal {
@@ -2113,6 +2154,35 @@ canvas.knob:focus-visible {
   height: 8px;
   border: 1px solid var(--bg);
   border-radius: 0;
+}
+
+.app--touch .react-flow__handle,
+.app--vertical .react-flow__handle {
+  width: 22px;
+  height: 22px;
+}
+
+.app--touch .node__port,
+.app--vertical .node__port {
+  min-height: 28px;
+  padding-left: 18px;
+}
+
+.app--touch .node__port--out,
+.app--vertical .node__port--out {
+  padding-right: 18px;
+}
+
+.app--touch .node__title,
+.app--vertical .node__title {
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.app--touch .react-flow__controls-button,
+.app--vertical .react-flow__controls-button {
+  width: 44px !important;
+  height: 44px !important;
 }
 
 .react-flow__controls {

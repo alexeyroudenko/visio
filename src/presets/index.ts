@@ -1630,6 +1630,20 @@ function withOverride(preset: PatchPreset): PatchPreset {
 }
 
 /**
+ * Saved (user) presets first, newest first; builtins after. The first-run
+ * picker ranks "what you already made" ahead of the catalog.
+ */
+export function rankPresets<T extends { builtin?: boolean }>(presets: T[]): T[] {
+  const saved: T[] = [];
+  const builtins: T[] = [];
+  for (const preset of presets) {
+    if (preset.builtin === true) builtins.push(preset);
+    else saved.push(preset);
+  }
+  return [...saved, ...builtins];
+}
+
+/**
  * What the picker shows. Production drops ids in `visio.ship.json`; dev keeps them
  * so the ship-checkbox can put them back. Saved presets are never omitted.
  */
@@ -1637,7 +1651,11 @@ export function listPresets(): PatchPreset[] {
   const builtins = import.meta.env.DEV
     ? BUILTIN_PRESETS
     : BUILTIN_PRESETS.filter((preset) => !isOmitted(preset.id));
-  return [...builtins.map(withOverride), ...readStored().map(toPreset)];
+  const saved = readStored()
+    .slice()
+    .reverse()
+    .map(toPreset);
+  return rankPresets([...saved, ...builtins.map(withOverride)]);
 }
 
 /** Resolves omitted builtins too — an old `activePresetId` must still load. */

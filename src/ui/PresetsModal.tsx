@@ -70,7 +70,9 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
   const selected = getPreset(selectedId) ?? presets[0];
 
   const applyLoad = (preset: PatchPreset) => {
+    const empty = useGraphStore.getState().nodes.length === 0;
     if (
+      !empty &&
       !window.confirm(`Load “${preset.label}”? The current patch will be replaced.`)
     ) {
       return;

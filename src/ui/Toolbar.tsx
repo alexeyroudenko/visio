@@ -33,6 +33,9 @@ export function Toolbar({
   onTogglePause,
   hideRecord = false,
   presetNudge = 0,
+  openPresetsTick = 0,
+  chromeHint = false,
+  onChromeHintAck,
   onPresetsGateClose,
 }: {
   recording: boolean;
@@ -48,6 +51,11 @@ export function Toolbar({
   hideRecord?: boolean;
   /** Increment after an empty-graph drop: blink Presets 1s, then open the modal. */
   presetNudge?: number;
+  /** Increment to open the preset grid immediately (welcome +). */
+  openPresetsTick?: number;
+  /** First-run tour: blink +Node / Presets / Render. */
+  chromeHint?: boolean;
+  onChromeHintAck?: () => void;
   /** Fires when that gated modal closes — caller resumes playback. */
   onPresetsGateClose?: () => void;
 }) {
@@ -92,6 +100,13 @@ export function Toolbar({
     return () => window.clearTimeout(nudgeTimer.current);
   }, [presetNudge]);
 
+  useEffect(() => {
+    if (!openPresetsTick) return;
+    window.clearTimeout(nudgeTimer.current);
+    setPresetsBlinking(false);
+    setPresetsOpen(true);
+  }, [openPresetsTick]);
+
   const commitRenderFps = useCallback((value: number) => {
     setRenderFpsState(saveRenderFps(value));
   }, []);
@@ -128,7 +143,14 @@ export function Toolbar({
           </button>
 
           <div className="menu">
-            <button type="button" className="button" onClick={() => setMenuOpen((open) => !open)}>
+            <button
+              type="button"
+              className={`button${chromeHint ? " button--hint" : ""}`}
+              onClick={() => {
+                onChromeHintAck?.();
+                setMenuOpen((open) => !open);
+              }}
+            >
               + Node
             </button>
             {menuOpen ? (
@@ -205,8 +227,9 @@ export function Toolbar({
 
           <button
             type="button"
-            className={`button button--render${presetsBlinking ? " button--nudge" : ""}`}
+            className={`button button--render${presetsBlinking ? " button--nudge" : ""}${chromeHint ? " button--hint" : ""}`}
             onClick={() => {
+              onChromeHintAck?.();
               window.clearTimeout(nudgeTimer.current);
               if (presetsBlinking) setPresetsGated(true);
               setPresetsBlinking(false);
@@ -267,8 +290,11 @@ export function Toolbar({
 
           <button
             type="button"
-            className={`button button--render ${rendering ? "button--recording" : ""}`}
-            onClick={onToggleRender}
+            className={`button button--render ${rendering ? "button--recording" : ""}${chromeHint ? " button--hint" : ""}`}
+            onClick={() => {
+              onChromeHintAck?.();
+              onToggleRender();
+            }}
             disabled={recording || renderingImage}
             title={
               renderInFrame != null && renderOutFrame != null
