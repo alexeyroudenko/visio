@@ -63,13 +63,12 @@ export function ${exportName}(): SerializedPatch {
 }
 
 /**
- * Dev Save on a builtin card POSTs here. The override is what `getPreset`
- * loads next; standalone `.ts` sources are rewritten when we have a mapping.
+ * Virtual module ships in production so builtins pick up saved overrides.
+ * The POST endpoint is serve-only (`configureServer`).
  */
 export function presetSave(): Plugin {
   return {
     name: "visio-preset-save",
-    apply: "serve",
     resolveId(id) {
       return id === VIRTUAL_ID ? RESOLVED_ID : null;
     },
