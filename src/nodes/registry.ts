@@ -1,5 +1,6 @@
 import type { NodeDefinition } from "../engine/types";
 import { mediaNode, LEGACY_SOURCE_TYPES } from "./source/media";
+import { textNode } from "./source/text";
 import { poseNode } from "./tracking/pose";
 import { handsNode } from "./tracking/hands";
 import { faceNode } from "./tracking/face";
@@ -51,6 +52,7 @@ declare global {
 export const NODE_LIST: NodeDefinition<never>[] = [
   mediaNode,
   noiseNode,
+  textNode,
   poseNode,
   handsNode,
   faceNode,

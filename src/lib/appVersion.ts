@@ -3,6 +3,10 @@ export const APP_VERSION = "0.0.1";
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;
 /** Wordmark on the drop screen — zero, not o. */
 export const APP_MARK = "visi0";
+export const AUTHOR_HANDLE = "arthew0";
+export const AUTHOR_FULL = "Alexey Roudenko";
+export const WELCOME_HINT = "drop vertical video or image here...";
+export const WELCOME_TEMPLATE_LABEL = "use template";
 
 /**
  * Credit link. UTMs so GA on the site tags the session as in-app;
@@ -10,3 +14,14 @@ export const APP_MARK = "visi0";
  */
 export const AUTHOR_URL =
   "https://alexeyroudenko.net/?utm_source=visi0&utm_medium=app&utm_campaign=welcome";
+
+/** Default copy for the Text node — same stack as the empty-screen overlay. */
+export function welcomeText(): string {
+  return [
+    APP_MARK,
+    APP_VERSION_LABEL,
+    `by ${AUTHOR_HANDLE} (${AUTHOR_FULL})`,
+    WELCOME_HINT,
+    WELCOME_TEMPLATE_LABEL,
+  ].join("\n");
+}

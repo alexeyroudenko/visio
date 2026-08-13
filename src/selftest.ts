@@ -51,6 +51,7 @@ import {
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
+import { APP_MARK, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import { mediaKind } from "./nodes/shared/fileParam";
@@ -401,6 +402,52 @@ async function run(): Promise<void> {
     "no stray geometry far from landmarks",
     Math.abs(emptyArea[0] - 51) < 6 && Math.abs(emptyArea[1] - 51) < 6,
     `rgba=${emptyArea.join(",")}`,
+  );
+
+  // --- 1b. text title card -------------------------------------------------
+  const textDefault = NODE_DEFS["source.text"]?.params.find((spec) => spec.key === "text");
+  check(
+    "text node default is the welcome card",
+    typeof textDefault?.default === "string" &&
+      textDefault.default === welcomeText() &&
+      textDefault.default.includes(APP_MARK),
+    `default=${typeof textDefault?.default === "string" ? textDefault.default.slice(0, 40) : "none"}`,
+  );
+
+  engine.setGraph(
+    [
+      {
+        id: "txt",
+        type: "source.text",
+        params: {
+          text: "H",
+          layout: "plain",
+          align: "center",
+          color: "#ffffff",
+          size: 3,
+          opacity: 1,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "t", source: "txt", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  engine.tick();
+  let glyphMax = 0;
+  for (let dy = -12; dy <= 12; dy += 2) {
+    for (let dx = -12; dx <= 12; dx += 2) {
+      const sample = readPixel(
+        engine,
+        Math.round(WIDTH / 2) + dx,
+        Math.round(HEIGHT / 2) + dy,
+      );
+      glyphMax = Math.max(glyphMax, sample[0], sample[1], sample[2]);
+    }
+  }
+  check(
+    "text node paints glyphs",
+    glyphMax > 180,
+    `maxChannel=${glyphMax}`,
   );
 
   // --- 2. feedback decays --------------------------------------------------

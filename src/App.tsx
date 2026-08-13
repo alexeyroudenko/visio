@@ -27,7 +27,15 @@ import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
 import { mediaKind } from "./nodes/shared/fileParam";
 import { fitAppWindowOnFirstLaunch } from "./lib/appWindow";
-import { APP_MARK, APP_VERSION_LABEL, AUTHOR_URL } from "./lib/appVersion";
+import {
+  APP_MARK,
+  APP_VERSION_LABEL,
+  AUTHOR_FULL,
+  AUTHOR_HANDLE,
+  AUTHOR_URL,
+  WELCOME_HINT,
+  WELCOME_TEMPLATE_LABEL,
+} from "./lib/appVersion";
 import { sourceMediaStem } from "./lib/mediaName";
 import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
@@ -269,18 +277,18 @@ export default function App() {
             <p className="welcome__credit">
               by{" "}
               <a href={AUTHOR_URL} target="_blank" rel="noopener">
-                arthew0
+                {AUTHOR_HANDLE}
               </a>{" "}
-              (Alexey Roudenko)
+              ({AUTHOR_FULL})
             </p>
           </div>
-          <p className="welcome__hint">drop vertical video or image here...</p>
+          <p className="welcome__hint">{WELCOME_HINT}</p>
           <button
             type="button"
             className="welcome__link"
             onClick={() => loadPreset(DEFAULT_PRESET_ID)}
           >
-            use template
+            {WELCOME_TEMPLATE_LABEL}
           </button>
         </div>
       ) : null}

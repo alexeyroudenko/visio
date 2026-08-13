@@ -11,11 +11,11 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (148 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (150 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 capture metadata off synthetic MP4 boxes, lazy MediaPipe import, point-mesh
-Voronoi/Delaunay/MST/Radial, source type of a dropped file, visio.ship.json). Dev-only page: it
+Voronoi/Delaunay/MST/Radial, source type of a dropped file, visio.ship.json, Text title card). Dev-only page: it
 is not built into `dist`.
 
 > Test gradients are drawn column-by-column, not via `createLinearGradient`:
@@ -73,7 +73,7 @@ to be read at module top level and dragged the whole package into the main bundl
 
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Sources  | Media (camera · image · video · audio), **Noise**                                                                                |
+| Sources  | Media (camera · image · video · audio), **Noise**, **Text**                                                                      |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
 | FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**           |
