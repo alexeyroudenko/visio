@@ -2697,6 +2697,63 @@ async function run(): Promise<void> {
     `default=${formatBitrate(DEFAULT_RENDER_BITRATE)} clamped=${clampRenderBitrate(0)}`,
   );
 
+  const { exportTimelineImage, timelineImageStem } = await import("./lib/exportTimeline");
+  const stillAt = new Date("2026-08-13T20:00:00.000Z");
+  check(
+    "timelineImageStem prefixes still- and keeps the ISO stamp",
+    timelineImageStem(stillAt) === "still-2026-08-13T20-00-00-000Z" ||
+      timelineImageStem(stillAt).endsWith("-still-2026-08-13T20-00-00-000Z"),
+    timelineImageStem(stillAt),
+  );
+  const stillCanvas = document.createElement("canvas");
+  const stillEngine = new Engine(stillCanvas);
+  stillEngine.setDefinitions(NODE_DEFS);
+  stillEngine.setResolution(16, 16);
+  const stillW = 80;
+  const stillH = 120;
+  try {
+    const { blob, width: outW, height: outH } = await exportTimelineImage(stillEngine, {
+      nodes: [
+        {
+          id: "out",
+          type: "patch",
+          position: { x: 0, y: 0 },
+          data: { defType: "output.screen", params: { background: "#ff0000" } },
+        },
+      ],
+      edges: [],
+      width: stillW,
+      height: stillH,
+      timelineFps: 30,
+      frame: 12,
+      paramKeyframes: {},
+    });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const pngW = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+    const pngH = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+    check(
+      "Render image PNG is the patch size, not the preview buffer",
+      blob.type === "image/png" &&
+        outW === stillW &&
+        outH === stillH &&
+        pngW === stillW &&
+        pngH === stillH &&
+        stillEngine.width === 16 &&
+        stillEngine.height === 16 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50,
+      `type=${blob.type} png=${pngW}×${pngH} restored=${stillEngine.width}×${stillEngine.height}`,
+    );
+  } catch (error) {
+    check(
+      "Render image PNG is the patch size, not the preview buffer",
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+  } finally {
+    stillEngine.dispose();
+  }
+
   const { mp4EpochToIso, parseIso6709, readCaptureMeta, rotationFromMatrix } = await import(
     "./lib/captureMeta"
   );

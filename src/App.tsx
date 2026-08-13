@@ -161,7 +161,13 @@ export default function App() {
     vertical ? "vertical" : "horizontal",
   );
   const { recording, toggle } = useRecorder(() => canvasRef.current);
-  const { rendering, progress: renderProgress, toggle: toggleRender } = useOfflineRender(engineRef);
+  const {
+    rendering,
+    renderingImage,
+    progress: renderProgress,
+    toggle: toggleRender,
+    renderImage,
+  } = useOfflineRender(engineRef);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
   const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
@@ -298,6 +304,8 @@ export default function App() {
         rendering={rendering}
         renderProgress={renderProgress}
         onToggleRender={toggleRender}
+        renderingImage={renderingImage}
+        onRenderImage={renderImage}
         paused={paused}
         onTogglePause={onTogglePause}
         hideRecord={vertical}

@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (150 checks — draw
+Render-core self-test: [http://localhost:5173/selftest.html](http://localhost:5173/selftest.html) (152 checks — draw
 coordinates, rings, detection style, grid and its effect, glitch effects, feedback
 decay, blending, Hough detectors on a synthetic frame, patch serialization,
 capture metadata off synthetic MP4 boxes, lazy MediaPipe import, point-mesh
@@ -455,11 +455,13 @@ Opens a separate window with the image: drag it to a projector or second screen;
 double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
 stays in the main window and nothing is rendered twice.
 - **Recording** to webm — toolbar ● Record (realtime canvas capture).
-- **Render** — toolbar Render: offline frame-by-frame timeline export (not realtime).
+- **Render video** — toolbar: offline frame-by-frame timeline export (not realtime).
   On finish it downloads the video **and** a matching patch JSON with the same
   basename (`clip-render-….webm` + `clip-render-….json`).
-Both write at the bitrate set in Settings (12 Mbps by default); fps is a Render
-setting alone, since Record follows the clock.
+- **Render image** — toolbar, next to video: PNG of the playhead frame at the
+  patch resolution (preview quality does not apply). Basename `clip-still-….png`.
+Both video writers use the bitrate set in Settings (12 Mbps by default); fps is a
+Render setting alone, since Record follows the clock.
 - **Exported patches** lead with the footage they were built on —
 `clip-visio-patch-2026-08-08.json`, and a `source` field inside. Dropped files
 live behind a `blob:` URL the params cannot keep, so the name is all that is

@@ -173,7 +173,7 @@ export function PlaybackControls() {
             renderInFrame != null ? " playback__mark--on" : ""
           }`}
           onClick={() => setRenderIn()}
-          title="Set render In at playhead (Render exports this range)"
+          title="Set render In at playhead (Render video exports this range)"
         >
           I
         </button>
@@ -183,7 +183,7 @@ export function PlaybackControls() {
             renderOutFrame != null ? " playback__mark--on" : ""
           }`}
           onClick={() => setRenderOut()}
-          title="Set render Out at playhead (Render exports this range)"
+          title="Set render Out at playhead (Render video exports this range)"
         >
           O
         </button>
@@ -192,7 +192,7 @@ export function PlaybackControls() {
             type="button"
             className="button button--small playback__round"
             onClick={clearRenderRange}
-            title="Clear render range — Render uses the full timeline"
+            title="Clear render range — Render video uses the full timeline"
           >
             ×
           </button>
@@ -284,7 +284,7 @@ export function PlaybackControls() {
           {hasRenderRange ? (
             <span
               className="playback__range-label"
-              title="Offline Render uses this inclusive frame range"
+              title="Offline Render video uses this inclusive frame range"
             >
               R F{rangeStart}–{rangeEnd}
             </span>

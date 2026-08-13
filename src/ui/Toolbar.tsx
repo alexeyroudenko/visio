@@ -27,6 +27,8 @@ export function Toolbar({
   rendering,
   renderProgress,
   onToggleRender,
+  renderingImage = false,
+  onRenderImage,
   paused,
   onTogglePause,
   hideRecord = false,
@@ -38,6 +40,8 @@ export function Toolbar({
   rendering: boolean;
   renderProgress: number;
   onToggleRender: () => void;
+  renderingImage?: boolean;
+  onRenderImage?: () => void;
   paused: boolean;
   onTogglePause: () => void;
   /** Portrait shell puts Record on the bottom shutter — hide the toolbar twin. */
@@ -239,7 +243,7 @@ export function Toolbar({
             type="button"
             className={`button ${paused ? "button--paused" : ""}`}
             onClick={onTogglePause}
-            disabled={rendering}
+            disabled={rendering || renderingImage}
             title={
               paused
                 ? "Play — resume the graph and sources (Space)"
@@ -254,7 +258,7 @@ export function Toolbar({
               type="button"
               className={`button ${recording ? "button--recording" : ""}`}
               onClick={onToggleRecord}
-              disabled={paused || rendering}
+              disabled={paused || rendering || renderingImage}
               title="Realtime capture of the output canvas"
             >
               {recording ? "■ Stop" : "● Record"}
@@ -265,14 +269,24 @@ export function Toolbar({
             type="button"
             className={`button button--render ${rendering ? "button--recording" : ""}`}
             onClick={onToggleRender}
-            disabled={recording}
+            disabled={recording || renderingImage}
             title={
               renderInFrame != null && renderOutFrame != null
-                ? `Offline render F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
+                ? `Offline Render video F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
                 : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
             }
           >
-            {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render"}
+            {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render video"}
+          </button>
+
+          <button
+            type="button"
+            className="button button--render"
+            onClick={onRenderImage}
+            disabled={recording || rendering || renderingImage || !onRenderImage}
+            title={`PNG of the playhead frame at patch ${width}×${height} (not preview quality)`}
+          >
+            {renderingImage ? "Saving…" : "Render image"}
           </button>
         </div>
 
@@ -292,7 +306,9 @@ export function Toolbar({
         {" · "}
         {rendering
           ? `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`
-          : paused
+          : renderingImage
+            ? `still · F${timelineFrame} · ${width}×${height}`
+            : paused
             ? "paused · resources stopped"
             : `${fps} fps · ${frameMs} ms · ${nodeCount} nodes`}
       </div>

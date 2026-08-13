@@ -1,7 +1,7 @@
 /**
  * Live preview render scale. Patch resolution stays full; the engine runs at
  * width×quality × height×quality so a lower setting is cheaper to draw.
- * Offline Render / Record ignore this and use the patch size.
+ * Offline Render video / Render image / Record ignore this and use the patch size.
  */
 const STORAGE_KEY = "visio.previewQuality.v1";
 

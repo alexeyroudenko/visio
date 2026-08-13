@@ -106,7 +106,7 @@ export function SettingsModal({
           </label>
           <p className="modal__hint">
             Scales the live WebGL buffer (1 = patch size; 0.5 / 0.25 / 0.125 → ½ / ¼ / ⅛).
-            Speeds up preview; Record and offline Render stay at full resolution.
+            Speeds up preview; Record, Render video and Render image stay at full resolution.
           </p>
 
           <label className="modal__field">

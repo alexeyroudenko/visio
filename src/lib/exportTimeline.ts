@@ -54,6 +54,15 @@ function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob || blob.size === 0) reject(new Error("PNG encode failed"));
+      else resolve(blob);
+    }, "image/png");
+  });
+}
+
 function frameDurationUs(fps: number): number {
   return Math.round(1_000_000 / fps);
 }
@@ -492,6 +501,12 @@ export function timelineRenderStem(now = new Date()): string {
   return withSourcePrefix(`render-${stamp}`);
 }
 
+/** Shared basename for a still PNG at the playhead, without extension. */
+export function timelineImageStem(now = new Date()): string {
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  return withSourcePrefix(`still-${stamp}`);
+}
+
 /**
  * Save the finished timeline export. Returns the basename (no extension) so a
  * matching patch JSON can reuse it — browsers treat each `a[download]` click
@@ -501,4 +516,77 @@ export function downloadTimelineRender(blob: Blob, stem = timelineRenderStem()):
   const ext = blob.type.includes("mp4") ? "mp4" : "webm";
   downloadBlob(blob, `${stem}.${ext}`);
   return stem;
+}
+
+export function downloadTimelineImage(blob: Blob, stem = timelineImageStem()): string {
+  downloadBlob(blob, `${stem}.png`);
+  return stem;
+}
+
+/**
+ * One frame at `frame` (timeline playhead), PNG, at the patch width×height —
+ * preview quality does not apply. Restores the engine buffer size afterwards.
+ */
+export async function exportTimelineImage(
+  engine: Engine,
+  options: {
+    nodes: PatchNode[];
+    edges: Edge[];
+    width: number;
+    height: number;
+    timelineFps: number;
+    frame: number;
+    paramKeyframes: ParamKeyframes;
+    modulators?: Modulators;
+    signal?: AbortSignal;
+  },
+): Promise<{ blob: Blob; width: number; height: number }> {
+  const {
+    nodes,
+    edges,
+    width,
+    height,
+    timelineFps,
+    frame,
+    paramKeyframes,
+    modulators = {},
+    signal,
+  } = options;
+
+  const wasPaused = engine.isPaused;
+  const prevW = engine.width;
+  const prevH = engine.height;
+  engine.setPaused(true);
+  engine.setTimelineForceSync(true);
+  engine.setDefinitions(NODE_DEFS);
+  engine.setResolution(width, height);
+
+  const pass: RenderPassContext = {
+    engine,
+    nodes,
+    graphEdges: toGraphEdges(edges),
+    paramKeyframes,
+    modulators,
+    timelineFps: Math.max(1, timelineFps),
+    startFrame: Math.max(0, Math.round(frame)),
+    outputFps: Math.max(1, timelineFps),
+    outputFrames: 1,
+    bitrate: 0,
+    signal,
+  };
+
+  try {
+    await renderOneFrame(pass, 0);
+    const blob = await canvasToPng(engine.canvas);
+    if (engine.canvas.width !== width || engine.canvas.height !== height) {
+      throw new Error(
+        `PNG size ${engine.canvas.width}×${engine.canvas.height}, expected ${width}×${height}`,
+      );
+    }
+    return { blob, width, height };
+  } finally {
+    engine.setTimelineForceSync(false);
+    engine.setResolution(prevW, prevH);
+    if (!wasPaused) engine.setPaused(false);
+  }
 }
