@@ -14,6 +14,7 @@
  *    `trackParam` coalesces a burst into one event with a `moves` count.
  */
 import type { ParamSpec } from "../engine/types";
+import { isStandalone } from "./displayMode";
 
 // `||`, not `??`: an unset GitHub Actions variable arrives as an empty string,
 // and an empty api_host makes posthog-js post to the current origin instead of
@@ -190,6 +191,7 @@ function deviceProps(): Props {
     portrait: window.innerHeight > window.innerWidth,
     touch: navigator.maxTouchPoints > 0,
     media_recorder: typeof MediaRecorder !== "undefined",
+    standalone: isStandalone(),
     first_visit: firstVisit(),
     restored: launchContext?.restored ?? null,
     nodes: launchContext?.nodes ?? null,

@@ -18,6 +18,7 @@ import {
   MIN_RENDER_FPS,
   saveRenderFps,
 } from "../lib/renderFps";
+import { promptInstall, useInstallState } from "../lib/pwa";
 
 const RENDER_FPS_PRESETS = [60, 30, 24] as const;
 const RENDER_BITRATE_PRESETS = [4, 8, 12, 20, 40, 80].map((mbps) => mbps * 1_000_000);
@@ -38,6 +39,7 @@ export function SettingsModal({
   onRenderBitrateChange: (bps: number) => void;
 }) {
   const [quality, setQuality] = useState<PreviewQuality>(() => loadPreviewQuality());
+  const install = useInstallState();
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -171,6 +173,24 @@ export function SettingsModal({
             Video bitrate for Record and offline Render (default{" "}
             {formatBitrate(DEFAULT_RENDER_BITRATE)}). Higher keeps more detail in grain and fast
             motion at the cost of file size.
+          </p>
+
+          <div className="modal__field">
+            <span>Install as app</span>
+            {install.canPrompt ? (
+              <button type="button" className="button" onClick={() => void promptInstall()}>
+                Install visio
+              </button>
+            ) : null}
+          </div>
+          <p className="modal__hint">
+            {install.installed
+              ? "Running as an installed app. The shell is cached, so it opens offline — media and MediaPipe models still need the network on first use."
+              : install.canPrompt
+                ? "Puts visio on the desktop or home screen and runs it in its own window, without browser chrome."
+                : install.ios
+                  ? "iPhone / iPad: open the Share menu and pick “Add to Home Screen”. Works from Chrome and Safari alike — both use WebKit."
+                  : "Chrome and Edge put an install icon in the address bar once the page has been open for a moment. Desktop Safari and Firefox don’t install web apps."}
           </p>
         </div>
       </div>

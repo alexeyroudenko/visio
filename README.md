@@ -448,6 +448,37 @@ CI: push to `main` (or Actions → **Deploy** → Run workflow) builds and rsync
 Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)  
 (New subdomain needs LE expand: `certbot --cert-name aa.arthew0.online --expand -d … -d visio.aa.arthew0.online`.)
 
+## Install as an app (PWA)
+
+The site installs to the desktop, the Start menu and the iOS home screen, and
+runs in its own window with no browser chrome. Settings (☰) carries an
+**Install as app** section: an in-app button where Chromium offers one, and the
+Share → Add to Home Screen instructions where WebKit does not.
+
+| Piece | File | Note |
+|---|---|---|
+| Manifest | [`public/manifest.json`](public/manifest.json) | `.json`, not `.webmanifest` — nginx ships no MIME type for the latter, and a manifest served as `octet-stream` is ignored |
+| Worker | [`public/sw.js`](public/sw.js) | plain JS in `public/` so it lands at the dist root and gets scope `/` |
+| Wiring | [`src/lib/pwa.ts`](src/lib/pwa.ts) | captures `beforeinstallprompt` at module scope — it fires once, early, and only that object can open the dialog later |
+| Icons | `public/icons/`, `public/apple-touch-icon.png` | regenerate with `python scripts/generate-icons.py` after replacing `assets/icon-master.png` |
+
+Caching is three strategies, chosen per request: network-first for navigations
+(HTML must follow deploys), cache-first for hashed `/assets/` (immutable by
+construction), stale-while-revalidate for everything else same-origin. Audio and
+video are skipped outright — they stream over Range requests the Cache API
+cannot answer. The MediaPipe wasm comes from jsDelivr, so tracking still needs
+the network on first use; the shell itself boots offline.
+
+Chrome only fires `beforeinstallprompt` for a worker with a **non-empty** fetch
+handler, so the offline story is also the price of admission for the install
+prompt. Registration is skipped in `npm run dev`, which instead unregisters any
+worker left behind by `npm run preview` on the same host — otherwise stale
+chunks make dev edits look like they never happened.
+
+iOS ignores the manifest for home-screen installs and reads the `apple-*` tags
+in `index.html`. The status bar is `black-translucent`, which is only safe
+because the portrait shell already pads with `env(safe-area-inset-*)`.
+
 ## Analytics
 
 Product analytics via **PostHog Cloud (EU)**, wired in [`src/lib/analytics.ts`](src/lib/analytics.ts).
@@ -486,6 +517,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 | `render_started` / `_finished` / `_cancelled` / `_failed` | offline render | the main conversion, plus how long people wait |
 | `record_started` / `_saved` / `_failed` | canvas recording | where MediaRecorder support gives out (Safari/iOS) |
 | `node_error`, `app_error` | node status, app console | catch-all; `app_error` overlaps the specific ones by design |
+| `pwa_installable`, `pwa_install_choice`, `pwa_installed` | install prompt | whether anyone actually installs it. `app_loaded` also carries `standalone`, i.e. this session runs from the home screen |
 
 Autocapture is limited to `button`/`a`, so clicks on chrome are free but node
 bodies are not captured. Uncaught exceptions go to PostHog Error Tracking.

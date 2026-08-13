@@ -68,3 +68,14 @@ jobs:
             200|301|302) ;;
             *) echo "Unexpected status: ${code}" >&2; exit 1 ;;
           esac
+
+      # Installability dies silently if either of these 404s, and nothing in the
+      # app surfaces that — so fail the deploy instead.
+      - name: Verify PWA endpoints
+        run: |
+          for path in manifest.json sw.js icons/icon-512.png apple-touch-icon.png; do
+            url="https://visio.aa.arthew0.online/${path}"
+            probe="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -L "$url")"
+            echo "${path} → ${probe}"
+            [ "${probe%% *}" = "200" ] || { echo "Missing: ${url}" >&2; exit 1; }
+          done
