@@ -4,6 +4,7 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -138,6 +139,28 @@ interface GraphCanvasProps {
   touch?: boolean;
 }
 
+function FitViewOnPreset() {
+  const nonce = useGraphStore((state) => state.fitViewNonce);
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (!nonce) return;
+    // After React Flow measures the new nodes — same call as the Fit View button.
+    let inner = 0;
+    const outer = window.requestAnimationFrame(() => {
+      inner = window.requestAnimationFrame(() => {
+        void fitView();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(outer);
+      window.cancelAnimationFrame(inner);
+    };
+  }, [nonce, fitView]);
+
+  return null;
+}
+
 function GraphCanvas({
   nodes,
   edges,
@@ -179,6 +202,7 @@ function GraphCanvas({
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#2e2e2e" />
       )}
       <Controls />
+      <FitViewOnPreset />
     </ReactFlow>
   );
 }

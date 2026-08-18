@@ -60,6 +60,8 @@ interface GraphState {
   height: number;
   /** Last preset loaded via Presets / Reset; used to highlight in the modal. */
   activePresetId: string | null;
+  /** Bumped on loadPreset so the graph can Fit View like the controls button. */
+  fitViewNonce: number;
 
   onNodesChange: (changes: NodeChange<PatchNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -204,6 +206,7 @@ function createGraphStore() {
     width: initial.width,
     height: initial.height,
     activePresetId: null,
+    fitViewNonce: 0,
 
     onNodesChange(changes) {
       set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -519,7 +522,7 @@ function createGraphStore() {
       }
       get().loadPatch(parsed, `preset “${preset?.label ?? id}”`);
       writeActivePresetId(id);
-      set({ activePresetId: id });
+      set({ activePresetId: id, fitViewNonce: get().fitViewNonce + 1 });
       track("preset_applied", { preset: id, nodes: parsed.nodes.length });
       return true;
     },
