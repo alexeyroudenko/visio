@@ -20,6 +20,7 @@
   },
   "include": [
     "vite.config.ts",
+    "vite.appVersion.ts",
     "vite.shipConfig.ts",
     "vite.presetPreviews.ts",
     "vite.presetSave.ts",

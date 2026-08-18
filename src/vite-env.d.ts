@@ -13,6 +13,11 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
+declare module "virtual:app-version" {
+  /** Latest git tag (`v0.0.2`), or `package.json` version if tags are missing. */
+  export const GIT_TAG: string;
+}
+
 declare module "virtual:image-library" {
   /** File names found in `public/imgs`, provided by the imageLibrary plugin. */
   export const IMAGE_LIBRARY_FILES: string[];

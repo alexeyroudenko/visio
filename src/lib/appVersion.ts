@@ -1,5 +1,7 @@
-/** Shown on the empty screen and next to fps. Keep in lockstep with package.json. */
-export const APP_VERSION = "0.0.1";
+import { GIT_TAG } from "virtual:app-version";
+
+/** Shown on the empty screen and next to fps. Comes from the latest git tag. */
+export const APP_VERSION = GIT_TAG.replace(/^v/i, "");
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;
 /** Wordmark on the drop screen — zero, not o. */
 export const APP_MARK = "visi0";

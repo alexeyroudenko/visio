@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Default clone has no tags; the welcome screen reads the latest vX.Y.Z.
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with:
