@@ -363,8 +363,10 @@ when a line actually changes.
 ## Patches and output
 
 - **Autosave** to localStorage on every edit (400 ms debounce).
-Export/import JSON via toolbar buttons; “Reset” clears the patch to the same
-empty screen as first launch — black field, drop prompt, “use template”.
+A reload or a new visit **resets** to the same empty screen as first launch —
+black field, drop prompt, “use template” — instead of restoring the last patch.
+Export/import JSON via toolbar buttons; “Reset” does the same clear while the
+tab is open.
 The preset list covers most nodes, including two that exist to
 demonstrate the timeline itself — one keyframed, one modulated. A selftest walks
 every preset and checks each edge names a real handle of a matching type: a
@@ -398,12 +400,12 @@ second, then opens the picker; video starts when the modal closes or a preset
 loads. Only the first usable file is taken: the
 memory below keeps one `blob:` URL per kind and revokes the one it replaces, so
 two images in a single drop would leave the first node holding a dead URL.
-- **The footage outlives the patch.** Presets ship their own source type and
+- **The footage outlives the patch, in this tab.** Presets ship their own source type and
 file, and loading one used to throw away the video you had just dropped.
 `mediaMemory` remembers the last file per source type plus the type itself, and
 a patch load (preset, import) applies both over whatever the patch said —
-so you can flip through presets against your own material. Reset is the one
-exception: it forgets the remembered footage too, and lands on the empty drop
+so you can flip through presets against your own material. Reload and Reset
+forget the remembered footage too, and land on the empty drop
 screen rather than the template. Switching type in the
 Inspector swaps its file back in too, so image → video → image gets both back;
 a type you have never opened a file for clears the field instead of leaving a
@@ -552,7 +554,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 
 | Event | Fired at | Why |
 |---|---|---|
-| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`, and `restored`/`nodes`/`edges`: the patch survives a reload, so a returning visitor never repeats the setup events and would otherwise read as a first-step drop-out. Filter the setup funnel on `restored: false` |
+| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`. `restored` is always false: a visit starts empty (reload = Reset). `nodes`/`edges` are 0 at launch |
 | `first_source_ready` | first source node reporting ready | time-to-first-picture, once per session. Not the output node: draw and output nodes own no async resource and never leave `idle` |
 | `media_added` | Media node created | `kind` only (image/video/camera/audio), never the file |
 | `media_dropped` | file dropped on the window | `kind` only — how often footage arrives by drag rather than the file picker |

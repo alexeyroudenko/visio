@@ -20,7 +20,6 @@ import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
 import {
   forgetAllMedia,
-  mediaMemoryReady,
   recallMediaParams,
   rememberedFile,
   rememberMedia,
@@ -29,7 +28,6 @@ import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
   downloadPatch,
-  loadFromStorage,
   parsePatch,
   saveToStorage,
   serializePatch,
@@ -89,14 +87,6 @@ interface GraphState {
 }
 
 const ACTIVE_PRESET_KEY = "visio.activePreset.v1";
-
-function readActivePresetId(): string | null {
-  try {
-    return localStorage.getItem(ACTIVE_PRESET_KEY);
-  } catch {
-    return null;
-  }
-}
 
 function writeActivePresetId(id: string | null): void {
   try {
@@ -191,21 +181,20 @@ declare global {
 }
 
 function createGraphStore() {
-  const restored = loadFromStorage();
-  const initial = restored ?? emptyPatch();
-  const initialPresetId = restored ? readActivePresetId() : null;
-  if (!restored) writeActivePresetId(null);
+  // Every visit is a Reset: last session's patch and footage stay in the tab
+  // only. Reload / reopen lands on the empty drop screen, same as the button.
+  clearStorage();
+  writeActivePresetId(null);
+  const initial = emptyPatch();
   setLaunchContext({
-    restored: Boolean(restored),
-    nodes: initial.nodes.length,
-    edges: initial.edges.length,
+    restored: false,
+    nodes: 0,
+    edges: 0,
   });
   // Startup seeds the store directly instead of going through loadPatch, so the
   // timeline has to be adopted here too or a reload drops every key.
   if (initial.timeline) useTimelineStore.getState().loadTimeline(initial.timeline);
   useModulatorStore.getState().load(initial.modulators);
-  // No `else`: a patch predating keyframes has nothing to restore, and the store
-  // already starts empty.
 
   const store = create<GraphState>((set, get) => ({
     nodes: initial.nodes,
@@ -214,7 +203,7 @@ function createGraphStore() {
     statuses: {},
     width: initial.width,
     height: initial.height,
-    activePresetId: initialPresetId && getPreset(initialPresetId) ? initialPresetId : null,
+    activePresetId: null,
 
     onNodesChange(changes) {
       set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -603,12 +592,6 @@ function createGraphStore() {
       appLog("ok", "media", "restored last opened media from disk cache");
     },
   }));
-
-  // Patch JSON cannot keep blob: files. Once IndexedDB has revived them, push
-  // them back onto any Media node that is missing its footage.
-  void mediaMemoryReady().then(() => {
-    store.getState().reapplyRememberedMedia();
-  });
 
   // Autosave: coalesce bursts (node dragging fires a change per mouse move) and
   // ignore status-only updates, which the engine pushes several times a second.

@@ -148,11 +148,9 @@ interface LaunchContext {
 let launchContext: LaunchContext | null = null;
 
 /**
- * Called by the graph store as it hydrates. It matters because the patch
- * survives a reload: a returning visitor never repeats `media_added` /
- * `node_added` / `edge_connected`, so without this flag they look like someone
- * who dropped out at step one of the setup funnel. Filter on `restored: false`
- * to get the actual first-run funnel.
+ * Called by the graph store as it hydrates. Visits always start empty (reload
+ * is a Reset), so `restored` is false. `first_visit` still tells a returning
+ * browser from a brand-new one.
  */
 export function setLaunchContext(context: LaunchContext): void {
   launchContext = context;

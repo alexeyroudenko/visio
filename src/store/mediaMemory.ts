@@ -1,9 +1,8 @@
 import type { FileParam } from "../nodes/shared/fileParam";
 import {
+  clearAllMediaFiles,
   deleteMediaFile,
-  getAllMediaFiles,
   persistFileParam,
-  reviveStoredFile,
 } from "./mediaFileDb";
 
 /**
@@ -14,9 +13,9 @@ import {
  * the graph wholesale. This remembers both across loads, so the patch changes
  * and the footage stays.
  *
- * Across reloads the bytes live in IndexedDB (`mediaFileDb`); on boot we mint
- * fresh `blob:` URLs and File objects so the Media node and the Inspector input
- * can be filled again (the input cannot be pointed at a path from JS).
+ * Same tab only. A reload is a Reset (empty drop screen, no last footage).
+ * IndexedDB still gets a copy during the session, then the next boot wipes it
+ * so a stale blob cannot outrank a fresh template.
  */
 
 export type MediaMode = "camera" | "image" | "video" | "audio";
@@ -31,7 +30,7 @@ interface RememberedFile extends FileParam {
 interface MediaMemory {
   mode: MediaMode | null;
   files: Partial<Record<FileMode, RememberedFile>>;
-  /** Resolves once IndexedDB hydrate has finished (or failed). */
+  /** Resolves once the boot wipe of last visit's files has finished (or failed). */
   ready: Promise<void>;
 }
 
@@ -43,27 +42,20 @@ declare global {
     __visioMediaMemory?: MediaMemory;
     /** Preset-preview capture: keep each patch's authored Media file. */
     __visioPreferAuthoredMedia?: boolean;
+    /** Survives HMR so a module reload does not wipe the live session's IDB. */
+    __visioMediaBootCleared?: boolean;
   }
 }
 
 const memory: MediaMemory = (typeof window !== "undefined"
   ? window.__visioMediaMemory
   : undefined) ?? {
-  mode: readStoredMode(),
+  mode: null,
   files: {},
   ready: Promise.resolve(),
 };
 
 if (typeof window !== "undefined") window.__visioMediaMemory = memory;
-
-function readStoredMode(): MediaMode | null {
-  try {
-    const raw = localStorage.getItem(MODE_KEY);
-    return asMode(raw);
-  } catch {
-    return null;
-  }
-}
 
 function writeStoredMode(mode: MediaMode | null): void {
   try {
@@ -104,6 +96,9 @@ function release(url: string): void {
   URL.revokeObjectURL(url);
 }
 
+/** True once this tab has opened a source — boot must not wipe that. */
+let sessionTouched = false;
+
 /** Record a Media node's current source type, and its file under that type. */
 export function rememberMedia(
   params: Record<string, unknown>,
@@ -111,6 +106,7 @@ export function rememberMedia(
 ): void {
   const mode = asMode(params.mode);
   if (mode) {
+    sessionTouched = true;
     memory.mode = mode;
     writeStoredMode(mode);
   }
@@ -130,8 +126,7 @@ export function rememberMedia(
   memory.files[mode] = { ...file, fileObj: nextObj ?? undefined };
   if (previous) release(previous.url);
 
-  // Durable copy for the next boot. Fire-and-forget — a failed write must not
-  // break the live session.
+  // IndexedDB copy is for this tab's Reset/forget path. The next visit wipes it.
   void persistFileParam(mode, file, nextObj).catch(() => {
     /* ignore */
   });
@@ -220,8 +215,9 @@ export function forgetMediaFile(mode: unknown): void {
 let hydrateStarted = false;
 
 /**
- * Load IndexedDB rows into memory and mint fresh blob URLs. Safe to call more
- * than once — only the first call does work. Returns the shared ready promise.
+ * Wipe last visit's IndexedDB files instead of restoring them. Reload is a
+ * Reset. Safe to call more than once — only the first call does work.
+ * Returns the shared ready promise.
  */
 export function hydrateMediaMemory(): Promise<void> {
   if (hydrateStarted) return memory.ready;
@@ -232,19 +228,23 @@ export function hydrateMediaMemory(): Promise<void> {
     return memory.ready;
   }
 
+  if (window.__visioMediaBootCleared) {
+    memory.ready = Promise.resolve();
+    return memory.ready;
+  }
+
   memory.ready = (async () => {
     try {
-      const rows = await getAllMediaFiles();
-      for (const row of rows) {
-        const { param, fileObj } = reviveStoredFile(row);
-        const previous = memory.files[row.mode];
-        memory.files[row.mode] = { ...param, fileObj };
-        if (previous) release(previous.url);
+      // A drop that landed before this ran must not be deleted.
+      if (!sessionTouched) {
+        await clearAllMediaFiles();
+        memory.mode = null;
+        writeStoredMode(null);
       }
-      if (!memory.mode) memory.mode = readStoredMode();
     } catch {
       /* private mode / blocked IDB — session memory still works */
     }
+    window.__visioMediaBootCleared = true;
   })();
 
   return memory.ready;
@@ -255,5 +255,5 @@ export function mediaMemoryReady(): Promise<void> {
   return memory.ready;
 }
 
-// Kick off as soon as the module loads in the browser — graph restore awaits it.
+// Kick off as soon as the module loads — boot wipe should finish before a drop.
 if (typeof window !== "undefined") hydrateMediaMemory();
