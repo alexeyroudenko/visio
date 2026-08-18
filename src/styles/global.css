@@ -2231,10 +2231,15 @@ canvas.knob:focus-visible {
   font-size: 12px;
 }
 
-.app--touch .react-flow__controls-button,
-.app--vertical .react-flow__controls-button {
+.app--touch .react-flow__controls-button {
   width: 44px !important;
   height: 44px !important;
+}
+
+/* Half the 44px thumb target — pinch-zoom is the main gesture on a phone. */
+.app--vertical .react-flow__controls-button {
+  width: 22px !important;
+  height: 22px !important;
 }
 
 .react-flow__controls {
