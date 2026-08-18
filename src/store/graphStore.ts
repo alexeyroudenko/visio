@@ -12,7 +12,7 @@ import { create } from "zustand";
 import type { NodeRuntime } from "../engine/types";
 import { scrub, setLaunchContext, track, trackParam } from "../lib/analytics";
 import { fitAppWindowToPatch } from "../lib/appWindow";
-import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath } from "../lib/keyframes";
+import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath, parseParamPath } from "../lib/keyframes";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { fileParamFromFile, mediaKind } from "../nodes/shared/fileParam";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
@@ -60,6 +60,8 @@ interface GraphState {
   height: number;
   /** Last preset loaded via Presets / Reset; used to highlight in the modal. */
   activePresetId: string | null;
+  /** Range-param paths (`nodeId:key`) shown on the performance mixer. */
+  published: string[];
   /** Bumped on loadPreset so the graph can Fit View like the controls button. */
   fitViewNonce: number;
 
@@ -86,6 +88,7 @@ interface GraphState {
   resetPatch: () => void;
   reapplyRememberedMedia: () => void;
   clearActivePreset: () => void;
+  togglePublished: (path: string) => void;
 }
 
 const ACTIVE_PRESET_KEY = "visio.activePreset.v1";
@@ -164,6 +167,7 @@ function emptyPatch(): ParsedPatch {
     height: EMPTY_HEIGHT,
     timeline: { ...EMPTY_TIMELINE },
     modulators: {},
+    published: [],
   };
 }
 
@@ -205,6 +209,7 @@ function createGraphStore() {
     statuses: {},
     width: initial.width,
     height: initial.height,
+    published: initial.published,
     activePresetId: null,
     fitViewNonce: 0,
 
@@ -356,6 +361,7 @@ function createGraphStore() {
         nodes: get().nodes.filter((n) => n.id !== id),
         edges: get().edges.filter((edge) => edge.source !== id && edge.target !== id),
         selectedId: get().selectedId === id ? null : get().selectedId,
+        published: get().published.filter((path) => parseParamPath(path)?.nodeId !== id),
       });
       appLog("info", "graph", `removed ${node?.data.defType ?? "node"} (${id})`);
       track("node_removed", { node_type: node?.data.defType ?? null });
@@ -498,6 +504,7 @@ function createGraphStore() {
         edges: patch.edges,
         width: patch.width,
         height: patch.height,
+        published: patch.published,
         selectedId: null,
         statuses: {},
       });
@@ -527,15 +534,8 @@ function createGraphStore() {
       return true;
     },
     exportPatch() {
-      const { nodes, edges, width, height } = get();
-      const patch = serializePatch(
-        nodes,
-        edges,
-        width,
-        height,
-        currentTimeline(),
-        useModulatorStore.getState().byPath,
-      );
+      const patch = serializeCurrentPatch();
+      const { nodes, edges } = get();
       downloadPatch(patch);
       appLog("ok", "patch", patch.source ? `exported JSON · ${patch.source}` : "exported JSON");
       track("patch_exported", { nodes: nodes.length, edges: edges.length });
@@ -594,6 +594,17 @@ function createGraphStore() {
       set({ nodes });
       appLog("ok", "media", "restored last opened media from disk cache");
     },
+    togglePublished(path) {
+      const parsed = parseParamPath(path);
+      if (!parsed) return;
+      const node = get().nodes.find((entry) => entry.id === parsed.nodeId);
+      if (!node) return;
+      const spec = NODE_DEFS[node.data.defType]?.params.find((param) => param.key === parsed.key);
+      if (!spec || spec.type !== "range") return;
+      const published = get().published;
+      const on = published.includes(path);
+      set({ published: on ? published.filter((entry) => entry !== path) : [...published, path] });
+    },
   }));
 
   // Autosave: coalesce bursts (node dragging fires a change per mouse move) and
@@ -602,24 +613,24 @@ function createGraphStore() {
   const scheduleSave = () => {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      const { nodes, edges, width, height } = store.getState();
-      saveToStorage(serializePatch(
-        nodes,
-        edges,
-        width,
-        height,
-        currentTimeline(),
-        useModulatorStore.getState().byPath,
-      ));
+      saveToStorage(serializeCurrentPatch());
     }, 400);
   };
 
   let savedNodes = initial.nodes;
   let savedEdges = initial.edges;
+  let savedPublished = initial.published;
   store.subscribe((state) => {
-    if (state.nodes === savedNodes && state.edges === savedEdges) return;
+    if (
+      state.nodes === savedNodes &&
+      state.edges === savedEdges &&
+      state.published === savedPublished
+    ) {
+      return;
+    }
     savedNodes = state.nodes;
     savedEdges = state.edges;
+    savedPublished = state.published;
     scheduleSave();
   });
 
@@ -679,3 +690,18 @@ export const useGraphStore: GraphStore =
 if (typeof window !== "undefined") {
   window.__visioGraphStore = useGraphStore;
 }
+
+/** Snapshot of the open document — export, autosave, presets, render sidecar. */
+export function serializeCurrentPatch() {
+  const { nodes, edges, width, height, published } = useGraphStore.getState();
+  return serializePatch(
+    nodes,
+    edges,
+    width,
+    height,
+    currentTimeline(),
+    useModulatorStore.getState().byPath,
+    published,
+  );
+}
+

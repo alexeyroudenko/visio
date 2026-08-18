@@ -2339,6 +2339,39 @@ async function run(): Promise<void> {
     JSON.stringify(audioModSaved ?? null),
   );
 
+  const pubPatch = serializePatch(
+    [
+      {
+        id: "cam-1",
+        type: "patch",
+        position: { x: 0, y: 0 },
+        data: { defType: "source.media", params: defaultParams("source.media") },
+      },
+    ],
+    [],
+    1920,
+    1080,
+    undefined,
+    undefined,
+    ["cam-1:zoom", "cam-1:file", "ghost-1:zoom", "cam-1:zoom"],
+  );
+  check(
+    "published range paths persist; file params, dead nodes and dupes drop",
+    JSON.stringify(pubPatch.published) === JSON.stringify(["cam-1:zoom"]),
+    `published=${JSON.stringify(pubPatch.published ?? null)}`,
+  );
+  const pubRound = parsePatch(JSON.parse(JSON.stringify(pubPatch)));
+  check(
+    "published paths round-trip",
+    pubRound?.published.length === 1 && pubRound.published[0] === "cam-1:zoom",
+    `published=${JSON.stringify(pubRound?.published ?? null)}`,
+  );
+  check(
+    "a patch without published parses as an empty mixer list",
+    emptyRound !== null && emptyRound.published.length === 0,
+    `published=${JSON.stringify(emptyRound?.published ?? null)}`,
+  );
+
   // Graph modulator.drive: one shared sine → two params at different depths.
   {
     const rangeA: ParamSpec = {

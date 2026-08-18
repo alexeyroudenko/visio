@@ -28,6 +28,8 @@ export function Toolbar({
   chromeHint = false,
   onChromeHintAck,
   onPresetsGateClose,
+  performance = true,
+  onTogglePerformance,
 }: {
   recording: boolean;
   onToggleRecord: () => void;
@@ -49,6 +51,9 @@ export function Toolbar({
   onChromeHintAck?: () => void;
   /** Fires when that gated modal closes — caller resumes playback. */
   onPresetsGateClose?: () => void;
+  /** Graph hidden; published knobs on the mixer. Default on. */
+  performance?: boolean;
+  onTogglePerformance?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [shipTick, setShipTick] = useState(0);
@@ -126,6 +131,21 @@ export function Toolbar({
             aria-label="Settings"
           >
             ☰
+          </button>
+
+          <button
+            type="button"
+            className={`button${performance ? " button--on" : ""}`}
+            onClick={() => onTogglePerformance?.()}
+            title={
+              performance
+                ? "Performance — published knobs, graph hidden. Click to edit the patch."
+                : "Editor — node graph visible. Click for performance mode."
+            }
+            aria-label="Performance mode"
+            aria-pressed={performance}
+          >
+            ⚙
           </button>
 
           <div className="menu">

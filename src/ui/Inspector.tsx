@@ -562,6 +562,22 @@ function KeyToggle({ animated, onFrame, onClick }: {
   );
 }
 
+/** ↑ promotes a range knob onto the patch mixer (performance view). */
+function PublishToggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`param-pub${on ? " param-pub--on" : ""}`}
+      title={on ? "Unpublish — hide this knob from the patch mixer" : "Publish — show this knob on the patch mixer"}
+      aria-label="Publish"
+      aria-pressed={on}
+      onClick={onClick}
+    >
+      ↑
+    </button>
+  );
+}
+
 /** Low / mid / high meters + multi bind rows (+ / −) for Audio Analyzer. */
 function AnalyzerBindPanel({
   nodeId,
@@ -920,6 +936,8 @@ export function Inspector() {
   const { open: openMediaInfo } = useMediaInfoWindow();
   const setParam = useGraphStore((state) => state.setParam);
   const removeNode = useGraphStore((state) => state.removeNode);
+  const published = useGraphStore((state) => state.published);
+  const togglePublished = useGraphStore((state) => state.togglePublished);
 
   // The engine renders params resolved at the playhead, so the controls have to
   // show the same thing — otherwise an animated slider sits at its base value
@@ -1079,6 +1097,12 @@ export function Inspector() {
                   setParam(node.id, spec.key, next);
                 }}
               />
+              {spec.type === "range" ? (
+                <PublishToggle
+                  on={published.includes(path)}
+                  onClick={() => togglePublished(path)}
+                />
+              ) : null}
               {keyable ? (
                 <KeyToggle
                   animated={animated}

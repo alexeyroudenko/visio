@@ -19,6 +19,7 @@ import { FloatingInspector } from "./ui/FloatingInspector";
 import { Inspector } from "./ui/Inspector";
 import { Toolbar } from "./ui/Toolbar";
 import { AppConsole } from "./ui/AppConsole";
+import { PublishedMixer } from "./ui/PublishedMixer";
 import { useEngine } from "./ui/useEngine";
 import { useFileDrop } from "./ui/useFileDrop";
 import { useRecorder } from "./ui/useRecorder";
@@ -47,6 +48,7 @@ import {
   markChromeHintsDone,
 } from "./lib/firstRun";
 import { sourceMediaStem } from "./lib/mediaName";
+import { loadPerformanceMode, savePerformanceMode } from "./lib/performanceMode";
 import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 
@@ -305,8 +307,12 @@ export default function App() {
 
   const [leftWidth, setLeftWidth] = useState(() => loadWidth(LEFT_WIDTH_KEY, 300));
   const [rightWidth, setRightWidth] = useState(() => loadWidth(RIGHT_WIDTH_KEY, 380));
+  const [performance, setPerformance] = useState(loadPerformanceMode);
   const startLeftResize = useSideResize(LEFT_WIDTH_KEY, "left", leftWidth, setLeftWidth);
   const startRightResize = useSideResize(RIGHT_WIDTH_KEY, "right", rightWidth, setRightWidth);
+  const togglePerformance = useCallback(() => {
+    setPerformance((on) => savePerformanceMode(!on));
+  }, []);
 
   const onNodeClick = useCallback<NodeMouseHandler<PatchNodeType>>(
     (_event, node) => select(node.id),
@@ -361,7 +367,7 @@ export default function App() {
   );
 
   return (
-    <div className={`app${vertical ? " app--vertical" : ""}${touch ? " app--touch" : ""}`}>
+    <div className={`app${vertical ? " app--vertical" : ""}${touch ? " app--touch" : ""}${performance ? " app--performance" : ""}`}>
       {dropOver ? (
         <div className="drop-hint" aria-hidden="true">
           <span>Drop to load — image · video · audio</span>
@@ -407,29 +413,34 @@ export default function App() {
           ) : null}
         </div>
       ) : null}
-      <Toolbar
-        recording={recording}
-        onToggleRecord={toggle}
-        rendering={rendering}
-        renderProgress={renderProgress}
-        onToggleRender={toggleRender}
-        renderingImage={renderingImage}
-        onRenderImage={renderImage}
-        paused={paused}
-        onTogglePause={onTogglePause}
-        portrait={vertical}
-        presetNudge={presetNudge}
-        openPresetsTick={openPresetsTick}
-        chromeHint={chromeHint}
-        onChromeHintAck={ackChromeHint}
-        onPresetsGateClose={onPresetsGateClose}
-      />
+      <div className="chrome">
+        <Toolbar
+          recording={recording}
+          onToggleRecord={toggle}
+          rendering={rendering}
+          renderProgress={renderProgress}
+          onToggleRender={toggleRender}
+          renderingImage={renderingImage}
+          onRenderImage={renderImage}
+          paused={paused}
+          onTogglePause={onTogglePause}
+          portrait={vertical}
+          presetNudge={presetNudge}
+          openPresetsTick={openPresetsTick}
+          chromeHint={chromeHint}
+          onChromeHintAck={ackChromeHint}
+          onPresetsGateClose={onPresetsGateClose}
+          performance={performance}
+          onTogglePerformance={togglePerformance}
+        />
+        {vertical && performance ? <PublishedMixer variant="bar" /> : null}
+      </div>
 
       <main className="app__body">
         {!vertical ? (
           <>
             <aside className="side side--left" style={{ width: leftWidth }}>
-              <Inspector />
+              {performance ? <PublishedMixer /> : <Inspector />}
             </aside>
 
             <div
@@ -438,62 +449,71 @@ export default function App() {
               onDoubleClick={() => setLeftWidth(300)}
               role="separator"
               aria-orientation="vertical"
-              aria-label="Inspector width"
+              aria-label={performance ? "Mixer width" : "Inspector width"}
               title="Drag · double-click to reset"
             />
           </>
         ) : null}
 
-        <section className={`editor${vertical ? " editor--vertical" : ""}`}>
-          {vertical ? (
-            <div className="editor__backdrop" aria-hidden>
-              <div
-                className="editor__backdrop-frame"
-                style={{ aspectRatio: `${width} / ${height}` }}
-              >
-                {stage}
+        {!vertical && performance ? null : (
+          <section className={`editor${vertical ? " editor--vertical" : ""}`}>
+            {vertical ? (
+              <div className="editor__backdrop" aria-hidden>
+                <div
+                  className="editor__backdrop-frame"
+                  style={{ aspectRatio: `${width} / ${height}` }}
+                >
+                  {stage}
+                </div>
+                <span className="editor__backdrop-caption">
+                  {mediaStem ? `${mediaStem} · ` : null}
+                  window · {width}×{height}
+                </span>
               </div>
-              <span className="editor__backdrop-caption">
-                {mediaStem ? `${mediaStem} · ` : null}
-                window · {width}×{height}
-              </span>
-            </div>
-          ) : null}
+            ) : null}
 
-          <div className="editor__graph">
-            <ReactFlowProvider>
-              <GraphCanvas
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeClick={onNodeClick}
-                onNodeDoubleClick={onNodeDoubleClick}
-                onPaneClick={() => select(null)}
-                vertical={vertical}
-                touch={touch}
-              />
-            </ReactFlowProvider>
-          </div>
+            {performance ? null : (
+              <div className="editor__graph">
+                <ReactFlowProvider>
+                  <GraphCanvas
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onNodeClick={onNodeClick}
+                    onNodeDoubleClick={onNodeDoubleClick}
+                    onPaneClick={() => select(null)}
+                    vertical={vertical}
+                    touch={touch}
+                  />
+                </ReactFlowProvider>
+              </div>
+            )}
 
-          {vertical ? <FloatingInspector /> : null}
-        </section>
+            {vertical && !performance ? <FloatingInspector /> : null}
+          </section>
+        )}
 
         {!vertical ? (
           <>
-            <div
-              className="splitter"
-              onPointerDown={startRightResize}
-              onDoubleClick={() => setRightWidth(380)}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Output width"
-              title="Drag · double-click to reset"
-            />
+            {performance ? null : (
+              <div
+                className="splitter"
+                onPointerDown={startRightResize}
+                onDoubleClick={() => setRightWidth(380)}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Output width"
+                title="Drag · double-click to reset"
+              />
+            )}
 
-            <section className="side side--right" style={{ width: rightWidth }}>
+            <section
+              className={`side side--right${performance ? " side--fill" : ""}`}
+              style={performance ? undefined : { width: rightWidth }}
+            >
               <div className="preview preview--fill">
                 <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
                   {stage}

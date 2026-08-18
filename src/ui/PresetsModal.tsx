@@ -14,9 +14,7 @@ import { isOmitted, setPresetShipped } from "../presets/ship";
 import { recapturePresetPreview } from "../lib/capturePresetPreviews";
 import { saveBuiltinPreset } from "../presets/saveBuiltin";
 import { appLog } from "../store/consoleStore";
-import { currentTimeline, useGraphStore } from "../store/graphStore";
-import { useModulatorStore } from "../store/modulatorStore";
-import { serializePatch } from "../store/persistence";
+import { serializeCurrentPatch, useGraphStore } from "../store/graphStore";
 
 function presetThumb(preset: PatchPreset): string | null {
   if (preset.preview) return preset.preview;
@@ -268,12 +266,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                 const suggested = `Patch ${new Date().toLocaleString()}`;
                 const label = window.prompt("Name for this preset:", suggested);
                 if (label === null) return;
-                const { nodes, edges, width, height } = useGraphStore.getState();
-                // A preset is a patch, so it carries the animation too.
-                const id = addUserPreset(
-                  label,
-                  serializePatch(nodes, edges, width, height, currentTimeline()),
-                );
+                const id = addUserPreset(label, serializeCurrentPatch());
                 refresh();
                 setSelectedId(id);
                 setStatus(`Saved “${label.trim() || "Untitled"}”`);
@@ -316,15 +309,7 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                     return;
                   }
                   setSaving(true);
-                  const { nodes, edges, width, height } = useGraphStore.getState();
-                  const patch = serializePatch(
-                    nodes,
-                    edges,
-                    width,
-                    height,
-                    currentTimeline(),
-                    useModulatorStore.getState().byPath,
-                  );
+                  const patch = serializeCurrentPatch();
                   const ok = await saveBuiltinPreset(selected.id, patch);
                   if (!ok) {
                     setSaving(false);

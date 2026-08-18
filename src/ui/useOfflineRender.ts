@@ -11,9 +11,9 @@ import {
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
 import { appLog } from "../store/consoleStore";
-import { currentTimeline, useGraphStore } from "../store/graphStore";
+import { serializeCurrentPatch, useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
-import { downloadPatch, serializePatch } from "../store/persistence";
+import { downloadPatch } from "../store/persistence";
 import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
 
 /**
@@ -106,7 +106,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       const stem = downloadTimelineRender(blob);
       // Same basename as the video so a finished render and its graph stay paired.
       // A short delay keeps Chromium from collapsing the second save into one click.
-      const patch = serializePatch(nodes, edges, width, height, currentTimeline(), modulators);
+      const patch = serializeCurrentPatch();
       window.setTimeout(() => {
         downloadPatch(patch, `${stem}.json`);
       }, 250);

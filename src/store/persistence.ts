@@ -74,6 +74,11 @@ export interface SerializedPatch {
   /** Optional for the same reason as `timeline` — older patches simply have none. */
   modulators?: Modulators;
   /**
+   * Param paths (`nodeId:key`) promoted to the patch mixer. Shown in
+   * performance mode instead of the node graph.
+   */
+  published?: string[];
+  /**
    * Name of the footage the patch was built on. Dropped files live behind a
    * `blob:` URL that the params drop on save, so without this an exported patch
    * says nothing about which clip it belongs to.
@@ -152,6 +157,25 @@ function serializableKeyframes(
   return clean;
 }
 
+function serializablePublished(nodes: PatchNode[], published: string[] | undefined): string[] {
+  if (!published?.length) return [];
+  const defTypeById = new Map(nodes.map((node) => [node.id, node.data.defType]));
+  const seen = new Set<string>();
+  const clean: string[] = [];
+  for (const path of published) {
+    if (typeof path !== "string" || seen.has(path)) continue;
+    const parsed = parseParamPath(path);
+    if (!parsed) continue;
+    const defType = defTypeById.get(parsed.nodeId);
+    if (!defType) continue;
+    const spec = NODE_DEFS[defType]?.params.find((p) => p.key === parsed.key);
+    if (!spec || spec.type !== "range") continue;
+    seen.add(path);
+    clean.push(path);
+  }
+  return clean;
+}
+
 export function serializePatch(
   nodes: PatchNode[],
   edges: Edge[],
@@ -159,8 +183,10 @@ export function serializePatch(
   height: number,
   timeline?: SerializedTimeline,
   modulators?: Modulators,
+  published?: string[],
 ): SerializedPatch {
   const source = sourceFileName(nodes);
+  const publishedPaths = serializablePublished(nodes, published);
   return {
     format: FORMAT,
     width,
@@ -210,6 +236,7 @@ export function serializePatch(
         }
       : {}),
     ...(modulators && Object.keys(modulators).length > 0 ? { modulators } : {}),
+    ...(publishedPaths.length ? { published: publishedPaths } : {}),
   };
 }
 
@@ -221,6 +248,8 @@ export interface ParsedPatch {
   /** Absent when the patch predates keyframes — the timeline is then left as is. */
   timeline: SerializedTimeline | null;
   modulators: Modulators;
+  /** Range-param paths promoted to the performance mixer. Empty on older patches. */
+  published: string[];
 }
 
 /** Drops anything malformed rather than letting one bad key break a load. */
@@ -340,6 +369,12 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
     height: Number(patch.height) || 1920,
     timeline: parseTimeline(patch.timeline, ids),
     modulators: parseModulators(patch.modulators, ids),
+    published: serializablePublished(
+      nodes,
+      Array.isArray(patch.published)
+        ? patch.published.filter((path): path is string => typeof path === "string")
+        : [],
+    ),
   };
 }
 
