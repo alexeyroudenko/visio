@@ -15,10 +15,10 @@ export const WELCOME_CAMERA_LABEL = "enable camera";
 
 export function welcomeCameraParams(): {
   mode: "camera";
-  facing: "user";
-  mirror: true;
+  facing: "environment";
+  mirror: false;
 } {
-  return { mode: "camera", facing: "user", mirror: true };
+  return { mode: "camera", facing: "environment", mirror: false };
 }
 
 /**

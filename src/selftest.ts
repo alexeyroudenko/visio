@@ -415,10 +415,10 @@ async function run(): Promise<void> {
   );
   const cameraOffer = welcomeCameraParams();
   check(
-    "welcome camera offer is front-facing and not in the title-card copy",
+    "welcome camera offer is back-facing and not in the title-card copy",
     cameraOffer.mode === "camera" &&
-      cameraOffer.facing === "user" &&
-      cameraOffer.mirror === true &&
+      cameraOffer.facing === "environment" &&
+      cameraOffer.mirror === false &&
       WELCOME_CAMERA_LABEL.length > 0 &&
       !welcomeText().includes(WELCOME_CAMERA_LABEL),
     `params=${JSON.stringify(cameraOffer)} label=${WELCOME_CAMERA_LABEL}`,
@@ -2651,8 +2651,8 @@ async function run(): Promise<void> {
   // --- 8. Media facing + recorder MIME ------------------------------------
   const mediaDefaults = defaultParams("source.media");
   check(
-    "Media defaults include facing=user",
-    mediaDefaults.facing === "user",
+    "Media defaults include facing=environment",
+    mediaDefaults.facing === "environment",
     `facing=${String(mediaDefaults.facing)}`,
   );
   const facingSpec = NODE_DEFS["source.media"]?.params.find((p) => p.key === "facing");

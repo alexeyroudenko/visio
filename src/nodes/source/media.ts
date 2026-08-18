@@ -200,7 +200,7 @@ function stopCamera(state: MediaState): void {
 }
 
 function normalizeFacing(value: string): "user" | "environment" {
-  return value === "environment" ? "environment" : "user";
+  return value === "user" ? "user" : "environment";
 }
 
 function clearFileVideo(state: MediaState): void {
@@ -345,7 +345,7 @@ export const mediaNode = defineNode<MediaState>({
         { value: "user", label: "front" },
         { value: "environment", label: "back" },
       ],
-      default: "user",
+      default: "environment",
     },
     { key: "file", label: "File", type: "file", accept: "image/*,video/*,audio/*", default: null },
     { key: "playing", label: "Play", type: "toggle", default: true },
@@ -487,7 +487,7 @@ function evalCamera(
   state.video.autoplay = true;
   state.video.loop = false;
 
-  const facing = normalizeFacing(paramString(params, "facing", "user"));
+  const facing = normalizeFacing(paramString(params, "facing", "environment"));
   // Restart the stream when the user flips front ↔ back.
   if (state.cameraRequested && state.cameraFacing && state.cameraFacing !== facing) {
     stopCamera(state);

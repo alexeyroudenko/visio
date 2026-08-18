@@ -52,7 +52,7 @@ function trackingViz(opts: {
   const sourceParams =
     opts.source === "image"
       ? { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" }
-      : { mode: "camera", mirror: true, fit: "cover" };
+      : { mode: "camera", facing: "environment", mirror: false, fit: "cover" };
 
   return {
     format: 1,
