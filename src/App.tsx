@@ -211,6 +211,7 @@ function GraphCanvas({
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mediaPickRef = useRef<HTMLInputElement | null>(null);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
   const vertical = usePortraitWindow();
@@ -243,7 +244,6 @@ export default function App() {
     }
   }, [loadPreset, setParam]);
   const [presetNudge, setPresetNudge] = useState(0);
-  const [openPresetsTick, setOpenPresetsTick] = useState(0);
   const [chromeHint, setChromeHint] = useState(false);
   const [holdUntilPresets, setHoldUntilPresets] = useState(false);
   const sawGraph = useRef<boolean | null>(null);
@@ -400,12 +400,23 @@ export default function App() {
           <button
             type="button"
             className="welcome__plus"
-            onClick={() => setOpenPresetsTick((tick) => tick + 1)}
-            title="Add output — open the preset grid"
-            aria-label="Add output — choose a preset"
+            onClick={() => mediaPickRef.current?.click()}
+            title="Open a video or image"
+            aria-label="Open a video or image"
           >
             {WELCOME_PLUS_LABEL}
           </button>
+          <input
+            ref={mediaPickRef}
+            type="file"
+            accept="image/*,video/*"
+            hidden
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              if (files.length) onDropFiles(files);
+            }}
+          />
           {vertical ? (
             <button type="button" className="welcome__camera" onClick={startWelcomeCamera}>
               {WELCOME_CAMERA_LABEL}
@@ -426,7 +437,6 @@ export default function App() {
           onTogglePause={onTogglePause}
           portrait={vertical}
           presetNudge={presetNudge}
-          openPresetsTick={openPresetsTick}
           chromeHint={chromeHint}
           onChromeHintAck={ackChromeHint}
           onPresetsGateClose={onPresetsGateClose}

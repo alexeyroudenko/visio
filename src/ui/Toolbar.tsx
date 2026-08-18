@@ -24,7 +24,6 @@ export function Toolbar({
   onTogglePause,
   portrait = false,
   presetNudge = 0,
-  openPresetsTick = 0,
   chromeHint = false,
   onChromeHintAck,
   onPresetsGateClose,
@@ -44,8 +43,6 @@ export function Toolbar({
   portrait?: boolean;
   /** Increment after an empty-graph drop: blink Presets 1s, then open the modal. */
   presetNudge?: number;
-  /** Increment to open the preset grid immediately (welcome +). */
-  openPresetsTick?: number;
   /** First-run tour: blink +Node / Presets / Render. */
   chromeHint?: boolean;
   onChromeHintAck?: () => void;
@@ -94,13 +91,6 @@ export function Toolbar({
     }, 1000);
     return () => window.clearTimeout(nudgeTimer.current);
   }, [presetNudge]);
-
-  useEffect(() => {
-    if (!openPresetsTick) return;
-    window.clearTimeout(nudgeTimer.current);
-    setPresetsBlinking(false);
-    setPresetsOpen(true);
-  }, [openPresetsTick]);
 
   const commitRenderFps = useCallback((value: number) => {
     setRenderFpsState(saveRenderFps(value));

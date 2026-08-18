@@ -245,19 +245,6 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
                 onClose();
               }}
             />
-            <button
-              type="button"
-              className="button"
-              onClick={() => {
-                if (window.confirm("Clear the patch? Current patch will be lost.")) {
-                  resetPatch();
-                  onClose();
-                }
-              }}
-              title="Clear the patch — same as first launch"
-            >
-              Reset
-            </button>
             <div className="modal__footer-spacer" />
             <button
               type="button"
@@ -351,6 +338,21 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
               }}
             >
               Load
+            </button>
+            <button
+              type="button"
+              className="button button--reset"
+              onClick={() => {
+                if (window.confirm("Clear the patch? Current patch will be lost.")) {
+                  resetPatch();
+                  onClose();
+                }
+              }}
+              title="Clear the patch — same as first launch"
+              aria-label="Reset"
+            >
+              <span>re-</span>
+              <span>set</span>
             </button>
           </div>
         </footer>
