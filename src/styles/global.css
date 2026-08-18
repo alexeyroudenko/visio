@@ -1051,10 +1051,22 @@ input[type="checkbox"] {
     width: auto;
   }
 
+  /* Safari grid ignores aspect-ratio when sizing rows, so tiles overflow
+     into the next one. Padding-% of width is in-flow height it does honour. */
   .preset-list__thumb {
+    position: relative;
     width: 100%;
-    height: auto;
-    aspect-ratio: 160 / 284;
+    height: 0;
+    padding-bottom: 177.5%; /* 284 / 160 */
+    flex: none;
+  }
+
+  .preset-list__thumb img,
+  .preset-list__thumb-empty {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
 
   .preset-list__text {
