@@ -300,5 +300,5 @@ export function pixelSortStart(): SerializedPatch {
   "published": [
     "pixelSort-5:thresh"
   ]
-};
+} as SerializedPatch;
 }

@@ -47,6 +47,14 @@ export interface SerializedTimeline {
       lfoRate?: number;
       lfoDepth?: number;
       subGain?: number;
+      ratio?: number;
+      fm?: number;
+      ring?: number;
+      noise?: number;
+      crush?: number;
+      comb?: number;
+      glitch?: number;
+      drift?: number;
     }
   >;
 }

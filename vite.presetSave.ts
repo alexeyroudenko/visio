@@ -57,7 +57,7 @@ function writeTsModule(exportName: string, patch: unknown): string {
   return `import type { SerializedPatch } from "../store/persistence";
 
 export function ${exportName}(): SerializedPatch {
-  return ${JSON.stringify(patch, null, 2)};
+  return ${JSON.stringify(patch, null, 2)} as SerializedPatch;
 }
 `;
 }
