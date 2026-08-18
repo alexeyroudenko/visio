@@ -393,7 +393,7 @@ export default function App() {
         onRenderImage={renderImage}
         paused={paused}
         onTogglePause={onTogglePause}
-        hideRecord={vertical}
+        portrait={vertical}
         presetNudge={presetNudge}
         openPresetsTick={openPresetsTick}
         chromeHint={chromeHint}

@@ -22,7 +22,7 @@ export function Toolbar({
   onRenderImage,
   paused,
   onTogglePause,
-  hideRecord = false,
+  portrait = false,
   presetNudge = 0,
   openPresetsTick = 0,
   chromeHint = false,
@@ -38,8 +38,8 @@ export function Toolbar({
   onRenderImage?: () => void;
   paused: boolean;
   onTogglePause: () => void;
-  /** Portrait shell puts Record on the bottom shutter — hide the toolbar twin. */
-  hideRecord?: boolean;
+  /** Portrait: keep ☰ / +Node / Presets. Record is the bottom shutter; Pause and Render stay on desktop. */
+  portrait?: boolean;
   /** Increment after an empty-graph drop: blink Presets 1s, then open the modal. */
   presetNudge?: number;
   /** Increment to open the preset grid immediately (welcome +). */
@@ -226,58 +226,60 @@ export function Toolbar({
             Presets
           </button>
 
-          <button
-            type="button"
-            className={`button ${paused ? "button--paused" : ""}`}
-            onClick={onTogglePause}
-            disabled={rendering || renderingImage}
-            title={
-              paused
-                ? "Play — resume the graph and sources (Space)"
-                : "Pause — stop rAF, camera, and video (Space)"
-            }
-          >
-            {paused ? "► Play" : "❚❚ Pause"}
-          </button>
+          {portrait ? null : (
+            <>
+              <button
+                type="button"
+                className={`button ${paused ? "button--paused" : ""}`}
+                onClick={onTogglePause}
+                disabled={rendering || renderingImage}
+                title={
+                  paused
+                    ? "Play — resume the graph and sources (Space)"
+                    : "Pause — stop rAF, camera, and video (Space)"
+                }
+              >
+                {paused ? "► Play" : "❚❚ Pause"}
+              </button>
 
-          {!hideRecord ? (
-            <button
-              type="button"
-              className={`button ${recording ? "button--recording" : ""}`}
-              onClick={onToggleRecord}
-              disabled={paused || rendering || renderingImage}
-              title="Realtime capture of the output canvas"
-            >
-              {recording ? "■ Stop" : "● Record"}
-            </button>
-          ) : null}
+              <button
+                type="button"
+                className={`button ${recording ? "button--recording" : ""}`}
+                onClick={onToggleRecord}
+                disabled={paused || rendering || renderingImage}
+                title="Realtime capture of the output canvas"
+              >
+                {recording ? "■ Stop" : "● Record"}
+              </button>
 
-          <button
-            type="button"
-            className={`button button--render ${rendering ? "button--recording" : ""}${chromeHint ? " button--hint" : ""}`}
-            onClick={() => {
-              onChromeHintAck?.();
-              onToggleRender();
-            }}
-            disabled={recording || renderingImage}
-            title={
-              renderInFrame != null && renderOutFrame != null
-                ? `Offline Render video F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
-                : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
-            }
-          >
-            {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render video"}
-          </button>
+              <button
+                type="button"
+                className={`button button--render ${rendering ? "button--recording" : ""}${chromeHint ? " button--hint" : ""}`}
+                onClick={() => {
+                  onChromeHintAck?.();
+                  onToggleRender();
+                }}
+                disabled={recording || renderingImage}
+                title={
+                  renderInFrame != null && renderOutFrame != null
+                    ? `Offline Render video F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
+                    : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
+                }
+              >
+                {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render video"}
+              </button>
 
-          <button
-            type="button"
-            className="button button--render"
-            onClick={onRenderImage}
-            disabled={recording || rendering || renderingImage || !onRenderImage}
-            title={`PNG of the playhead frame at patch ${width}×${height} (not preview quality)`}
-          >
-            {renderingImage ? "Saving…" : "Render image"}
-          </button>
+              <button
+                type="button"
+                className="button button--render"
+                onClick={onRenderImage}
+                disabled={recording || rendering || renderingImage || !onRenderImage}
+                title={`PNG of the playhead frame at patch ${width}×${height} (not preview quality)`}
+              >
+                {renderingImage ? "Saving…" : "Render image"}
+              </button>
+            </>
+          )}
         </div>
 
         <PresetsModal open={presetsOpen} onClose={closePresets} />
