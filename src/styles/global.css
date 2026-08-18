@@ -1025,6 +1025,51 @@ input[type="checkbox"] {
   color: var(--text);
 }
 
+/* Phone-width: two fluid 9:16 tiles. Fixed 160px tracks wrap to one column
+   once backdrop + body padding leave less than 332px for the grid. The modal
+   portals to document.body, so this cannot hang off .app--vertical. */
+@media (max-width: 520px) {
+  .modal-backdrop--presets {
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .modal--presets {
+    width: 100%;
+  }
+
+  .modal--presets .modal__body {
+    padding: 10px;
+  }
+
+  .preset-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .preset-list__row {
+    width: auto;
+  }
+
+  .preset-list__thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 160 / 284;
+  }
+
+  .preset-list__text {
+    padding: 6px 8px 8px;
+  }
+
+  .preset-list__label {
+    font-size: 11px;
+  }
+
+  .preset-list__desc {
+    font-size: 9px;
+  }
+}
+
 /* ---------- add-node menu ---------- */
 
 .menu {
