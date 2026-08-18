@@ -26,6 +26,15 @@ import { useGraphStore } from "../store/graphStore";
 const RENDER_FPS_PRESETS = [60, 30, 24] as const;
 const RENDER_BITRATE_PRESETS = [4, 8, 12, 20, 40, 80].map((mbps) => mbps * 1_000_000);
 
+const PATCH_RESOLUTIONS = [
+  { label: "1080×1920", width: 1080, height: 1920 },
+  { label: "720×1280", width: 720, height: 1280 },
+  { label: "360×640", width: 360, height: 640 },
+  { label: "1080×1350", width: 1080, height: 1350 },
+  { label: "1920×1080", width: 1920, height: 1080 },
+  { label: "1280×720", width: 1280, height: 720 },
+];
+
 export function SettingsModal({
   open,
   onClose,
@@ -45,6 +54,7 @@ export function SettingsModal({
   const install = useInstallState();
   const patchWidth = useGraphStore((state) => state.width);
   const patchHeight = useGraphStore((state) => state.height);
+  const setResolution = useGraphStore((state) => state.setResolution);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -69,6 +79,10 @@ export function SettingsModal({
     renderFps as (typeof RENDER_FPS_PRESETS)[number],
   );
   const bitratePresetMatch = RENDER_BITRATE_PRESETS.includes(renderBitrate);
+  const resolutionValue = `${patchWidth}x${patchHeight}`;
+  const resolutionKnown = PATCH_RESOLUTIONS.some(
+    (item) => `${item.width}x${item.height}` === resolutionValue,
+  );
 
   return createPortal(
     <div className="modal-backdrop modal-backdrop--settings" onClick={onClose} role="presentation">
@@ -87,6 +101,35 @@ export function SettingsModal({
         </header>
 
         <div className="modal__body">
+          <label className="modal__field">
+            <span>Resolution</span>
+            <select
+              className="select"
+              value={resolutionKnown ? resolutionValue : ""}
+              onChange={(event) => {
+                const preset = PATCH_RESOLUTIONS.find(
+                  (item) => `${item.width}x${item.height}` === event.target.value,
+                );
+                if (preset) setResolution(preset.width, preset.height);
+              }}
+            >
+              {!resolutionKnown ? (
+                <option value="" disabled>
+                  {patchWidth}×{patchHeight}
+                </option>
+              ) : null}
+              {PATCH_RESOLUTIONS.map((preset) => (
+                <option key={preset.label} value={`${preset.width}x${preset.height}`}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="modal__hint">
+            Patch size for Record, Render video and Render image. Preview quality below only
+            scales the live buffer.
+          </p>
+
           <label className="modal__field">
             <span>Preview quality</span>
             <select

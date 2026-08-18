@@ -10,15 +10,6 @@ import { useTimelineStore } from "../store/timelineStore";
 import { PresetsModal } from "./PresetsModal";
 import { SettingsModal } from "./SettingsModal";
 
-const RESOLUTIONS = [
-  { label: "1080×1920", width: 1080, height: 1920 },
-  { label: "720×1280", width: 720, height: 1280 },
-  { label: "360×640", width: 360, height: 640 },
-  { label: "1080×1350", width: 1080, height: 1350 },
-  { label: "1920×1080", width: 1920, height: 1080 },
-  { label: "1280×720", width: 1280, height: 720 },
-];
-
 const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "audio", "output"];
 
 export function Toolbar({
@@ -77,7 +68,6 @@ export function Toolbar({
   const addNode = useGraphStore((state) => state.addNode);
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
-  const setResolution = useGraphStore((state) => state.setResolution);
   const closePresets = useCallback(() => {
     setPresetsOpen(false);
     setPresetsBlinking(false);
@@ -115,10 +105,6 @@ export function Toolbar({
     setRenderBitrateState(saveRenderBitrate(value));
   }, []);
 
-  const resolutionValue = `${width}x${height}`;
-  const resolutionKnown = RESOLUTIONS.some(
-    (item) => `${item.width}x${item.height}` === resolutionValue,
-  );
   const menuNodes = import.meta.env.DEV
     ? NODE_LIST
     : NODE_LIST.filter((definition) => !isNodeOmitted(definition.type));
@@ -239,28 +225,6 @@ export function Toolbar({
           >
             Presets
           </button>
-
-          <select
-            className="select"
-            value={resolutionKnown ? resolutionValue : ""}
-            onChange={(event) => {
-              const preset = RESOLUTIONS.find(
-                (item) => `${item.width}x${item.height}` === event.target.value,
-              );
-              if (preset) setResolution(preset.width, preset.height);
-            }}
-          >
-            {!resolutionKnown ? (
-              <option value="" disabled>
-                {width}×{height}
-              </option>
-            ) : null}
-            {RESOLUTIONS.map((preset) => (
-              <option key={preset.label} value={`${preset.width}x${preset.height}`}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
 
           <button
             type="button"

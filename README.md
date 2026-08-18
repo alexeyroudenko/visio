@@ -562,7 +562,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 | `edge_connected` | wire accepted | the chains people build — from/to type and port |
 | `edge_refused` | type mismatch | a wrong mental model of the graph, i.e. a затык |
 | `param_changed` | 700 ms after the last change | the knobs; a drag is one event with a `moves` count |
-| `preset_applied`, `patch_imported`/`_exported`/`_reset`, `resolution_changed` | toolbar & modals | entry points |
+| `preset_applied`, `patch_imported`/`_exported`/`_reset`, `resolution_changed` | toolbar & Settings | entry points |
 | `render_started` / `_finished` / `_cancelled` / `_failed` | offline render | the main conversion, plus how long people wait |
 | `record_started` / `_saved` / `_failed` | canvas recording | where MediaRecorder support gives out (Safari/iOS) |
 | `node_error`, `app_error` | node status, app console | catch-all; `app_error` overlaps the specific ones by design |
