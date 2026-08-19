@@ -148,9 +148,8 @@ interface LaunchContext {
 let launchContext: LaunchContext | null = null;
 
 /**
- * Called by the graph store as it hydrates. Visits always start empty (reload
- * is a Reset), so `restored` is false. `first_visit` still tells a returning
- * browser from a brand-new one.
+ * Called by the graph store as it hydrates. `restored` is true when the last
+ * autosaved patch came back (Reset-on-visit off).
  */
 export function setLaunchContext(context: LaunchContext): void {
   launchContext = context;

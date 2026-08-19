@@ -21,6 +21,10 @@ import {
 } from "../lib/renderFps";
 import { promptInstall, useInstallState } from "../lib/pwa";
 import { fitAppWindowToPatch } from "../lib/appWindow";
+import {
+  loadResetOnVisit,
+  saveResetOnVisit,
+} from "../lib/resetOnVisit";
 import { useGraphStore } from "../store/graphStore";
 
 const RENDER_FPS_PRESETS = [60, 30, 24] as const;
@@ -51,6 +55,7 @@ export function SettingsModal({
   onRenderBitrateChange: (bps: number) => void;
 }) {
   const [quality, setQuality] = useState<PreviewQuality>(() => loadPreviewQuality());
+  const [resetOnVisit, setResetOnVisit] = useState(() => loadResetOnVisit());
   const install = useInstallState();
   const patchWidth = useGraphStore((state) => state.width);
   const patchHeight = useGraphStore((state) => state.height);
@@ -62,6 +67,7 @@ export function SettingsModal({
   useEffect(() => {
     if (!open) return;
     setQuality(loadPreviewQuality());
+    setResetOnVisit(loadResetOnVisit());
   }, [open]);
 
   useEffect(() => {
@@ -128,6 +134,20 @@ export function SettingsModal({
           <p className="modal__hint">
             Patch size for Record, Render video and Render image. Preview quality below only
             scales the live buffer.
+          </p>
+
+          <label className="modal__field modal__field--check">
+            <input
+              type="checkbox"
+              checked={resetOnVisit}
+              onChange={(event) => setResetOnVisit(saveResetOnVisit(event.target.checked))}
+            />
+            <span>Reset on visit</span>
+          </label>
+          <p className="modal__hint">
+            Reload and reopen start from the empty drop screen, like Reset. Uncheck to keep the
+            last patch (and dropped footage). Development defaults to off so a refresh keeps your
+            work.
           </p>
 
           <label className="modal__field">

@@ -51,6 +51,7 @@ import { sourceMediaStem } from "./lib/mediaName";
 import { loadPerformanceMode, savePerformanceMode } from "./lib/performanceMode";
 import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
+import { mediaMemoryReady } from "./store/mediaMemory";
 
 const LEFT_WIDTH_KEY = "visio.leftWidth";
 const RIGHT_WIDTH_KEY = "visio.rightWidth";
@@ -331,6 +332,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    void mediaMemoryReady().then(() => {
+      useGraphStore.getState().reapplyRememberedMedia();
+    });
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
       if (
@@ -524,9 +531,11 @@ export default function App() {
               className={`side side--right${performance ? " side--fill" : ""}`}
               style={performance ? undefined : { width: rightWidth }}
             >
-              <div className="preview preview--fill">
-                <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
-                  {stage}
+              <div className={`preview preview--fill${performance ? " preview--fit-height" : ""}`}>
+                <div className="preview__stage">
+                  <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
+                    {stage}
+                  </div>
                 </div>
                 <div className="preview__bar">
                   <span className="preview__caption">

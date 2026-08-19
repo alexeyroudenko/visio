@@ -1,8 +1,11 @@
 import type { FileParam } from "../nodes/shared/fileParam";
+import { loadResetOnVisit } from "../lib/resetOnVisit";
 import {
   clearAllMediaFiles,
   deleteMediaFile,
+  getAllMediaFiles,
   persistFileParam,
+  reviveStoredFile,
 } from "./mediaFileDb";
 
 /**
@@ -13,9 +16,9 @@ import {
  * the graph wholesale. This remembers both across loads, so the patch changes
  * and the footage stays.
  *
- * Same tab only. A reload is a Reset (empty drop screen, no last footage).
- * IndexedDB still gets a copy during the session, then the next boot wipes it
- * so a stale blob cannot outrank a fresh template.
+ * Same tab, and across reloads when Reset-on-visit is off (dev default).
+ * IndexedDB keeps a copy of blob files; boot either wipes it (reset on visit)
+ * or revives the files so the restored patch has footage again.
  */
 
 export type MediaMode = "camera" | "image" | "video" | "audio";
@@ -126,7 +129,7 @@ export function rememberMedia(
   memory.files[mode] = { ...file, fileObj: nextObj ?? undefined };
   if (previous) release(previous.url);
 
-  // IndexedDB copy is for this tab's Reset/forget path. The next visit wipes it.
+  // IndexedDB copy so a restore-on-reload can revive blob: files.
   void persistFileParam(mode, file, nextObj).catch(() => {
     /* ignore */
   });
@@ -215,9 +218,9 @@ export function forgetMediaFile(mode: unknown): void {
 let hydrateStarted = false;
 
 /**
- * Wipe last visit's IndexedDB files instead of restoring them. Reload is a
- * Reset. Safe to call more than once — only the first call does work.
- * Returns the shared ready promise.
+ * Boot: wipe last visit's files when Reset-on-visit is on, otherwise revive
+ * them from IndexedDB. Safe to call more than once — only the first call does
+ * work. Returns the shared ready promise.
  */
 export function hydrateMediaMemory(): Promise<void> {
   if (hydrateStarted) return memory.ready;
@@ -235,11 +238,23 @@ export function hydrateMediaMemory(): Promise<void> {
 
   memory.ready = (async () => {
     try {
-      // A drop that landed before this ran must not be deleted.
-      if (!sessionTouched) {
+      // A drop that landed before this ran must not be deleted or overwritten.
+      if (sessionTouched) return;
+      if (loadResetOnVisit()) {
         await clearAllMediaFiles();
         memory.mode = null;
         writeStoredMode(null);
+      } else {
+        const rows = await getAllMediaFiles();
+        for (const row of rows) {
+          const { param, fileObj } = reviveStoredFile(row);
+          memory.files[row.mode] = { ...param, fileObj };
+        }
+        try {
+          memory.mode = asMode(localStorage.getItem(MODE_KEY));
+        } catch {
+          /* private mode */
+        }
       }
     } catch {
       /* private mode / blocked IDB — session memory still works */

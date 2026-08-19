@@ -13,6 +13,7 @@ import type { NodeRuntime } from "../engine/types";
 import { scrub, setLaunchContext, track, trackParam } from "../lib/analytics";
 import { fitAppWindowToPatch } from "../lib/appWindow";
 import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath, parseParamPath } from "../lib/keyframes";
+import { loadResetOnVisit } from "../lib/resetOnVisit";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
 import { fileParamFromFile, mediaKind } from "../nodes/shared/fileParam";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
@@ -28,6 +29,7 @@ import { useModulatorStore } from "./modulatorStore";
 import {
   clearStorage,
   downloadPatch,
+  loadFromStorage,
   parsePatch,
   saveToStorage,
   serializePatch,
@@ -99,6 +101,14 @@ function writeActivePresetId(id: string | null): void {
     else localStorage.removeItem(ACTIVE_PRESET_KEY);
   } catch {
     /* ignore quota / private mode */
+  }
+}
+
+function readActivePresetId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_PRESET_KEY);
+  } catch {
+    return null;
   }
 }
 
@@ -187,15 +197,20 @@ declare global {
 }
 
 function createGraphStore() {
-  // Every visit is a Reset: last session's patch and footage stay in the tab
-  // only. Reload / reopen lands on the empty drop screen, same as the button.
-  clearStorage();
-  writeActivePresetId(null);
-  const initial = emptyPatch();
+  const resetOnVisit = loadResetOnVisit();
+  const saved = resetOnVisit ? null : loadFromStorage();
+  if (resetOnVisit) {
+    // Same as the Reset button: last session's patch does not come back.
+    clearStorage();
+    writeActivePresetId(null);
+  }
+  const initial = saved ?? emptyPatch();
+  const activePresetId = saved ? readActivePresetId() : null;
+  if (!saved) writeActivePresetId(null);
   setLaunchContext({
-    restored: false,
-    nodes: 0,
-    edges: 0,
+    restored: saved != null,
+    nodes: initial.nodes.length,
+    edges: initial.edges.length,
   });
   // Startup seeds the store directly instead of going through loadPatch, so the
   // timeline has to be adopted here too or a reload drops every key.
@@ -210,7 +225,7 @@ function createGraphStore() {
     width: initial.width,
     height: initial.height,
     published: initial.published,
-    activePresetId: null,
+    activePresetId,
     fitViewNonce: 0,
 
     onNodesChange(changes) {

@@ -363,10 +363,11 @@ when a line actually changes.
 ## Patches and output
 
 - **Autosave** to localStorage on every edit (400 ms debounce).
-A reload or a new visit **resets** to the same empty screen as first launch —
-black field, drop prompt, “use template” — instead of restoring the last patch.
-Export/import JSON via toolbar buttons; “Reset” does the same clear while the
-tab is open.
+A reload or a new visit **resets** to the empty drop screen by default in
+production (Settings → **Reset on visit**). Uncheck that to restore the last
+patch. `npm run dev` defaults the checkbox off so a refresh keeps the graph.
+Export/import JSON via toolbar buttons; “Reset” still clears while the tab is
+open, regardless of the setting.
 The preset list covers most nodes, including two that exist to
 demonstrate the timeline itself — one keyframed, one modulated. A selftest walks
 every preset and checks each edge names a real handle of a matching type: a
@@ -404,13 +405,13 @@ two images in a single drop would leave the first node holding a dead URL.
 file, and loading one used to throw away the video you had just dropped.
 `mediaMemory` remembers the last file per source type plus the type itself, and
 a patch load (preset, import) applies both over whatever the patch said —
-so you can flip through presets against your own material. Reload and Reset
-forget the remembered footage too, and land on the empty drop
+so you can flip through presets against your own material. Reload with Reset-on-visit
+on (and the Reset button) forget the remembered footage too, and land on the empty drop
 screen rather than the template. Switching type in the
 Inspector swaps its file back in too, so image → video → image gets both back;
 a type you have never opened a file for clears the field instead of leaving a
 video source pointed at a PNG. It also owns the `blob:` URLs, releasing one only
-when no source type still remembers it. Same session only, for the reason above.
+when no source type still remembers it. Survives a reload when Reset-on-visit is off.
 - **Keyframes, fps and duration are part of the patch** — they save, export and
 reload with everything else. The playhead is not: it is where you are looking,
 not what the document says, and saving it would rewrite the patch every frame
@@ -554,7 +555,7 @@ loads after the app is interactive. Events fired before it lands are queued.
 
 | Event | Fired at | Why |
 |---|---|---|
-| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`. `restored` is always false: a visit starts empty (reload = Reset). `nodes`/`edges` are 0 at launch |
+| `app_loaded` | init | GPU string, cores, WebGL2, portrait — triage for “it’s slow”. Also `first_visit`. `restored` is true when the last patch came back (Reset-on-visit off). `nodes`/`edges` at launch |
 | `first_source_ready` | first source node reporting ready | time-to-first-picture, once per session. Not the output node: draw and output nodes own no async resource and never leave `idle` |
 | `media_added` | Media node created | `kind` only (image/video/camera/audio), never the file |
 | `media_dropped` | file dropped on the window | `kind` only — how often footage arrives by drag rather than the file picker |

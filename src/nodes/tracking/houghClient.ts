@@ -66,10 +66,12 @@ export class HoughJob {
     const active = ensureWorker();
     if (!active) return false;
     this.pendingId = this.nextId++;
+    const transfer: Transferable[] = [request.gradX.buffer, request.gradY.buffer];
+    if (request.gray) transfer.push(request.gray.buffer);
     active.postMessage(
       { ...request, id: this.pendingId, nodeId: this.nodeId } satisfies HoughRequest,
       // Copies made by the caller — handing over the buffers avoids a second one.
-      [request.gradX.buffer, request.gradY.buffer],
+      transfer,
     );
     return true;
   }

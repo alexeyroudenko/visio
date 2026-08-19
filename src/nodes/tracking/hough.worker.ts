@@ -4,6 +4,7 @@
  * The node still reads and downscales the frame — that needs a canvas — and
  * sends the Sobel gradients here, which is where the expensive part lives.
  */
+import { cannyEdges } from "./canny";
 import { detectShiTomasi, pointsFromCorners, type CornerOptions } from "./cornerAlgorithms";
 import {
   circlesFromEdges,
@@ -34,14 +35,25 @@ self.onmessage = (event: MessageEvent<HoughRequest>) => {
       value: pointsFromCorners(hits, job.width, job.height),
     };
   } else {
-    const edges = collectEdges(
-      job.gradX,
-      job.gradY,
-      job.width,
-      job.height,
-      job.edgeThreshold ?? 90,
-      MAX_EDGES,
-    );
+    const edges =
+      job.kind === "lines" && job.canny && job.gray
+        ? cannyEdges(
+            job.gray,
+            job.width,
+            job.height,
+            job.canny,
+            MAX_EDGES,
+            job.gradX,
+            job.gradY,
+          )
+        : collectEdges(
+            job.gradX,
+            job.gradY,
+            job.width,
+            job.height,
+            job.edgeThreshold ?? 90,
+            MAX_EDGES,
+          );
 
     response =
       job.kind === "circles"

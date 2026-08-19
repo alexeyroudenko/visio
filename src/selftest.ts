@@ -6,7 +6,7 @@
  * the normalized input says, feedback actually decays, blend modes combine.
  */
 import { Engine } from "./engine/runtime";
-import { bindTarget, clearTarget, createRenderTarget } from "./engine/gl/rt";
+import { bindTarget, clearTarget, createRenderTarget, isRenderTarget } from "./engine/gl/rt";
 import { BatchBuilder, drawPoints, drawSegments } from "./engine/gl/vector";
 import { copyTexture } from "./engine/gl/quad";
 import { SourceTexture } from "./engine/gl/videoTexture";
@@ -51,6 +51,8 @@ import {
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
+import { cannyEdges } from "./nodes/tracking/canny";
+import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
 import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
@@ -1532,10 +1534,58 @@ async function run(): Promise<void> {
           worker: false,
         },
       },
+      {
+        id: "hlc",
+        type: "tracking.lines",
+        params: {
+          ...defaultParams("tracking.lines"),
+          downscale: 2,
+          canny: true,
+          cannyThreshold1: 50,
+          cannyThreshold2: 150,
+          votes: 30,
+          minLength: 80,
+          interval: 1,
+          worker: false,
+        },
+      },
+      {
+        id: "hls",
+        type: "tracking.lines",
+        params: {
+          ...defaultParams("tracking.lines"),
+          downscale: 2,
+          edgeThreshold: 80,
+          votes: 30,
+          minLength: 80,
+          thetaStep: 5,
+          interval: 1,
+          worker: false,
+        },
+      },
+      {
+        id: "hlv",
+        type: "tracking.lines",
+        params: {
+          ...defaultParams("tracking.lines"),
+          downscale: 2,
+          canny: true,
+          cannyView: true,
+          cannyThreshold1: 50,
+          cannyThreshold2: 150,
+          votes: 30,
+          minLength: 80,
+          interval: 1,
+          worker: false,
+        },
+      },
     ],
     [
       { id: "a", source: "src", sourceHandle: "frame", target: "hc", targetHandle: "frame" },
       { id: "b", source: "src", sourceHandle: "frame", target: "hl", targetHandle: "frame" },
+      { id: "c", source: "src", sourceHandle: "frame", target: "hlc", targetHandle: "frame" },
+      { id: "d", source: "src", sourceHandle: "frame", target: "hls", targetHandle: "frame" },
+      { id: "e", source: "src", sourceHandle: "frame", target: "hlv", targetHandle: "frame" },
     ],
   );
   engine.tick();
@@ -1563,6 +1613,118 @@ async function run(): Promise<void> {
       ? `y=${horizontal.y1.toFixed(2)} (expected ${(170 / HEIGHT).toFixed(2)}), total=${foundLines.length}`
       : `not found, total=${foundLines.length}`,
   );
+  check(
+    "Hough horizontal line spans most of the frame",
+    horizontal !== undefined && Math.abs(horizontal.x2 - horizontal.x1) > 0.7,
+    horizontal ? `span=${Math.abs(horizontal.x2 - horizontal.x1).toFixed(2)}` : "no line",
+  );
+  const lineSpan = horizontal ? Math.abs(horizontal.x2 - horizontal.x1) : 0;
+  check(
+    "Hough line spans most of the frame, not a third",
+    lineSpan > 0.7,
+    horizontal ? `span=${lineSpan.toFixed(2)}` : "no line",
+  );
+
+  const coarseLines =
+    (houghDebug.outputs.get("hls")?.out as LinesValue | undefined)?.lines ?? [];
+  const coarseHorizontal = coarseLines.find((line) => Math.abs(line.y1 - line.y2) < 0.05);
+  const coarseSpan = coarseHorizontal ? Math.abs(coarseHorizontal.x2 - coarseHorizontal.x1) : 0;
+  check(
+    "Hough with 5° theta still spans most of the frame",
+    coarseSpan > 0.7,
+    coarseHorizontal ? `span=${coarseSpan.toFixed(2)} total=${coarseLines.length}` : "no line",
+  );
+
+  const foundCannyLines =
+    (houghDebug.outputs.get("hlc")?.out as LinesValue | undefined)?.lines ?? [];
+  const cannyHorizontal = foundCannyLines.find((line) => Math.abs(line.y1 - line.y2) < 0.03);
+  check(
+    "Hough + Canny still finds the synthetic horizontal line",
+    cannyHorizontal !== undefined && Math.abs(cannyHorizontal.y1 - 170 / HEIGHT) < 0.06,
+    cannyHorizontal
+      ? `y=${cannyHorizontal.y1.toFixed(2)}, total=${foundCannyLines.length}`
+      : `not found, total=${foundCannyLines.length}`,
+  );
+
+  const cannyPreviewOff = houghDebug.outputs.get("hlc")?.preview;
+  check(
+    "Hough Canny without view result leaves the texture port empty",
+    cannyPreviewOff == null,
+    cannyPreviewOff == null ? "null" : typeof cannyPreviewOff,
+  );
+  const cannyPreview = houghDebug.outputs.get("hlv")?.preview;
+  check(
+    "Hough Canny view result publishes a texture",
+    isRenderTarget(cannyPreview),
+    isRenderTarget(cannyPreview)
+      ? `${cannyPreview.width}×${cannyPreview.height}`
+      : String(cannyPreview),
+  );
+
+  {
+    const w = 48;
+    const h = 32;
+    const gray = new Float32Array(w * h);
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) gray[y * w + x] = x < w / 2 ? 0 : 255;
+    }
+    const edges = cannyEdges(
+      gray,
+      w,
+      h,
+      { threshold1: 50, threshold2: 150, apertureSize: 3, l2gradient: false },
+      20_000,
+    );
+    const near = edges.filter((edge) => Math.abs(edge.x - w / 2) <= 3).length;
+    check(
+      "Canny marks a vertical step near the midpoint",
+      edges.length > 0 && near >= h / 4,
+      `edges=${edges.length} near-mid=${near}`,
+    );
+  }
+
+  {
+    const w = 400;
+    const h = 80;
+    const rad = (1 * Math.PI) / 180;
+    const points = [];
+    for (let x = 4; x < w - 4; x += 1) {
+      const y = Math.round(h / 2 + (x - w / 2) * Math.tan(rad));
+      if (y < 1 || y >= h - 1) continue;
+      points.push({ x, y, ux: Math.sin(rad), uy: -Math.cos(rad), magnitude: 100 });
+    }
+    const found = linesFromEdges(points, w, h, {
+      thetaStepDeg: 2,
+      votes: 20,
+      minLength: 40,
+      maxLength: 0,
+      maxGap: 6,
+      maxLines: 8,
+    });
+    const span = found.lines.reduce((best, line) => Math.max(best, Math.abs(line.x2 - line.x1)), 0);
+    check(
+      "Hough line spans most of the frame despite 1° theta quantization",
+      span > 0.7,
+      `span=${span.toFixed(2)} lines=${found.lines.length}`,
+    );
+    const clipped = linesFromEdges(points, w, h, {
+      thetaStepDeg: 2,
+      votes: 20,
+      minLength: 40,
+      maxLength: 80,
+      maxGap: 6,
+      maxLines: 8,
+    });
+    const clippedSpan = clipped.lines.reduce(
+      (best, line) => Math.max(best, Math.hypot((line.x2 - line.x1) * w, (line.y2 - line.y1) * h)),
+      0,
+    );
+    check(
+      "Hough maxLength clips long lines after merge",
+      clippedSpan > 0 && clippedSpan <= 81,
+      `span=${clippedSpan.toFixed(1)}px (cap 80)`,
+    );
+  }
 
   // --- 5b. the same detector, on the worker --------------------------------
   // Results come back asynchronously, so this ticks and waits instead of
@@ -2721,6 +2883,28 @@ async function run(): Promise<void> {
       previewRenderSize(1080, 1920, 0.125).height === 240,
     `half=${JSON.stringify(previewRenderSize(1080, 1920, 0.5))}`,
   );
+
+  const { DEFAULT_RESET_ON_VISIT, loadResetOnVisit, saveResetOnVisit } = await import(
+    "./lib/resetOnVisit"
+  );
+  const resetPrev = localStorage.getItem("visio.resetOnVisit.v1");
+  localStorage.removeItem("visio.resetOnVisit.v1");
+  check(
+    "reset-on-visit defaults off in dev, on in production",
+    DEFAULT_RESET_ON_VISIT === !import.meta.env.DEV &&
+      loadResetOnVisit() === DEFAULT_RESET_ON_VISIT,
+    `default=${DEFAULT_RESET_ON_VISIT} loaded=${loadResetOnVisit()} dev=${import.meta.env.DEV}`,
+  );
+  check(
+    "reset-on-visit persists on and off",
+    saveResetOnVisit(true) === true &&
+      loadResetOnVisit() === true &&
+      saveResetOnVisit(false) === false &&
+      loadResetOnVisit() === false,
+    `after-off=${loadResetOnVisit()}`,
+  );
+  if (resetPrev == null) localStorage.removeItem("visio.resetOnVisit.v1");
+  else localStorage.setItem("visio.resetOnVisit.v1", resetPrev);
 
   const { clampRenderFps, DEFAULT_RENDER_FPS } = await import("./lib/renderFps");
   check(

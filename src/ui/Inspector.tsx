@@ -971,6 +971,7 @@ export function Inspector() {
   }
 
   const isMedia = node.data.defType === "source.media";
+  const isHoughLines = node.data.defType === "tracking.lines";
   const isShader = node.data.defType === "fx.shader";
   const isAnalyzer = node.data.defType === "audio.analyzer";
   const isModulatorDrive = node.data.defType === MODULATOR_DRIVE_TYPE;
@@ -1044,6 +1045,20 @@ export function Inspector() {
             if (mode === "camera") {
               if (cameraHidden.has(spec.key)) return null;
             } else if (cameraOnly) {
+              return null;
+            }
+          }
+          if (isHoughLines) {
+            const cannyOn = node.data.params.canny === true;
+            if (spec.key === "edgeThreshold" && cannyOn) return null;
+            if (
+              !cannyOn &&
+              (spec.key === "cannyView" ||
+                spec.key === "cannyThreshold1" ||
+                spec.key === "cannyThreshold2" ||
+                spec.key === "cannyAperture" ||
+                spec.key === "cannyL2")
+            ) {
               return null;
             }
           }

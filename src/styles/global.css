@@ -847,6 +847,19 @@ input[type="checkbox"] {
   width: 100%;
 }
 
+.modal__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal__field--check span {
+  text-transform: none;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  font-size: 12px;
+}
+
 .modal__hint {
   margin: 0;
   color: var(--muted);
@@ -1470,6 +1483,51 @@ body.is-resizing {
 .preview--fill .preview__frame {
   width: 100%;
   flex: 0 0 auto;
+}
+
+/* Editor: the stage wrapper must not break the existing flex column. */
+.preview__stage {
+  display: contents;
+}
+
+/* Performance: contain the patch in the remaining window, height-first —
+   the editor panel used width: 100%, so 9∶16 grew taller than the window. */
+.preview--fit-height {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.preview--fit-height .preview__stage {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.preview--fit-height .preview__frame {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  flex: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.preview--fit-height .preview__bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.preview--fit-height .preview__bar .button {
+  pointer-events: auto;
 }
 
 .preview__frame {

@@ -1,9 +1,6 @@
 /**
- * Persist dropped Media files for this tab.
- *
- * `blob:` URLs die with the tab, and `<input type="file">` cannot be pointed at
- * a path from JS — so we keep the actual bytes in IndexedDB while the session
- * is open. A reload is a Reset: boot clears the store instead of reviving it.
+ * Persist dropped Media files so a restore-on-reload can revive blob: URLs.
+ * When Reset-on-visit is on, boot clears the store instead.
  */
 
 import type { FileParam } from "../nodes/shared/fileParam";
@@ -91,7 +88,7 @@ export async function deleteMediaFile(mode: StoredMediaMode): Promise<void> {
   }
 }
 
-/** Drop every stored file. Reload is a Reset — last visit's bytes must not come back. */
+/** Drop every stored file. Used when Reset-on-visit is on, and by Reset. */
 export async function clearAllMediaFiles(): Promise<void> {
   const db = await openDb();
   try {
