@@ -11,6 +11,7 @@ import { BatchBuilder, drawPoints, drawSegments } from "./engine/gl/vector";
 import { copyTexture } from "./engine/gl/quad";
 import { SourceTexture } from "./engine/gl/videoTexture";
 import type {
+  BoxesValue,
   CirclesValue,
   LandmarksValue,
   LinesValue,
@@ -49,6 +50,7 @@ import {
   voronoiSegments,
 } from "./nodes/draw/pointMesh";
 import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
+import { MOTION_SCALE } from "./nodes/shared/motion";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
 import { cannyEdges } from "./nodes/tracking/canny";
@@ -138,6 +140,24 @@ const testLines = defineNode<Record<string, never>>({
   createState: () => ({}),
   evaluate() {
     const value: LinesValue = { lines: [{ x1: 0.2, y1: 0.8, x2: 0.8, y2: 0.8, score: 1 }] };
+    return { out: value };
+  },
+});
+
+/** One labelled detection covering the centre of the frame. */
+const testBoxes = defineNode<Record<string, never>>({
+  type: "test.boxes",
+  label: "Test Boxes",
+  category: "tracking",
+  description: "fixed detection box",
+  inputs: [],
+  outputs: [{ id: "out", label: "boxes", type: "boxes" }],
+  params: [],
+  createState: () => ({}),
+  evaluate() {
+    const value: BoxesValue = {
+      boxes: [{ x: 0.25, y: 0.25, w: 0.5, h: 0.5, score: 0.87, label: "person", id: 3 }],
+    };
     return { out: value };
   },
 });
@@ -252,6 +272,73 @@ const testGradient = defineNode<{
   },
 });
 
+/** A white column on black, movable — motion estimation needs something to follow. */
+const testBar = defineNode<{
+  canvas: HTMLCanvasElement;
+  texture: SourceTexture | null;
+  drawn: string;
+}>({
+  type: "test.bar",
+  label: "Test Bar",
+  category: "source",
+  description: "vertical bar at x",
+  inputs: [],
+  outputs: [{ id: "out", label: "texture", type: "texture" }],
+  params: [{ key: "x", label: "x", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 }],
+  createState() {
+    const canvas = document.createElement("canvas");
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    return { canvas, texture: null, drawn: "" };
+  },
+  disposeState(state) {
+    state.texture?.dispose();
+  },
+  evaluate({ ctx, nodeId, params, runtime }) {
+    const state = runtime.state;
+    const x = typeof params.x === "number" ? params.x : 0.5;
+    const key = x.toFixed(3);
+    if (state.drawn !== key) {
+      const ctx2d = state.canvas.getContext("2d")!;
+      ctx2d.fillStyle = "#000000";
+      ctx2d.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx2d.fillStyle = "#ffffff";
+      ctx2d.fillRect(Math.round(x * WIDTH) - 10, 0, 20, HEIGHT);
+      state.drawn = key;
+      state.texture?.dispose();
+      state.texture = null;
+    }
+    if (!state.texture) state.texture = new SourceTexture(ctx.gl);
+    state.texture.upload(state.canvas, 1);
+    const target = ctx.target(nodeId, "out");
+    copyTexture(ctx.gl, state.texture.texture, target);
+    return { out: target };
+  },
+});
+
+/** A constant motion field, so the drag can be checked without an estimator. */
+const testField = defineNode<Record<string, never>>({
+  type: "test.field",
+  label: "Test Field",
+  category: "source",
+  description: "uniform motion vectors",
+  inputs: [],
+  outputs: [{ id: "out", label: "texture", type: "texture" }],
+  params: [
+    { key: "dx", label: "dx", type: "range", min: -0.25, max: 0.25, step: 0.001, default: 0 },
+    { key: "dy", label: "dy", type: "range", min: -0.25, max: 0.25, step: 0.001, default: 0 },
+  ],
+  createState: () => ({}),
+  evaluate({ ctx, nodeId, params }) {
+    const dx = typeof params.dx === "number" ? params.dx : 0;
+    const dy = typeof params.dy === "number" ? params.dy : 0;
+    const target = ctx.target(nodeId, "out");
+    // Same encoding shared/motion.ts writes: 0.5 is standing still.
+    clearTarget(ctx.gl, target, dx / (2 * MOTION_SCALE) + 0.5, dy / (2 * MOTION_SCALE) + 0.5, 1, 1);
+    return { out: target };
+  },
+});
+
 const results: { name: string; pass: boolean; detail: string }[] = [];
 
 function check(name: string, pass: boolean, detail: string): void {
@@ -334,9 +421,12 @@ async function run(): Promise<void> {
     "test.fill": testFill as NodeDefinition<never>,
     "test.circles": testCircles as NodeDefinition<never>,
     "test.lines": testLines as NodeDefinition<never>,
+    "test.boxes": testBoxes as NodeDefinition<never>,
     "test.frame": testFrame as NodeDefinition<never>,
     "test.points": testPoints as NodeDefinition<never>,
     "test.gradient": testGradient as NodeDefinition<never>,
+    "test.bar": testBar as NodeDefinition<never>,
+    "test.field": testField as NodeDefinition<never>,
   });
   engine.setResolution(WIDTH, HEIGHT);
 
@@ -871,6 +961,7 @@ async function run(): Promise<void> {
           width: 2,
           centers: false,
           scoreFade: false,
+          labels: false,
         },
       },
       { id: "out", type: "output.screen", params: { background: "#000000" } },
@@ -903,6 +994,90 @@ async function run(): Promise<void> {
     "features grid exports its cells as rects",
     strokedColumns >= 4,
     `${strokedColumns} stroked columns across the middle row`,
+  );
+
+  // Draw Boxes: caption bar on `out`, filled white detections on `mask`.
+  const boxDrawParams = {
+    ...defaultParams("draw.boxes"),
+    color: "#ff0000",
+    width: 2,
+    centers: false,
+    scoreFade: false,
+    labelSize: 18,
+  };
+  engine.setGraph(
+    [
+      { id: "bx", type: "test.boxes", params: {} },
+      {
+        id: "dbx",
+        type: "draw.boxes",
+        params: { ...boxDrawParams, labels: true },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "bx", sourceHandle: "out", target: "dbx", targetHandle: "boxes" },
+      { id: "b", source: "dbx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+
+  const captionX = Math.round(0.25 * WIDTH + 10);
+  const captionY = Math.round(0.25 * HEIGHT + 8);
+  const captionOn = readPixel(engine, captionX, captionY);
+  check(
+    "draw boxes labels paint a caption bar inside the box",
+    captionOn[0] > 180 && captionOn[1] < 80,
+    `rgba=${captionOn.join(",")}`,
+  );
+
+  const maskTarget = debug.outputs.get("dbx")?.mask;
+  check(
+    "draw boxes publishes a mask texture",
+    isRenderTarget(maskTarget),
+    isRenderTarget(maskTarget)
+      ? `${maskTarget.width}×${maskTarget.height}`
+      : String(maskTarget),
+  );
+  if (isRenderTarget(maskTarget)) {
+    const gl = engine.gl;
+    const pixel = new Uint8Array(4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, maskTarget.framebuffer);
+    gl.readPixels(Math.round(WIDTH / 2), Math.round(HEIGHT / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    check(
+      "draw boxes mask is white inside detections",
+      pixel[0] > 200 && pixel[1] > 200 && pixel[2] > 200,
+      `rgba=${[...pixel].join(",")}`,
+    );
+    gl.readPixels(4, 4, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    check(
+      "draw boxes mask is black outside detections",
+      pixel[0] < 20 && pixel[1] < 20 && pixel[2] < 20,
+      `rgba=${[...pixel].join(",")}`,
+    );
+  }
+
+  engine.setGraph(
+    [
+      { id: "bx", type: "test.boxes", params: {} },
+      {
+        id: "dbx",
+        type: "draw.boxes",
+        params: { ...boxDrawParams, labels: false },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "bx", sourceHandle: "out", target: "dbx", targetHandle: "boxes" },
+      { id: "b", source: "dbx", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  const captionOff = readPixel(engine, captionX, captionY);
+  check(
+    "draw boxes labels toggle leaves the box interior empty",
+    captionOff[0] < 40 && captionOff[1] < 40 && captionOff[2] < 40,
+    `rgba=${captionOff.join(",")}`,
   );
 
   // --- 4c-bis. points noise -------------------------------------------------
@@ -1150,6 +1325,152 @@ async function run(): Promise<void> {
     "block scatter leaves no holes",
     holes <= referenceZeros * 1.5 + 200,
     `zero pixels: ${holes}, in source: ${referenceZeros}`,
+  );
+
+  // --- 4e. motion vectors + datamosh ---------------------------------------
+  const motionGraph = (x: number): void => {
+    engine.setGraph(
+      [
+        { id: "bar", type: "test.bar", params: { x } },
+        {
+          id: "mv",
+          type: "fx.motion",
+          params: {
+            ...defaultParams("fx.motion"),
+            block: 16,
+            search: 48,
+            threshold: 0.05,
+            smooth: 0,
+          },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "bar", sourceHandle: "out", target: "mv", targetHandle: "src" },
+        { id: "b", source: "mv", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+  };
+
+  motionGraph(0.4);
+  engine.tick();
+  // Second tick is the honest still: the first one matches against an empty
+  // reference, which must also come out as no motion.
+  engine.tick();
+  const stillField = readPixel(engine, 128, 100);
+  check(
+    "motion vectors read zero on a still frame",
+    Math.abs(stillField[0] - 128) <= 2 && Math.abs(stillField[1] - 128) <= 2,
+    `rg=${stillField[0]},${stillField[1]}`,
+  );
+
+  motionGraph(0.5);
+  engine.tick();
+  const movedField = readPixel(engine, 160, 100);
+  const stillBackground = readPixel(engine, 20, 100);
+  // The bar jumped 32 px right — a tenth of the frame. Vectors point back at
+  // where the block came from, so red encodes -0.1 → ≈77 of the byte range.
+  check(
+    "motion vectors point back at the previous position",
+    movedField[0] > 50 && movedField[0] < 110 && Math.abs(movedField[1] - 128) <= 8,
+    `rg=${movedField[0]},${movedField[1]}, expected r≈77`,
+  );
+  check(
+    "motion vectors stay neutral where nothing moved",
+    Math.abs(stillBackground[0] - 128) <= 2 && Math.abs(stillBackground[1] - 128) <= 2,
+    `rg=${stillBackground[0]},${stillBackground[1]}`,
+  );
+
+  const moshGraph = (x: number, params: Record<string, unknown>): void => {
+    engine.setGraph(
+      [
+        { id: "bar", type: "test.bar", params: { x } },
+        {
+          id: "mosh",
+          type: "fx.datamosh",
+          params: { ...defaultParams("fx.datamosh"), resetAtFirst: false, ...params },
+        },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [
+        { id: "a", source: "bar", sourceHandle: "out", target: "mosh", targetHandle: "src" },
+        { id: "b", source: "mosh", sourceHandle: "out", target: "out", targetHandle: "src" },
+      ],
+    );
+  };
+
+  moshGraph(0.4, { keyframe: 1 });
+  engine.tick();
+  moshGraph(0.5, { keyframe: 1 });
+  engine.tick();
+  check(
+    "datamosh with an I-frame every frame is a pass-through",
+    readPixel(engine, 160, 100)[0] > 250 && readPixel(engine, 128, 100)[0] < 5,
+    `bar ${readPixel(engine, 160, 100)[0]}, vacated ${readPixel(engine, 128, 100)[0]}`,
+  );
+
+  // Drag with a known field instead of an estimate: 0.05 uv is 16 px a frame.
+  engine.setGraph(
+    [
+      { id: "bar", type: "test.bar", params: { x: 0.5 } },
+      { id: "field", type: "test.field", params: { dx: 0.05, dy: 0 } },
+      {
+        id: "mosh-drag",
+        type: "fx.datamosh",
+        params: {
+          ...defaultParams("fx.datamosh"),
+          resetAtFirst: false,
+          keyframe: 0,
+          bloom: 0,
+          refresh: 0,
+          amount: 1,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "bar", sourceHandle: "out", target: "mosh-drag", targetHandle: "src" },
+      { id: "m", source: "field", sourceHandle: "out", target: "mosh-drag", targetHandle: "mv" },
+      { id: "b", source: "mosh-drag", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  // I-frame, then two P-frames: the bar starts at x=160 and walks 16 px left
+  // each time the field is applied.
+  engine.tick();
+  engine.tick();
+  engine.tick();
+  const draggedTo = readPixel(engine, 128, 100);
+  const draggedFrom = readPixel(engine, 160, 100);
+  check(
+    "datamosh drags the picture along an external field",
+    draggedTo[0] > 200 && draggedFrom[0] < 60,
+    `x=128 → ${draggedTo[0]} (expected white), x=160 → ${draggedFrom[0]}`,
+  );
+
+  // Nothing moving means prediction is exact and the residual is zero: after a
+  // run of P-frames the picture must still be the picture.
+  engine.setGraph(
+    [
+      { id: "grad", type: "test.gradient", params: { reverse: false } },
+      {
+        id: "mosh-hold",
+        type: "fx.datamosh",
+        params: { ...defaultParams("fx.datamosh"), resetAtFirst: false, keyframe: 0 },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "grad", sourceHandle: "out", target: "mosh-hold", targetHandle: "src" },
+      { id: "b", source: "mosh-hold", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  for (let i = 0; i < 5; i += 1) engine.tick();
+  const heldRow = readRow(Math.round(HEIGHT / 2));
+  const drift = heldRow.reduce((max, v, x) => Math.max(max, Math.abs(v - reference[x])), 0);
+  check(
+    "datamosh holds a still frame without drifting",
+    drift <= 2,
+    `max drift ${drift}`,
   );
 
   // Pixel sort: feed a descending ramp so an ascending sort visibly flips it.
@@ -2041,6 +2362,23 @@ async function run(): Promise<void> {
     "demo presets carry their timeline and modulators",
     demoKeys > 0 && demoMods > 0,
     `keys=${demoKeys} modulators=${demoMods}`,
+  );
+
+  // Datamosh has nothing to chew on without motion in the picture, and on a
+  // still that motion is the keyframed push. A track pointing at a param that
+  // does not exist would leave the preset frozen and silent about it.
+  const moshDemo = BUILTIN_PRESETS.find((p) => p.id === "image-datamosh")?.build();
+  const moshTracks = Object.entries(moshDemo?.timeline?.keyframes ?? {});
+  const moshTrackOk = moshTracks.every(([key, keys]) => {
+    const [nodeId, param] = key.split(":");
+    const node = moshDemo?.nodes.find((entry) => entry.id === nodeId);
+    const def = node ? NODE_DEFS[node.type] : undefined;
+    return !!def && def.params.some((spec) => spec.key === param) && (keys?.length ?? 0) > 1;
+  });
+  check(
+    "the datamosh preset animates a param that exists",
+    moshTracks.length > 0 && moshTrackOk,
+    moshTracks.map(([key, keys]) => `${key}×${keys.length}`).join(",") || "no tracks",
   );
 
   // --- 6c. waveform peaks ---------------------------------------------------

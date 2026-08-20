@@ -29,6 +29,8 @@ import { particlesNode } from "./draw/particles";
 import { feedbackNode } from "./fx/feedback";
 import { displaceFeedbackNode } from "./fx/displaceFeedback";
 import { blendNode } from "./fx/blend";
+import { motionNode } from "./fx/motion";
+import { datamoshNode } from "./fx/datamosh";
 import { colorNode } from "./fx/color";
 import { colorCorrectionNode } from "./fx/colorCorrection";
 import { thresholdNode } from "./fx/threshold";
@@ -80,6 +82,8 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   feedbackNode,
   displaceFeedbackNode,
   blendNode,
+  motionNode,
+  datamoshNode,
   colorNode,
   colorCorrectionNode,
   thresholdNode,

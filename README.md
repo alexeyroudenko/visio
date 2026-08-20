@@ -76,7 +76,7 @@ to be read at module top level and dragged the whole package into the main bundl
 | Sources  | Media (camera · image · video · audio), **Noise**, **Text**                                                                      |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
-| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Shader**           |
+| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Datamosh**, **Shader**           |
 | Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
 
@@ -312,6 +312,33 @@ need a cycle in the graph. **Displace Feedback** reuses the same ping-pong and a
 a second texture input that warps the accumulation (or the incoming content) each
 frame. For real cycles a node can declare `delayedInputs` — those edges are
 excluded from topo-sort.
+
+### Datamosh
+
+The effect is a codec with one thing taken away. **Motion Vectors** does the
+estimation: luma at 1/2–1/8 resolution, one vector per block, block matching in
+two passes — every second offset out to the search radius, then a refinement
+ring, which covers the same offsets a full search would for a fraction of the
+taps. A short vector is preferred by a small penalty on length, or a flat wall
+that matches equally well everywhere comes back with whatever offset the loop
+tried first. Confidence is how much better the winner is than standing still, so
+an unchanged block scores zero and never invents motion. Vectors are RG centred
+on 0.5, the same encoding the displacement maps use, so the field also drops
+straight into Displace Feedback's map input.
+
+**Datamosh** decodes a P-frame with that field and never accepts an I-frame:
+the accumulator is resampled along the vectors and the difference between the
+two source frames is added on top. When the prediction is right that is exactly
+the picture again — a still frame passes through untouched. When the reference
+is wrong, which is what dropping the I-frame guarantees at every cut, the
+residual lands on a picture it was never computed against, and that is the
+bloom. `I-frame every` puts the refresh back (0 never refreshes), `Bleed` mixes
+in a little of the live frame so ten seconds of prediction does not end as mush,
+and the `vectors` input takes a field from anywhere — a second clip's motion
+over this one is the original technique.
+
+With nothing wired into `vectors` the node estimates its own, so it works as a
+single node; wire the field in and its own estimator is skipped.
 
 ### Audio (approach from [granular-video](../granular-video))
 

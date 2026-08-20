@@ -11,6 +11,7 @@ import { particlesFeedback } from "./particlesFeedback";
 import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
 import { pixelSortStart } from "./pixelSortStart";
+import { datamosh } from "./datamosh";
 import { skeletonGrid } from "./skeletonGrid";
 import { isOmitted } from "./ship";
 import { builtinOverride } from "./saveBuiltin";
@@ -1127,6 +1128,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     build: noiseDisplaceFeedback,
   },
   {
+    id: "image-datamosh",
+    label: "Datamosh",
+    description: "Keyframed push on a still → motion vectors → P-frame smear — press play",
+    builtin: true,
+    build: datamosh,
+  },
+  {
     id: "image-slice-shift",
     label: "Image + Slice Shift",
     description: "Default image → slice shift → output (1080×1920)",
@@ -1146,6 +1154,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawType: "draw.boxes",
         drawId: "boxes-1",
         drawHandle: "boxes",
+        drawParams: { labels: true, centers: false },
       }),
   },
   {

@@ -37,6 +37,12 @@ const TRACKING_PRESET_IDS = new Set([
   "corners-features-grid",
 ]);
 
+/**
+ * Presets whose picture only exists while the playhead moves — an accumulator
+ * fed by keyframed motion is a plain still until something plays it.
+ */
+const PLAYED_PRESET_IDS = new Set(["image-datamosh"]);
+
 function waitMs(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -175,11 +181,14 @@ export async function captureBuiltinPresetPreviews(
       } else {
         timeline.seek(0);
       }
-      const wait = TRACKING_PRESET_IDS.has(preset.id)
-        ? Math.max(settleMs, 3200)
-        : settleMs;
+      let wait = TRACKING_PRESET_IDS.has(preset.id) ? Math.max(settleMs, 3200) : settleMs;
+      if (PLAYED_PRESET_IDS.has(preset.id)) {
+        wait = Math.max(wait, 2600);
+        timeline.play();
+      }
       await waitMs(wait);
       await waitFrames(16);
+      useTimelineStore.getState().pause();
       // Media texture can lag one preset behind; wait until the pixels change.
       let fp = canvasFingerprint(canvas);
       for (let i = 0; i < 40 && previousFp !== "" && fp === previousFp; i += 1) {
@@ -198,6 +207,7 @@ export async function captureBuiltinPresetPreviews(
       });
     }
   } finally {
+    useTimelineStore.getState().pause();
     setPreferAuthoredMedia(false);
   }
 
