@@ -1,0 +1,238 @@
+{
+  "format": 1,
+  "width": 1080,
+  "height": 1920,
+  "source": "video_2026-08-20_16-14-30.mp4",
+  "nodes": [
+    {
+      "id": "image-1",
+      "type": "source.media",
+      "position": {
+        "x": 0,
+        "y": 140
+      },
+      "params": {
+        "mode": "video",
+        "facing": "environment",
+        "playing": true,
+        "muted": false,
+        "volume": 1,
+        "speed": 1,
+        "syncTimeline": false,
+        "mirror": false,
+        "fit": "cover",
+        "zoom": 2
+      }
+    },
+    {
+      "id": "features-1",
+      "type": "tracking.features",
+      "position": {
+        "x": 322.441113490364,
+        "y": 29.764453961456113
+      },
+      "params": {
+        "downscale": 3,
+        "block": 7,
+        "maxCorners": 180,
+        "quality": 0.17,
+        "minDistance": 43,
+        "interval": 1,
+        "worker": false
+      }
+    },
+    {
+      "id": "connectors-1",
+      "type": "draw.connectors",
+      "position": {
+        "x": 640,
+        "y": 140
+      },
+      "params": {
+        "color": "#ffffff",
+        "maxDist": 260,
+        "width": 3.5,
+        "opacity": 0.8500000000000001,
+        "fade": true,
+        "blend": "normal"
+      }
+    },
+    {
+      "id": "screen-1",
+      "type": "output.screen",
+      "position": {
+        "x": 1158.9507494646682,
+        "y": 153.89721627408994
+      },
+      "params": {
+        "background": "#000000"
+      }
+    },
+    {
+      "id": "color-5",
+      "type": "fx.color",
+      "position": {
+        "x": 320.185768237496,
+        "y": 149.97852967227834
+      },
+      "params": {
+        "brightness": -0.35,
+        "contrast": 0.30000000000000004,
+        "saturation": 0,
+        "hue": -180
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-frame",
+      "source": "image-1",
+      "sourceHandle": "frame",
+      "target": "features-1",
+      "targetHandle": "frame"
+    },
+    {
+      "id": "e-pts",
+      "source": "features-1",
+      "sourceHandle": "out",
+      "target": "connectors-1",
+      "targetHandle": "points"
+    },
+    {
+      "id": "e-096a7a25-1c37-41e0-aafc-d446dbc17e94",
+      "source": "image-1",
+      "sourceHandle": "out",
+      "target": "color-5",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-8fc54d9c-9695-4881-8a2d-39dccf9576b0",
+      "source": "color-5",
+      "sourceHandle": "out",
+      "target": "connectors-1",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-7ab45ed1-055b-4331-ae6d-0cb0cda61b2d",
+      "source": "connectors-1",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    }
+  ],
+  "timeline": {
+    "fps": 30,
+    "durationInFrames": 450,
+    "keyframes": {},
+    "reelZones": {
+      "cutsSec": [
+        1,
+        1.2,
+        9,
+        12
+      ],
+      "dirty": false
+    },
+    "cueZoneTick": false,
+    "cueDevMetronome": false,
+    "cueDrone": false,
+    "developmentBpm": 120,
+    "droneByZone": {
+      "hook": {
+        "enabled": true,
+        "freq": 218.5,
+        "gain": 0.06,
+        "type": "sawtooth",
+        "detune": 18,
+        "cutoff": 1800,
+        "lfoRate": 6.5,
+        "lfoDepth": 0.4,
+        "subGain": 0.25,
+        "ratio": 3.13,
+        "fm": 0.35,
+        "ring": 0.45,
+        "noise": 0.2,
+        "crush": 0.4,
+        "comb": 0.3,
+        "glitch": 0.5,
+        "drift": 0.25
+      },
+      "formwait": {
+        "enabled": true,
+        "freq": 247.7,
+        "gain": 0.05,
+        "type": "triangle",
+        "detune": 33,
+        "cutoff": 1100,
+        "lfoRate": 0.7,
+        "lfoDepth": 0.6,
+        "subGain": 0.1,
+        "ratio": 1.41,
+        "fm": 0.2,
+        "ring": 0.6,
+        "noise": 0.35,
+        "crush": 0.25,
+        "comb": 0.55,
+        "glitch": 0.75,
+        "drift": 0.5
+      },
+      "development": {
+        "enabled": true,
+        "freq": 67,
+        "gain": 0.05,
+        "type": "square",
+        "detune": 12,
+        "cutoff": 800,
+        "lfoRate": 3.2,
+        "lfoDepth": 0.55,
+        "subGain": 0.5,
+        "ratio": 2.07,
+        "fm": 0.15,
+        "ring": 0.2,
+        "noise": 0.15,
+        "crush": 0.55,
+        "comb": 0.4,
+        "glitch": 0.35,
+        "drift": 0.3
+      },
+      "climax": {
+        "enabled": true,
+        "freq": 149,
+        "gain": 0.085,
+        "type": "sawtooth",
+        "detune": 26,
+        "cutoff": 3200,
+        "lfoRate": 8.5,
+        "lfoDepth": 0.5,
+        "subGain": 0.55,
+        "ratio": 5.19,
+        "fm": 0.6,
+        "ring": 0.5,
+        "noise": 0.45,
+        "crush": 0.7,
+        "comb": 0.25,
+        "glitch": 0.2,
+        "drift": 0.2
+      },
+      "cta": {
+        "enabled": true,
+        "freq": 81.7,
+        "gain": 0.055,
+        "type": "triangle",
+        "detune": 8,
+        "cutoff": 700,
+        "lfoRate": 0.5,
+        "lfoDepth": 0.25,
+        "subGain": 0.45,
+        "ratio": 1.49,
+        "fm": 0.1,
+        "ring": 0.15,
+        "noise": 0.1,
+        "crush": 0.2,
+        "comb": 0.65,
+        "glitch": 0.1,
+        "drift": 0.4
+      }
+    }
+  }
+}
