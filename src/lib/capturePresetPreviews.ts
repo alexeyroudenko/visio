@@ -22,6 +22,7 @@ const THUMB_H = 284 * 4;
 const TRACKING_PRESET_IDS = new Set([
   "track-objects",
   "track-face-mesh",
+  "track-skeleton-grid",
   "track-features",
   "track-features-points",
   "features-tracking",

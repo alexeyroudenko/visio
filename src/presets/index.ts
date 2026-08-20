@@ -11,6 +11,7 @@ import { particlesFeedback } from "./particlesFeedback";
 import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
 import { pixelSortStart } from "./pixelSortStart";
+import { skeletonGrid } from "./skeletonGrid";
 import { isOmitted } from "./ship";
 import { builtinOverride } from "./saveBuiltin";
 
@@ -1172,6 +1173,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
           scoreFade: false,
         },
       }),
+  },
+  {
+    id: "track-skeleton-grid",
+    label: "Skeleton Grid",
+    description: "Pose still → Draw Skeleton → landmarks as points → Features Grid → output",
+    builtin: true,
+    build: skeletonGrid,
   },
   {
     id: "track-features",
