@@ -21,6 +21,7 @@ const THUMB_H = 284 * 4;
 /** Tracking models need longer to download + detect on a still. */
 const TRACKING_PRESET_IDS = new Set([
   "track-objects",
+  "track-segmentation",
   "track-face-mesh",
   "track-skeleton-grid",
   "track-features",

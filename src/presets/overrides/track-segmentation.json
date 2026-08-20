@@ -7,8 +7,8 @@
       "id": "image-1",
       "type": "source.media",
       "position": {
-        "x": -63.809944856653345,
-        "y": 177.4998478955501
+        "x": 0,
+        "y": 140
       },
       "params": {
         "mode": "camera",
@@ -20,165 +20,90 @@
         "syncTimeline": false,
         "mirror": false,
         "fit": "cover",
-        "zoom": 1.05
+        "zoom": 1
       }
     },
     {
-      "id": "motion-1",
-      "type": "fx.motion",
+      "id": "segment-1",
+      "type": "tracking.segment",
       "position": {
-        "x": 342.80598311457453,
-        "y": 33.79105873877253
+        "x": 350.6428153988705,
+        "y": 228.53305634638082
       },
       "params": {
-        "block": 4,
-        "search": 96,
-        "scale": "4",
-        "threshold": 0.01,
-        "smooth": 0,
-        "boost": 0.7,
-        "view": "vectors"
-      }
-    },
-    {
-      "id": "datamosh-1",
-      "type": "fx.datamosh",
-      "position": {
-        "x": 645.2238656370293,
-        "y": 180.98507562419798
-      },
-      "params": {
-        "amount": 4,
-        "bloom": 1.8,
-        "decay": 1,
-        "refresh": 0,
-        "keyframe": 52,
-        "block": 22,
-        "search": 4,
-        "scale": "8",
-        "threshold": 0.15,
-        "smooth": 0,
-        "resetAtFirst": true,
-        "clear": false
+        "model": "selfie",
+        "category": "person",
+        "size": "256",
+        "threshold": 0.5,
+        "soft": 0.05,
+        "invert": false,
+        "interval": 2
       }
     },
     {
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 1000,
-        "y": 200
+        "x": 989.898750403385,
+        "y": 178.62226146509377
       },
       "params": {
         "background": "#000000"
       }
     },
     {
-      "id": "genMotion-1",
-      "type": "fx.genMotion",
+      "id": "blend-1",
+      "type": "fx.blend",
       "position": {
-        "x": 375.3030946704247,
-        "y": -62.40549973773161
+        "x": 614.7073718342726,
+        "y": 143.64951836723247
       },
       "params": {
-        "mode": "bands",
-        "amount": 0.04,
-        "angle": 115,
-        "block": 69,
-        "bands": 8,
-        "jitter": 0,
-        "freq": 10.5,
-        "seed": 1689,
-        "speed": 0.05,
-        "phase": 5.1000000000000005,
-        "view": "vectors"
-      }
-    },
-    {
-      "id": "color-2",
-      "type": "fx.color",
-      "position": {
-        "x": 875.457326970735,
-        "y": 27.590752265413307
-      },
-      "params": {
-        "brightness": 0,
-        "contrast": 1.6,
-        "saturation": 0,
-        "hue": 0
+        "mode": "multiply",
+        "opacity": 1
       }
     }
   ],
   "edges": [
     {
-      "id": "e-mv-src",
+      "id": "e-frame",
+      "source": "image-1",
+      "sourceHandle": "frame",
+      "target": "segment-1",
+      "targetHandle": "frame"
+    },
+    {
+      "id": "e-197cb457-3a0e-47a8-aeec-e081847c4ab9",
       "source": "image-1",
       "sourceHandle": "out",
-      "target": "motion-1",
-      "targetHandle": "src"
+      "target": "blend-1",
+      "targetHandle": "base"
     },
     {
-      "id": "e-src",
-      "source": "image-1",
-      "sourceHandle": "out",
-      "target": "datamosh-1",
-      "targetHandle": "src"
-    },
-    {
-      "id": "e-fc85914e-a9af-450a-b535-92ee0fe1fc24",
-      "source": "genMotion-1",
-      "sourceHandle": "out",
-      "target": "datamosh-1",
-      "targetHandle": "mv"
-    },
-    {
-      "id": "e-77fbbdfa-395d-46ce-9ca9-88b5c1c46424",
-      "source": "datamosh-1",
-      "sourceHandle": "out",
-      "target": "color-2",
-      "targetHandle": "src"
-    },
-    {
-      "id": "e-333c0816-ab93-4f04-aa15-6661bb784b1f",
-      "source": "color-2",
+      "id": "e-bb8d39fb-db0e-4e8e-a04a-69757b8b44b2",
+      "source": "blend-1",
       "sourceHandle": "out",
       "target": "screen-1",
       "targetHandle": "src"
+    },
+    {
+      "id": "e-38332e26-2304-47f6-a799-252d238f141a",
+      "source": "segment-1",
+      "sourceHandle": "out",
+      "target": "blend-1",
+      "targetHandle": "top"
     }
   ],
   "timeline": {
     "fps": 30,
-    "durationInFrames": 241,
-    "keyframes": {
-      "image-1:zoom": [
-        {
-          "frame": 0,
-          "value": 1.05
-        },
-        {
-          "frame": 100,
-          "value": 1.9
-        },
-        {
-          "frame": 101,
-          "value": 1
-        },
-        {
-          "frame": 200,
-          "value": 1.9
-        },
-        {
-          "frame": 201,
-          "value": 1
-        }
-      ]
-    },
+    "durationInFrames": 450,
+    "keyframes": {},
     "reelZones": {
       "cutsSec": [
         1,
         1.2,
-        5.016666666666667,
-        7.025
+        9,
+        12
       ],
       "dirty": false
     },

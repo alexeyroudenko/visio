@@ -74,9 +74,9 @@ to be read at module top level and dragged the whole package into the main bundl
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Sources  | Media (camera · image · video · audio), **Noise**, **Text**                                                                      |
-| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), **Segmentation** (Image Segmenter), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
-| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Datamosh**, **Shader**           |
+| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Gen Motion Vectors**, **Datamosh**, **Shader**           |
 | Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
 
@@ -312,6 +312,30 @@ need a cycle in the graph. **Displace Feedback** reuses the same ping-pong and a
 a second texture input that warps the accumulation (or the incoming content) each
 frame. For real cycles a node can declare `delayedInputs` — those edges are
 excluded from topo-sort.
+
+### Segmentation
+
+**Segmentation** runs MediaPipe's Image Segmenter and hands back a mask: the
+picked class white, everything else black, at patch resolution. Four models are
+wired up — selfie (person), selfie multiclass (hair / body skin / face skin /
+clothes / accessories), hair, and DeepLab v3 with the twenty Pascal classes.
+
+Each model has its own vocabulary and reports it through `getLabels()`; the
+confidence masks come back in exactly that order. So the class is picked by
+*name* in the Inspector and resolved against the running model's labels, with a
+short alias list for the places the models disagree — the selfie model calls a
+person "selfie", DeepLab calls it "person". Ask a model for a class it does not
+have and the node says so in its status line, listing what it does know, rather
+than quietly masking nothing.
+
+Confidence masks rather than the category mask: they are soft at the edges,
+which is the point of a mask, and `Threshold` / `Soft edge` decide how hard the
+cut is. Inference runs on a downscale of the frame (`Mask size`, 128–384 on the
+long edge) and the result is stretched back over the frame — the frame a tracker
+sees is already composed at patch resolution, so a uniform downscale keeps the
+mask aligned with the picture pixel for pixel. The mask lands in a single-channel
+`R8` texture; the black-and-white pass is a shader, so Threshold, Soft edge and
+Invert respond without re-running the model.
 
 ### Datamosh
 

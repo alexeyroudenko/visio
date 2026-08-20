@@ -3,6 +3,7 @@ import {
   DEFAULT_AUDIO_FILE,
   DEFAULT_IMAGE_FILE,
   FACE_IMAGE_FILE,
+  POSE_IMAGE_FILE,
   type FileParam,
 } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
@@ -168,6 +169,63 @@ function imageSliceShift(): SerializedPatch {
       {
         id: "e2",
         source: "sliceShift-6",
+        sourceHandle: "out",
+        target: "screen-1",
+        targetHandle: "src",
+      },
+    ],
+  };
+}
+
+/**
+ * Still → Image Segmenter → output: the mask itself is the picture, white on
+ * the picked class. Nothing is composited over it on purpose — this is the
+ * shape other nodes want as an input.
+ */
+function segmentationMask(): SerializedPatch {
+  return {
+    format: 1,
+    width: W,
+    height: H,
+    nodes: [
+      {
+        id: "image-1",
+        type: "source.media",
+        position: { x: 0, y: 140 },
+        params: { mode: "image", file: POSE_IMAGE_FILE, mirror: false, fit: "cover", zoom: 1 },
+      },
+      {
+        id: "segment-1",
+        type: "tracking.segment",
+        position: { x: 360, y: 120 },
+        params: {
+          model: "selfie",
+          category: "person",
+          size: "256",
+          threshold: 0.5,
+          soft: 0.05,
+          invert: false,
+          interval: 2,
+        },
+      },
+      {
+        id: "screen-1",
+        type: "output.screen",
+        position: { x: 720, y: 160 },
+        params: { background: "#000000" },
+      },
+    ],
+    edges: [
+      {
+        id: "e-frame",
+        source: "image-1",
+        sourceHandle: "frame",
+        target: "segment-1",
+        targetHandle: "frame",
+      },
+      {
+        id: "e-out",
+        source: "segment-1",
         sourceHandle: "out",
         target: "screen-1",
         targetHandle: "src",
@@ -1127,6 +1185,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description: "Thresholded noise as content, RGB noise as map → Displace Feedback trails",
     builtin: true,
     build: noiseDisplaceFeedback,
+  },
+  {
+    id: "track-segmentation",
+    label: "Segmentation",
+    description: "Still → MediaPipe Image Segmenter → white mask of the picked class",
+    builtin: true,
+    build: segmentationMask,
   },
   {
     id: "image-datamosh",

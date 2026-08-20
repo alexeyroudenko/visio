@@ -5,6 +5,7 @@ import { poseNode } from "./tracking/pose";
 import { handsNode } from "./tracking/hands";
 import { faceNode } from "./tracking/face";
 import { objectsNode } from "./tracking/objects";
+import { segmentationNode } from "./tracking/segmentation";
 import { featuresNode } from "./tracking/features";
 import { featuresTrackNode } from "./tracking/featuresTrack";
 import { houghCirclesNode } from "./tracking/houghCircles";
@@ -60,6 +61,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   handsNode,
   faceNode,
   objectsNode,
+  segmentationNode,
   featuresNode,
   featuresTrackNode,
   houghCirclesNode,

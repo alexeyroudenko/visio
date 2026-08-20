@@ -53,6 +53,14 @@ import { SHADER_PRESETS } from "./nodes/fx/shaderPresets";
 import { MOTION_SCALE } from "./nodes/shared/motion";
 import { fbm3 } from "./nodes/shared/noise";
 import { RectTracker } from "./nodes/shared/rectTracker";
+import {
+  createMaskUpload,
+  disposeMaskUpload,
+  drawMask,
+  resolveMaskIndex,
+  uploadMask,
+  type MaskUpload,
+} from "./nodes/tracking/segmentation";
 import { cannyEdges } from "./nodes/tracking/canny";
 import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
 import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
@@ -63,7 +71,7 @@ import { BUILTIN_PRESETS, DEFAULT_PRESET_ID } from "./presets";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
-import { loadTasksVision } from "./nodes/tracking/mediapipeShared";
+import { loadTasksVision, loadVisionFileset } from "./nodes/tracking/mediapipeShared";
 import { OMITTED_PRESET_IDS } from "virtual:preset-omit";
 import { OMITTED_NODE_TYPES } from "virtual:node-omit";
 
@@ -339,6 +347,47 @@ const testField = defineNode<Record<string, never>>({
   },
 });
 
+/**
+ * The segmentation node minus MediaPipe: a hand-written confidence mask through
+ * the same upload + threshold pass the model output goes through.
+ */
+const testMask = defineNode<MaskUpload>({
+  type: "test.mask",
+  label: "Test Mask",
+  category: "tracking",
+  description: "synthetic confidence mask",
+  inputs: [],
+  outputs: [{ id: "out", label: "mask", type: "texture" }],
+  params: [
+    { key: "threshold", label: "threshold", type: "range", min: 0, max: 1, step: 0.01, default: 0.5 },
+    { key: "invert", label: "invert", type: "toggle", default: false },
+  ],
+  createState: () => createMaskUpload(),
+  disposeState(state, ctx) {
+    disposeMaskUpload(ctx.gl, state);
+  },
+  evaluate({ ctx, nodeId, params, runtime }) {
+    // Left half certain, right half empty, with one column at 0.6 so the
+    // threshold has something to bite on between the two.
+    const width = 10;
+    const height = 4;
+    const values = new Float32Array(width * height);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        values[y * width + x] = x < 4 ? 1 : x === 4 ? 0.6 : 0;
+      }
+    }
+    uploadMask(ctx.gl, runtime.state, values, width, height);
+    return {
+      out: drawMask(ctx, nodeId, runtime.state, {
+        threshold: typeof params.threshold === "number" ? params.threshold : 0.5,
+        soft: 0,
+        invert: params.invert === true,
+      }),
+    };
+  },
+});
+
 const results: { name: string; pass: boolean; detail: string }[] = [];
 
 function check(name: string, pass: boolean, detail: string): void {
@@ -427,6 +476,7 @@ async function run(): Promise<void> {
     "test.gradient": testGradient as NodeDefinition<never>,
     "test.bar": testBar as NodeDefinition<never>,
     "test.field": testField as NodeDefinition<never>,
+    "test.mask": testMask as NodeDefinition<never>,
   });
   engine.setResolution(WIDTH, HEIGHT);
 
@@ -2286,6 +2336,84 @@ async function run(): Promise<void> {
     `points=${ftPoints.length} lines=${ftLines.length} (lines may be 0 until age≥minAge)`,
   );
 
+  // --- 5c. segmentation mask ----------------------------------------------
+  // Label lists as the four models actually report them (checked against the
+  // running task, not the docs) — the class picker resolves against these.
+  const selfieLabels = ["selfie"];
+  const multiclassLabels = ["background", "hair", "body-skin", "face-skin", "clothes", "others"];
+  const deeplabLabels = [
+    "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat",
+    "chair", "cow", "dining table", "dog", "horse", "motorbike", "person", "potted plant",
+    "sheep", "sofa", "train", "tv",
+  ];
+  check(
+    "segmentation resolves a class against each model's own labels",
+    resolveMaskIndex(selfieLabels, "person") === 0 &&
+      resolveMaskIndex(deeplabLabels, "person") === 15 &&
+      resolveMaskIndex(multiclassLabels, "hair") === 1 &&
+      resolveMaskIndex(multiclassLabels, "clothes") === 4 &&
+      resolveMaskIndex(deeplabLabels, "dining-table") === 11,
+    `selfie person=${resolveMaskIndex(selfieLabels, "person")}, deeplab person=${resolveMaskIndex(deeplabLabels, "person")}`,
+  );
+  check(
+    "a class the model does not have resolves to nothing",
+    resolveMaskIndex(selfieLabels, "dog") === -1 &&
+      resolveMaskIndex(multiclassLabels, "person") === -1,
+    `selfie dog=${resolveMaskIndex(selfieLabels, "dog")}, multiclass person=${resolveMaskIndex(multiclassLabels, "person")}`,
+  );
+
+  const runMask = (params: Record<string, unknown>) => {
+    engine.setGraph(
+      [
+        { id: "mask", type: "test.mask", params },
+        { id: "out", type: "output.screen", params: { background: "#000000" } },
+      ],
+      [{ id: "a", source: "mask", sourceHandle: "out", target: "out", targetHandle: "src" }],
+    );
+    engine.tick();
+    return [readPixel(engine, 30, 100), readPixel(engine, 290, 100)];
+  };
+
+  const [maskOn, maskOff] = runMask({ threshold: 0.5, invert: false });
+  check(
+    "the segmentation mask paints the class white and the rest black",
+    maskOn[0] > 250 && maskOn[2] > 250 && maskOff[0] < 5 && maskOff[3] === 255,
+    `class rgb=${maskOn.slice(0, 3).join(",")}, rest rgb=${maskOff.slice(0, 3).join(",")} a=${maskOff[3]}`,
+  );
+
+  const [invertedOn, invertedOff] = runMask({ threshold: 0.5, invert: true });
+  check(
+    "Invert swaps the mask",
+    invertedOn[0] < 5 && invertedOff[0] > 250,
+    `class=${invertedOn[0]}, rest=${invertedOff[0]}`,
+  );
+
+  // The 0.6 column sits between the two thresholds, so it changes side.
+  const midX = Math.round(320 * 0.45);
+  engine.setGraph(
+    [
+      { id: "mask", type: "test.mask", params: { threshold: 0.5, invert: false } },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "a", source: "mask", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  engine.tick();
+  const lowThreshold = readPixel(engine, midX, 100)[0];
+  engine.setGraph(
+    [
+      { id: "mask", type: "test.mask", params: { threshold: 0.8, invert: false } },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "a", source: "mask", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  engine.tick();
+  const highThreshold = readPixel(engine, midX, 100)[0];
+  check(
+    "Threshold moves the edge of the mask",
+    lowThreshold > highThreshold + 100,
+    `at 0.5 → ${lowThreshold}, at 0.8 → ${highThreshold}`,
+  );
+
   engine.dispose();
 
   // --- 6. patch serialization ---------------------------------------------
@@ -3776,6 +3904,60 @@ async function asyncChecks(): Promise<void> {
   } catch (error) {
     check(
       "MediaPipe module loads on demand",
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
+  // The Segmentation node reads confidence masks by label order and assumes the
+  // mask comes back at the size of the canvas it hands over. Both are the task's
+  // behaviour rather than ours, so they are checked against the running model.
+  try {
+    const mp = await loadTasksVision();
+    const fileset = await loadVisionFileset();
+    const segmenter = await mp.ImageSegmenter.createFromOptions(fileset, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite",
+        delegate: "GPU",
+      },
+      runningMode: "IMAGE",
+      outputConfidenceMasks: true,
+      outputCategoryMask: false,
+    });
+    const labels = segmenter.getLabels();
+    const index = resolveMaskIndex(labels, "person");
+
+    const response = await fetch(`${import.meta.env.BASE_URL}default-pose.png`);
+    const bitmap = await createImageBitmap(await response.blob());
+    const canvas = document.createElement("canvas");
+    canvas.width = 192;
+    canvas.height = 256;
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const result = segmenter.segment(canvas);
+    const mask = result.confidenceMasks?.[index];
+    const values = mask?.getAsFloat32Array();
+    const at = (fx: number, fy: number): number => {
+      if (!mask || !values) return -1;
+      const x = Math.floor(fx * mask.width);
+      const y = Math.floor(fy * mask.height);
+      return values[y * mask.width + x] ?? -1;
+    };
+    const body = at(0.5, 0.55);
+    const corner = at(0.02, 0.02);
+    const sized = mask?.width === canvas.width && mask?.height === canvas.height;
+    result.close();
+    segmenter.close();
+
+    check(
+      "the selfie segmenter puts the person in the class the picker resolves",
+      index === 0 && body > 0.8 && corner < 0.2 && sized === true,
+      `labels=[${labels.join(",")}] index=${index} body=${body.toFixed(2)} corner=${corner.toFixed(2)} mask=${mask?.width}×${mask?.height}`,
+    );
+  } catch (error) {
+    check(
+      "the selfie segmenter puts the person in the class the picker resolves",
       false,
       error instanceof Error ? error.message : String(error),
     );
