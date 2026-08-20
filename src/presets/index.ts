@@ -12,6 +12,7 @@ import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
 import { pixelSortStart } from "./pixelSortStart";
 import { datamosh } from "./datamosh";
+import { genMotionMosh } from "./genMotionMosh";
 import { skeletonGrid } from "./skeletonGrid";
 import { isOmitted } from "./ship";
 import { builtinOverride } from "./saveBuiltin";
@@ -1133,6 +1134,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description: "Keyframed push on a still → motion vectors → P-frame smear — press play",
     builtin: true,
     build: datamosh,
+  },
+  {
+    id: "gen-motion-mosh",
+    label: "Gen Motion Mosh",
+    description: "Still → invented motion field (bands) → Datamosh — press play; switch mode for melt / blocks",
+    builtin: true,
+    build: genMotionMosh,
   },
   {
     id: "image-slice-shift",

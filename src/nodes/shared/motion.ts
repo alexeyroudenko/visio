@@ -5,8 +5,9 @@ import type { EngineContext } from "../../engine/types";
 
 /**
  * Block-matching motion estimation — the piece a codec keeps and a datamosh
- * abuses. Shared by `fx.motion` (which shows the field) and `fx.datamosh`
- * (which drags pixels along it), so both encode vectors the same way.
+ * abuses. Shared by `fx.motion` (which shows the field), `fx.genMotion`
+ * (which invents one), and `fx.datamosh` (which drags pixels along it), so all
+ * three encode vectors the same way.
  *
  * The field is an RGBA8 texture at block resolution: RG hold the vector, B the
  * confidence, A is 1. RG are centred on 0.5 like every other displacement map
@@ -22,6 +23,12 @@ export const MOTION_SCALE = 0.25;
 export const DECODE_MOTION_GLSL = `
 vec2 decodeMotion(vec4 texel) {
   return (texel.rg - 0.5) * ${(2 * MOTION_SCALE).toFixed(4)};
+}`;
+
+/** Pack a uv offset into RG, matching `decodeMotion`. */
+export const ENCODE_MOTION_GLSL = `
+vec2 encodeMotion(vec2 mv) {
+  return clamp(mv * ${(1 / (2 * MOTION_SCALE)).toFixed(4)} + 0.5, 0.0, 1.0);
 }`;
 
 const LUMA_FS = `#version 300 es

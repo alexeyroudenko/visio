@@ -41,7 +41,7 @@ const TRACKING_PRESET_IDS = new Set([
  * Presets whose picture only exists while the playhead moves — an accumulator
  * fed by keyframed motion is a plain still until something plays it.
  */
-const PLAYED_PRESET_IDS = new Set(["image-datamosh"]);
+const PLAYED_PRESET_IDS = new Set(["image-datamosh", "gen-motion-mosh"]);
 
 function waitMs(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));

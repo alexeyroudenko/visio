@@ -30,6 +30,7 @@ import { feedbackNode } from "./fx/feedback";
 import { displaceFeedbackNode } from "./fx/displaceFeedback";
 import { blendNode } from "./fx/blend";
 import { motionNode } from "./fx/motion";
+import { genMotionNode } from "./fx/genMotion";
 import { datamoshNode } from "./fx/datamosh";
 import { colorNode } from "./fx/color";
 import { colorCorrectionNode } from "./fx/colorCorrection";
@@ -83,6 +84,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   displaceFeedbackNode,
   blendNode,
   motionNode,
+  genMotionNode,
   datamoshNode,
   colorNode,
   colorCorrectionNode,

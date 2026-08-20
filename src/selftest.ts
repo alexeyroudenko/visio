@@ -1447,6 +1447,109 @@ async function run(): Promise<void> {
     `x=128 → ${draggedTo[0]} (expected white), x=160 → ${draggedFrom[0]}`,
   );
 
+  // Invented fields use the same encoding, so Datamosh cannot tell them from a match.
+  engine.setGraph(
+    [
+      {
+        id: "gen",
+        type: "fx.genMotion",
+        params: {
+          ...defaultParams("fx.genMotion"),
+          mode: "constant",
+          amount: 0.2,
+          angle: 0,
+          block: 8,
+          view: "vectors",
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "a", source: "gen", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  engine.tick();
+  const genConst = readPixel(engine, 160, 100);
+  const expectedR = Math.round((0.05 / (2 * MOTION_SCALE) + 0.5) * 255);
+  check(
+    "gen motion constant encodes like an estimated field",
+    Math.abs(genConst[0] - expectedR) <= 2 && Math.abs(genConst[1] - 128) <= 2,
+    `rg=${genConst[0]},${genConst[1]} expected r≈${expectedR}`,
+  );
+
+  engine.setGraph(
+    [
+      {
+        id: "gen-bands",
+        type: "fx.genMotion",
+        params: {
+          ...defaultParams("fx.genMotion"),
+          mode: "bands",
+          amount: 0.8,
+          angle: 0,
+          jitter: 0,
+          bands: 8,
+          block: 4,
+          seed: 3,
+          view: "vectors",
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [{ id: "a", source: "gen-bands", sourceHandle: "out", target: "out", targetHandle: "src" }],
+  );
+  engine.tick();
+  const bandA = readPixel(engine, 160, 20);
+  const bandB = readPixel(engine, 160, 160);
+  check(
+    "gen motion bands give different slices different vectors",
+    Math.abs(bandA[0] - bandB[0]) > 8,
+    `y20 r=${bandA[0]} y160 r=${bandB[0]}`,
+  );
+
+  engine.setGraph(
+    [
+      { id: "bar", type: "test.bar", params: { x: 0.5 } },
+      {
+        id: "gen-drag",
+        type: "fx.genMotion",
+        params: {
+          ...defaultParams("fx.genMotion"),
+          mode: "constant",
+          amount: 0.2,
+          angle: 0,
+          view: "vectors",
+        },
+      },
+      {
+        id: "mosh-gen",
+        type: "fx.datamosh",
+        params: {
+          ...defaultParams("fx.datamosh"),
+          resetAtFirst: false,
+          keyframe: 0,
+          bloom: 0,
+          refresh: 0,
+          amount: 1,
+        },
+      },
+      { id: "out", type: "output.screen", params: { background: "#000000" } },
+    ],
+    [
+      { id: "a", source: "bar", sourceHandle: "out", target: "mosh-gen", targetHandle: "src" },
+      { id: "m", source: "gen-drag", sourceHandle: "out", target: "mosh-gen", targetHandle: "mv" },
+      { id: "b", source: "mosh-gen", sourceHandle: "out", target: "out", targetHandle: "src" },
+    ],
+  );
+  engine.tick();
+  engine.tick();
+  engine.tick();
+  const genDraggedTo = readPixel(engine, 128, 100);
+  const genDraggedFrom = readPixel(engine, 160, 100);
+  check(
+    "datamosh drags along a generated constant field",
+    genDraggedTo[0] > 200 && genDraggedFrom[0] < 60,
+    `x=128 → ${genDraggedTo[0]}, x=160 → ${genDraggedFrom[0]}`,
+  );
+
   // Nothing moving means prediction is exact and the residual is zero: after a
   // run of P-frames the picture must still be the picture.
   engine.setGraph(
