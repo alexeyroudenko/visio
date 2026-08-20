@@ -1,0 +1,306 @@
+{
+  "format": 1,
+  "width": 1080,
+  "height": 1920,
+  "nodes": [
+    {
+      "id": "image-1",
+      "type": "source.media",
+      "position": {
+        "x": -186.5263984967225,
+        "y": 52.04987360655744
+      },
+      "params": {
+        "mode": "camera",
+        "facing": "environment",
+        "playing": true,
+        "muted": false,
+        "volume": 1,
+        "speed": 1,
+        "syncTimeline": false,
+        "mirror": false,
+        "fit": "cover",
+        "zoom": 1
+      }
+    },
+    {
+      "id": "face-1",
+      "type": "tracking.face",
+      "position": {
+        "x": 323.72098785205543,
+        "y": 135.77409068269975
+      },
+      "params": {
+        "mesh": "tesselation",
+        "numFaces": 1,
+        "confidence": 0.5,
+        "interval": 1
+      }
+    },
+    {
+      "id": "landmarks-1",
+      "type": "draw.landmarks",
+      "position": {
+        "x": 617.2239132757004,
+        "y": 311.590300889824
+      },
+      "params": {
+        "pointColor": "#f5f0e6",
+        "boneColor": "#000000",
+        "pointSize": 0,
+        "boneWidth": 1,
+        "opacity": 0.15000000000000002,
+        "scoreFade": false,
+        "blend": "normal"
+      },
+      "debug": true
+    },
+    {
+      "id": "screen-1",
+      "type": "output.screen",
+      "position": {
+        "x": 1509.680356704427,
+        "y": 35.717495939971556
+      },
+      "params": {
+        "background": "#000000"
+      }
+    },
+    {
+      "id": "featuresGrid-5",
+      "type": "draw.featuresGrid",
+      "position": {
+        "x": 1007.6621996967815,
+        "y": 58.53192259160403
+      },
+      "params": {
+        "color": "#f5f0e6",
+        "maxDepth": 5,
+        "minSize": 16,
+        "stroke": 0.5,
+        "opacity": 1,
+        "filledOnly": true,
+        "useContentEdge": true,
+        "edgeMinFill": 0.05,
+        "edgeInterval": 3,
+        "labels": true,
+        "labelSize": 18,
+        "labelText": "Element",
+        "effectChance": 0.6000000000000001,
+        "effectMinArea": 0,
+        "effectMaxArea": 0.11,
+        "effectSeed": 42,
+        "rectMatch": 0.35,
+        "rectHold": 3
+      },
+      "debug": true
+    },
+    {
+      "id": "landmarksToPoints-6",
+      "type": "convert.landmarksToPoints",
+      "position": {
+        "x": 602.7826332684715,
+        "y": 129.63743400533204
+      },
+      "params": {
+        "minScore": 0,
+        "subject": -1
+      },
+      "debug": true
+    },
+    {
+      "id": "color-8",
+      "type": "fx.color",
+      "position": {
+        "x": 1262.783723058254,
+        "y": 35.29736672245043
+      },
+      "params": {
+        "brightness": -0.25,
+        "contrast": 0.9500000000000001,
+        "saturation": 0,
+        "hue": 180
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-frame",
+      "source": "image-1",
+      "sourceHandle": "frame",
+      "target": "face-1",
+      "targetHandle": "frame"
+    },
+    {
+      "id": "e-bg",
+      "source": "image-1",
+      "sourceHandle": "out",
+      "target": "landmarks-1",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-data",
+      "source": "face-1",
+      "sourceHandle": "out",
+      "target": "landmarks-1",
+      "targetHandle": "landmarks"
+    },
+    {
+      "id": "e-d071a724-60b0-471d-a15b-2612180109a0",
+      "source": "face-1",
+      "sourceHandle": "out",
+      "target": "landmarksToPoints-6",
+      "targetHandle": "landmarks"
+    },
+    {
+      "id": "e-1e84fe73-0c7e-45b4-81a9-db8bc784e1df",
+      "source": "landmarksToPoints-6",
+      "sourceHandle": "points",
+      "target": "featuresGrid-5",
+      "targetHandle": "points"
+    },
+    {
+      "id": "e-6d00b12c-203e-452c-bcd9-14284ba30b5d",
+      "source": "image-1",
+      "sourceHandle": "frame",
+      "target": "featuresGrid-5",
+      "targetHandle": "frame"
+    },
+    {
+      "id": "e-5bfae64d-ef99-4541-be38-e61b2835c798",
+      "source": "landmarks-1",
+      "sourceHandle": "out",
+      "target": "featuresGrid-5",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-0e8fe06f-d561-4077-bbaa-d7094e513207",
+      "source": "featuresGrid-5",
+      "sourceHandle": "out",
+      "target": "color-8",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-d9325a58-fbe3-4896-92ad-fa5f4686b865",
+      "source": "color-8",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    }
+  ],
+  "timeline": {
+    "fps": 30,
+    "durationInFrames": 241,
+    "keyframes": {},
+    "reelZones": {
+      "cutsSec": [
+        1,
+        1.2,
+        5.016666666666667,
+        7.025
+      ],
+      "dirty": false
+    },
+    "cueZoneTick": false,
+    "cueDevMetronome": false,
+    "cueDrone": false,
+    "developmentBpm": 120,
+    "droneByZone": {
+      "hook": {
+        "enabled": true,
+        "freq": 218.5,
+        "gain": 0.06,
+        "type": "sawtooth",
+        "detune": 18,
+        "cutoff": 1800,
+        "lfoRate": 6.5,
+        "lfoDepth": 0.4,
+        "subGain": 0.25,
+        "ratio": 3.13,
+        "fm": 0.35,
+        "ring": 0.45,
+        "noise": 0.2,
+        "crush": 0.4,
+        "comb": 0.3,
+        "glitch": 0.5,
+        "drift": 0.25
+      },
+      "formwait": {
+        "enabled": true,
+        "freq": 247.7,
+        "gain": 0.05,
+        "type": "triangle",
+        "detune": 33,
+        "cutoff": 1100,
+        "lfoRate": 0.7,
+        "lfoDepth": 0.6,
+        "subGain": 0.1,
+        "ratio": 1.41,
+        "fm": 0.2,
+        "ring": 0.6,
+        "noise": 0.35,
+        "crush": 0.25,
+        "comb": 0.55,
+        "glitch": 0.75,
+        "drift": 0.5
+      },
+      "development": {
+        "enabled": true,
+        "freq": 109.3,
+        "gain": 0.05,
+        "type": "sawtooth",
+        "detune": 12,
+        "cutoff": 800,
+        "lfoRate": 3.2,
+        "lfoDepth": 0.55,
+        "subGain": 0.5,
+        "ratio": 2.07,
+        "fm": 0.15,
+        "ring": 0.2,
+        "noise": 0.15,
+        "crush": 0.55,
+        "comb": 0.4,
+        "glitch": 0.35,
+        "drift": 0.3
+      },
+      "climax": {
+        "enabled": true,
+        "freq": 163.8,
+        "gain": 0.085,
+        "type": "sawtooth",
+        "detune": 26,
+        "cutoff": 3200,
+        "lfoRate": 8.5,
+        "lfoDepth": 0.5,
+        "subGain": 0.55,
+        "ratio": 5.19,
+        "fm": 0.6,
+        "ring": 0.5,
+        "noise": 0.45,
+        "crush": 0.7,
+        "comb": 0.25,
+        "glitch": 0.2,
+        "drift": 0.2
+      },
+      "cta": {
+        "enabled": true,
+        "freq": 81.7,
+        "gain": 0.055,
+        "type": "triangle",
+        "detune": 8,
+        "cutoff": 700,
+        "lfoRate": 0.5,
+        "lfoDepth": 0.25,
+        "subGain": 0.45,
+        "ratio": 1.49,
+        "fm": 0.1,
+        "ring": 0.15,
+        "noise": 0.1,
+        "crush": 0.2,
+        "comb": 0.65,
+        "glitch": 0.1,
+        "drift": 0.4
+      }
+    }
+  }
+}

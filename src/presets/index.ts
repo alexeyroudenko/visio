@@ -1,5 +1,10 @@
 import { SHADER_PRESETS } from "../nodes/fx/shaderPresets";
-import { DEFAULT_AUDIO_FILE, DEFAULT_IMAGE_FILE } from "../nodes/shared/fileParam";
+import {
+  DEFAULT_AUDIO_FILE,
+  DEFAULT_IMAGE_FILE,
+  FACE_IMAGE_FILE,
+  type FileParam,
+} from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 import { trackNoiseGlitch } from "./trackNoiseGlitch";
 import { particlesFeedback } from "./particlesFeedback";
@@ -41,17 +46,23 @@ type SourceKind = "camera" | "image";
 /** Camera/image → tracker → draw overlay → output. */
 function trackingViz(opts: {
   source: SourceKind;
+  /** Still to load in image mode; defaults to the bundled starter frame. */
+  sourceFile?: FileParam;
   trackType: string;
   trackId: string;
+  /** Tracker params that differ from the node defaults. */
+  trackParams?: Record<string, unknown>;
   drawType: string;
   drawId: string;
   /** Draw input handle that receives the tracker output. */
   drawHandle: string;
+  /** Draw params that differ from the node defaults. */
+  drawParams?: Record<string, unknown>;
 }): SerializedPatch {
   const sourceId = opts.source === "camera" ? "camera-1" : "image-1";
   const sourceParams =
     opts.source === "image"
-      ? { mode: "image", file: DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" }
+      ? { mode: "image", file: opts.sourceFile ?? DEFAULT_IMAGE_FILE, mirror: false, fit: "cover" }
       : { mode: "camera", facing: "environment", mirror: false, fit: "cover" };
 
   return {
@@ -69,13 +80,13 @@ function trackingViz(opts: {
         id: opts.trackId,
         type: opts.trackType,
         position: { x: 320, y: 40 },
-        params: {},
+        params: { ...opts.trackParams },
       },
       {
         id: opts.drawId,
         type: opts.drawType,
         position: { x: 640, y: 140 },
-        params: {},
+        params: { ...opts.drawParams },
       },
       {
         id: "screen-1",
@@ -1134,6 +1145,32 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
         drawType: "draw.boxes",
         drawId: "boxes-1",
         drawHandle: "boxes",
+      }),
+  },
+  {
+    id: "track-face-mesh",
+    label: "Face Mesh",
+    description: "Face still → Face Mesh (full tesselation) → Draw Skeleton → output",
+    builtin: true,
+    build: () =>
+      trackingViz({
+        source: "image",
+        sourceFile: FACE_IMAGE_FILE,
+        trackType: "tracking.face",
+        trackId: "face-1",
+        trackParams: { mesh: "tesselation", numFaces: 1, confidence: 0.5 },
+        drawType: "draw.landmarks",
+        drawId: "landmarks-1",
+        drawHandle: "landmarks",
+        // Face landmarks carry no visibility, so score fade would blank the mesh.
+        drawParams: {
+          pointColor: "#f5f0e6",
+          boneColor: "#7fe3c0",
+          pointSize: 1.5,
+          boneWidth: 1,
+          opacity: 0.85,
+          scoreFade: false,
+        },
       }),
   },
   {

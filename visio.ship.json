@@ -35,10 +35,8 @@
   "omitNodes": [
     "audio.analyzer",
     "audio.granular",
-    "convert.landmarksToPoints",
     "draw.circles",
     "draw.delaunay",
-    "draw.landmarks",
     "draw.lines",
     "draw.mst",
     "draw.radial",
@@ -48,10 +46,8 @@
     "fx.shader",
     "fx.zoom",
     "tracking.circles",
-    "tracking.face",
     "tracking.hands",
     "tracking.lines",
-    "tracking.objects",
-    "tracking.pose"
+    "tracking.objects"
   ]
 }
