@@ -4,7 +4,6 @@
     "audio-noise-grid",
     "blend-split",
     "corners-features-grid",
-    "features-connectors",
     "features-delaunay",
     "features-mst",
     "features-particles",
@@ -29,8 +28,7 @@
     "particles-feedback-closeup",
     "track-features-points",
     "track-hough-circles",
-    "track-noise-glitch",
-    "track-objects"
+    "track-noise-glitch"
   ],
   "omitNodes": [
     "audio.analyzer",
@@ -47,7 +45,6 @@
     "fx.zoom",
     "tracking.circles",
     "tracking.hands",
-    "tracking.lines",
-    "tracking.objects"
+    "tracking.lines"
   ]
 }
