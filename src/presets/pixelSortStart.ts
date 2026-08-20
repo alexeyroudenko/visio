@@ -22,8 +22,8 @@ export function pixelSortStart(): SerializedPatch {
       "id": "pixelSort-5",
       "type": "fx.pixelSort",
       "position": {
-        "x": 511.3965756693477,
-        "y": 156.0148032416315
+        "x": 466.08608316399443,
+        "y": 148.1347175885266
       },
       "params": {
         "thresh": 19,
