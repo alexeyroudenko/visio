@@ -24,114 +24,78 @@
       }
     },
     {
-      "id": "featuresGrid-1",
-      "type": "draw.featuresGrid",
+      "id": "gen-1",
+      "type": "fx.genMotion",
       "position": {
-        "x": 640,
-        "y": 140
+        "x": 330,
+        "y": 20
       },
       "params": {
-        "color": "#f5f0e6",
-        "maxDepth": 5,
-        "minSize": 64,
-        "stroke": 1,
-        "opacity": 1,
-        "filledOnly": false,
-        "useContentEdge": false,
-        "edgeMinFill": 0.05,
-        "edgeInterval": 4,
-        "labels": true,
-        "labelSize": 13,
-        "labelText": "Element",
-        "effectChance": 0.5,
-        "effectMinArea": 0.11,
-        "effectMaxArea": 0.75,
-        "effectSeed": 42,
-        "rectMatch": 0.35,
-        "rectHold": 3
+        "mode": "bands",
+        "amount": 0.12,
+        "angle": 138,
+        "block": 96,
+        "bands": 79,
+        "jitter": 0.4,
+        "freq": 5.5,
+        "seed": 9999,
+        "speed": 0.25,
+        "phase": 1.9500000000000002,
+        "view": "vectors"
+      }
+    },
+    {
+      "id": "datamosh-1",
+      "type": "fx.datamosh",
+      "position": {
+        "x": 660,
+        "y": 180
+      },
+      "params": {
+        "amount": 0.9500000000000001,
+        "bloom": 0.2,
+        "decay": 1,
+        "refresh": 0,
+        "keyframe": 126,
+        "block": 96,
+        "search": 43,
+        "scale": "4",
+        "threshold": 0,
+        "smooth": 0.05,
+        "resetAtFirst": true,
+        "clear": false
       }
     },
     {
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 1203.6376111125217,
-        "y": 189.74550444450085
+        "x": 1000,
+        "y": 200
       },
       "params": {
         "background": "#000000"
-      }
-    },
-    {
-      "id": "featuresTrack-5",
-      "type": "tracking.featuresTrack",
-      "position": {
-        "x": 337.9990594882844,
-        "y": 204.85132507925584
-      },
-      "params": {
-        "downscale": 4,
-        "block": 7,
-        "maxCorners": 120,
-        "quality": 0.08,
-        "minDistance": 12,
-        "winSize": 15,
-        "maxLevel": 2,
-        "maxIters": 10,
-        "fbError": 2,
-        "minAge": 50,
-        "maxTrail": 64,
-        "maxTracks": 150,
-        "detectInterval": 5
-      }
-    },
-    {
-      "id": "color-5",
-      "type": "fx.color",
-      "position": {
-        "x": 898.0541648072783,
-        "y": 177.72763485912694
-      },
-      "params": {
-        "brightness": -0.04999999999999999,
-        "contrast": 1.25,
-        "saturation": 0.1,
-        "hue": 0
       }
     }
   ],
   "edges": [
     {
-      "id": "e-bg",
+      "id": "e-src",
       "source": "image-1",
       "sourceHandle": "out",
-      "target": "featuresGrid-1",
-      "targetHandle": "bg"
-    },
-    {
-      "id": "e-d4423a72-8323-4e81-9065-7cd5feff8368",
-      "source": "image-1",
-      "sourceHandle": "frame",
-      "target": "featuresTrack-5",
-      "targetHandle": "frame"
-    },
-    {
-      "id": "e-28ba77d3-fb9c-4a08-b697-d10c9eb90fd9",
-      "source": "featuresTrack-5",
-      "sourceHandle": "points",
-      "target": "featuresGrid-1",
-      "targetHandle": "points"
-    },
-    {
-      "id": "e-afb71cd3-7f01-4e93-a2e8-69e6ad9ce2ca",
-      "source": "featuresGrid-1",
-      "sourceHandle": "out",
-      "target": "color-5",
+      "target": "datamosh-1",
       "targetHandle": "src"
     },
     {
-      "id": "e-d3e69b30-fc65-45ed-b3be-24cf939aa3f6",
-      "source": "color-5",
+      "id": "e-mv",
+      "source": "gen-1",
+      "sourceHandle": "out",
+      "target": "datamosh-1",
+      "targetHandle": "mv"
+    },
+    {
+      "id": "e-out",
+      "source": "datamosh-1",
       "sourceHandle": "out",
       "target": "screen-1",
       "targetHandle": "src"
@@ -139,14 +103,14 @@
   ],
   "timeline": {
     "fps": 30,
-    "durationInFrames": 450,
+    "durationInFrames": 300,
     "keyframes": {},
     "reelZones": {
       "cutsSec": [
         1,
         1.2,
-        9,
-        12
+        6,
+        8.5
       ],
       "dirty": false
     },
@@ -251,10 +215,5 @@
         "drift": 0.4
       }
     }
-  },
-  "published": [
-    "featuresGrid-1:effectChance",
-    "featuresGrid-1:effectMinArea",
-    "featuresGrid-1:effectMaxArea"
-  ]
+  }
 }

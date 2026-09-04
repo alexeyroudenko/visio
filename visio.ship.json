@@ -10,9 +10,11 @@
     "features-radial",
     "features-tracking",
     "features-voronoi",
+    "gen-motion-mosh",
     "granular-grid",
     "image-block-scatter",
     "image-color-zoom",
+    "image-datamosh",
     "image-pixel-sort",
     "image-quadtree",
     "image-shader",
@@ -28,7 +30,9 @@
     "particles-feedback-closeup",
     "track-features-points",
     "track-hough-circles",
-    "track-noise-glitch"
+    "track-hough-lines",
+    "track-noise-glitch",
+    "track-segmentation"
   ],
   "omitNodes": [
     "audio.analyzer",
