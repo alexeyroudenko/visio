@@ -131,6 +131,45 @@ export function libraryImage(name: string): FileParam {
   return match?.file ?? BUNDLED_IMAGE_FILES[0]?.file ?? DEFAULT_IMAGE_FILE;
 }
 
+function bundledFileByName(name: string): FileParam | null {
+  if (!name) return null;
+  if (name === DEFAULT_IMAGE_FILE.name) return DEFAULT_IMAGE_FILE;
+  if (name === POSE_IMAGE_FILE.name) return POSE_IMAGE_FILE;
+  if (name === FACE_IMAGE_FILE.name) return FACE_IMAGE_FILE;
+  if (name === DEFAULT_AUDIO_FILE.name) return DEFAULT_AUDIO_FILE;
+  if (name === EXAMPLE_AUDIO_01_FILE.name) return EXAMPLE_AUDIO_01_FILE;
+  if (name === EXAMPLE_AUDIO_02_FILE.name) return EXAMPLE_AUDIO_02_FILE;
+  if (name === EXAMPLE_AUDIO_03_FILE.name) return EXAMPLE_AUDIO_03_FILE;
+  const image = BUNDLED_IMAGE_FILES.find((entry) => entry.file.name === name);
+  return image?.file ?? null;
+}
+
+/**
+ * Rewrites a saved public file onto `BASE_URL`. Old patches baked root-absolute
+ * `/imgs/…` / `/default-frame.png` when Vite's base was `/`; those 404 if the
+ * app is ever served from a subpath. Name wins over URL so a library still
+ * follows the folder even after a rename of the public prefix.
+ */
+export function resolveBundledFile(file: FileParam): FileParam {
+  if (!file.url || file.url.startsWith("blob:") || file.url.startsWith("data:")) return file;
+  if (/^https?:\/\//i.test(file.url)) return file;
+
+  const byName = bundledFileByName(file.name);
+  if (byName) {
+    return { ...byName, ...(file.sizeBytes != null ? { sizeBytes: file.sizeBytes } : {}), fileObj: file.fileObj };
+  }
+
+  const path = file.url.replace(/^\.\//, "");
+  if (!path.startsWith("/")) return file;
+  const trimmed = path.slice(1);
+  const leaf = decodeURIComponent(trimmed.replace(/^imgs\//, "").split("/").pop() ?? "");
+  const byUrl = bundledFileByName(leaf);
+  if (byUrl) {
+    return { ...byUrl, ...(file.sizeBytes != null ? { sizeBytes: file.sizeBytes } : {}), fileObj: file.fileObj };
+  }
+  return { ...file, url: `${import.meta.env.BASE_URL}${trimmed}` };
+}
+
 /** Stock audio shown in the Media inspector library (audio mode). */
 export const BUNDLED_AUDIO_FILES: readonly { file: FileParam; label: string }[] = [
   { file: DEFAULT_AUDIO_FILE, label: "Track 4" },

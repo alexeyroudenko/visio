@@ -61,7 +61,7 @@
         "facing": "user",
         "file": {
           "name": "img1.jpg",
-          "url": "/imgs/img1.jpg",
+          "url": "./imgs/img1.jpg",
           "mime": "image/jpeg"
         },
         "playing": true,

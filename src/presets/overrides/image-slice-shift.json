@@ -16,7 +16,7 @@
         "facing": "environment",
         "file": {
           "name": "default-frame.png",
-          "url": "/default-frame.png",
+          "url": "./default-frame.png",
           "mime": "image/png"
         },
         "playing": true,

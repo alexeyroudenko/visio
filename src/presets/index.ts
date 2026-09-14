@@ -4,6 +4,7 @@ import {
   DEFAULT_IMAGE_FILE,
   FACE_IMAGE_FILE,
   POSE_IMAGE_FILE,
+  libraryImage,
   type FileParam,
 } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
@@ -1363,6 +1364,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     build: () =>
       trackingViz({
         source: "image",
+        sourceFile: libraryImage("img0.jpg"),
         trackType: "tracking.lines",
         trackId: "lines-1",
         drawType: "draw.lines",

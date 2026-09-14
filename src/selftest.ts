@@ -66,8 +66,8 @@ import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
 import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
-import { mediaKind } from "./nodes/shared/fileParam";
-import { BUILTIN_PRESETS, DEFAULT_PRESET_ID } from "./presets";
+import { libraryImage, mediaKind, resolveBundledFile } from "./nodes/shared/fileParam";
+import { BUILTIN_PRESETS, DEFAULT_PRESET_ID, listPresets } from "./presets";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
@@ -77,6 +77,14 @@ import { OMITTED_NODE_TYPES } from "virtual:node-omit";
 
 const WIDTH = 320;
 const HEIGHT = 200;
+
+/** Dev treats `base: "./"` as `/`; production keeps `./`. Either is fine — leftover `/imgs` is not. */
+function publicFileFollowsBase(url: string): boolean {
+  if (url.startsWith("blob:") || url.startsWith("data:") || /^https?:\/\//i.test(url)) return true;
+  const base = import.meta.env.BASE_URL;
+  if (url.startsWith(base)) return true;
+  return !(url.startsWith("/") && !url.startsWith("//"));
+}
 
 /** Emits one landmark pair: a horizontal bone across the upper third. */
 const testLandmarks = defineNode<Record<string, never>>({
@@ -2562,11 +2570,42 @@ async function run(): Promise<void> {
     if (!parsePatch(JSON.parse(JSON.stringify(built)))) {
       presetProblems.push(`${preset.id}: does not survive parsePatch`);
     }
+    for (const node of built.nodes) {
+      for (const value of Object.values(node.params)) {
+        if (!value || typeof value !== "object" || typeof (value as { url?: unknown }).url !== "string") {
+          continue;
+        }
+        const file = value as { name?: string; url: string };
+        if (!publicFileFollowsBase(file.url)) {
+          presetProblems.push(`${preset.id}: file url ${file.url} ignores BASE_URL`);
+        }
+      }
+    }
   }
   check(
     "every builtin preset is wired correctly",
     presetProblems.length === 0,
     presetProblems.slice(0, 3).join(" | ") || `${BUILTIN_PRESETS.length} presets`,
+  );
+
+  const overrideUrlProblems: string[] = [];
+  for (const preset of listPresets().filter((entry) => entry.builtin)) {
+    for (const node of preset.build().nodes) {
+      for (const value of Object.values(node.params)) {
+        if (!value || typeof value !== "object" || typeof (value as { url?: unknown }).url !== "string") {
+          continue;
+        }
+        const file = value as { name?: string; url: string };
+        if (!publicFileFollowsBase(file.url)) {
+          overrideUrlProblems.push(`${preset.id}: ${file.url}`);
+        }
+      }
+    }
+  }
+  check(
+    "builtin overrides resolve public files onto BASE_URL",
+    overrideUrlProblems.length === 0,
+    overrideUrlProblems.slice(0, 3).join(" | ") || "ok",
   );
 
   check(
@@ -2818,6 +2857,19 @@ async function run(): Promise<void> {
       kindOf("take.MP3", "") === "audio" &&
       kindOf("patch.json", "application/json") === null,
     `mov=${kindOf("clip.mov", "")} MP3=${kindOf("take.MP3", "")} json=${kindOf("patch.json", "application/json")}`,
+  );
+
+  const base = import.meta.env.BASE_URL;
+  const rewritten = resolveBundledFile({ name: "img1.jpg", url: "/imgs/img1.jpg", mime: "image/jpeg" });
+  const frame = resolveBundledFile({ name: "default-frame.png", url: "/default-frame.png" });
+  const leftAlone = resolveBundledFile({ name: "clip.mp4", url: "blob:http://localhost/1" });
+  check(
+    "saved public files follow BASE_URL, blobs stay put",
+    rewritten.url === libraryImage("img1.jpg").url &&
+      rewritten.url.startsWith(base) &&
+      frame.url === `${base}default-frame.png` &&
+      leftAlone.url.startsWith("blob:"),
+    `img=${rewritten.url} frame=${frame.url} blob=${leftAlone.url}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------

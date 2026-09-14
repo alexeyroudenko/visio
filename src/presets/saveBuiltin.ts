@@ -1,5 +1,5 @@
 import { PRESET_OVERRIDES } from "virtual:preset-overrides";
-import type { SerializedPatch } from "../store/persistence";
+import { resolvePatchFiles, type SerializedPatch } from "../store/persistence";
 
 /** Live copy: Save in this session updates it before the next reload. */
 let overrides: Record<string, SerializedPatch> = {
@@ -15,7 +15,7 @@ if (import.meta.hot) {
 
 export function builtinOverride(id: string): SerializedPatch | undefined {
   const patch = overrides[id];
-  return patch ? structuredClone(patch) : undefined;
+  return patch ? resolvePatchFiles(structuredClone(patch)) : undefined;
 }
 
 /** Persist the open graph over a builtin. Dev-only — the vite plugin writes the files. */

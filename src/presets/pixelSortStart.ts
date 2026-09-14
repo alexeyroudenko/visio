@@ -1,7 +1,8 @@
+import { libraryImage } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 
 export function pixelSortStart(): SerializedPatch {
-  return {
+  const patch = {
   "format": 1,
   "width": 1080,
   "height": 1920,
@@ -64,7 +65,7 @@ export function pixelSortStart(): SerializedPatch {
         "facing": "user",
         "file": {
           "name": "img1.jpg",
-          "url": "/imgs/img1.jpg",
+          "url": "./imgs/img1.jpg",
           "mime": "image/jpeg"
         },
         "playing": true,
@@ -301,4 +302,7 @@ export function pixelSortStart(): SerializedPatch {
     "pixelSort-5:thresh"
   ]
 } as SerializedPatch;
+  const media = patch.nodes.find((node) => node.id === "media-1");
+  if (media) media.params.file = libraryImage("img1.jpg");
+  return patch;
 }

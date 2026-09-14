@@ -71,7 +71,7 @@
         "facing": "environment",
         "file": {
           "name": "img0.jpg",
-          "url": "/imgs/img0.jpg",
+          "url": "./imgs/img0.jpg",
           "mime": "image/jpeg"
         },
         "playing": false,

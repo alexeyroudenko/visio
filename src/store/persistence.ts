@@ -10,7 +10,7 @@ import { fileStem } from "../lib/fileStem";
 import { parseModulators, type Modulators } from "../lib/modulators";
 import { cutsFromUnknown } from "../lib/reelMarkers";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
-import { fileParam } from "../nodes/shared/fileParam";
+import { fileParam, resolveBundledFile } from "../nodes/shared/fileParam";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
 import type { PatchNode } from "./graphStore";
 
@@ -126,7 +126,7 @@ function serializableParams(defType: string, params: Record<string, unknown>): R
         typeof (value as { url?: unknown }).url === "string" &&
         !(value as { url: string }).url.startsWith("blob:")
       ) {
-        const file = value as { name: string; url: string; mime?: string; sizeBytes?: number };
+        const file = resolveBundledFile(value as { name: string; url: string; mime?: string; sizeBytes?: number });
         clean[spec.key] = {
           name: file.name,
           url: file.url,
@@ -320,6 +320,32 @@ function parseTimeline(raw: unknown, nodeIds: Set<string>): SerializedTimeline |
   };
 }
 
+function resolveParamsFiles(
+  defType: string,
+  params: Record<string, unknown>,
+): Record<string, unknown> {
+  const definition = NODE_DEFS[defType];
+  if (!definition) return params;
+  const next = { ...params };
+  for (const spec of definition.params) {
+    if (spec.type !== "file") continue;
+    const value = fileParam(next, spec.key);
+    if (value) next[spec.key] = resolveBundledFile(value);
+  }
+  return next;
+}
+
+/** Rewrite baked `/imgs/…` and `/default-frame.png` onto `BASE_URL` before a builtin override is used. */
+export function resolvePatchFiles(patch: SerializedPatch): SerializedPatch {
+  return {
+    ...patch,
+    nodes: patch.nodes.map((node) => ({
+      ...node,
+      params: resolveParamsFiles(node.type, node.params),
+    })),
+  };
+}
+
 /**
  * Returns null for anything that isn't a patch we can safely load.
  * An empty node list is valid — that is first launch and Reset.
@@ -352,7 +378,7 @@ export function parsePatch(raw: unknown): ParsedPatch | null {
       // Defaults first, so params added since the patch was saved exist.
       data: {
         defType,
-        params: { ...defaultParams(defType), ...migratedParams },
+        params: resolveParamsFiles(defType, { ...defaultParams(defType), ...migratedParams }),
         bypass: entry.bypass === true,
         debug: entry.debug === true,
       },
