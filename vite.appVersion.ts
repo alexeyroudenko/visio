@@ -21,23 +21,31 @@ function packageVersion(): string {
   return "0.0.0";
 }
 
-/** Latest `vX.Y.Z` in the repo; same sort as `tag.ps1`. Falls back to package.json. */
+/** Latest `vX.Y.Z` reachable from HEAD; same sort as `tag.ps1`. Falls back to package.json. */
 function gitTag(): string {
-  try {
-    const raw = execSync("git tag -l --sort=-v:refname", {
-      cwd: ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const tag = raw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => /^v?\d+\.\d+\.\d+/.test(line));
-    if (tag) return tag;
-  } catch {
-    /* shallow CI clone, missing git, … */
-  }
-  return packageVersion();
+  const tryGit = (command: string): string | null => {
+    try {
+      const raw = execSync(command, {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      const tag = raw
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => /^v?\d+\.\d+\.\d+/.test(line));
+      return tag ?? null;
+    } catch {
+      return null;
+    }
+  };
+  // Prefer a tag that actually leads to this commit — `tag -l` can be empty
+  // on a shallow clone that only fetched HEAD.
+  return (
+    tryGit("git describe --tags --abbrev=0") ??
+    tryGit("git tag -l --sort=-v:refname") ??
+    packageVersion()
+  );
 }
 
 /**

@@ -15,7 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Default clone has no tags; the welcome screen reads the latest vX.Y.Z.
+          # Shallow + fetch-tags only brings tags that point at HEAD. A patch
+          # after v0.0.6 then baked package.json (0.0.1) into the welcome screen.
+          fetch-depth: 0
           fetch-tags: true
 
       - uses: actions/setup-node@v4
@@ -25,6 +27,12 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Show baked version
+        run: |
+          echo "describe=$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          echo "latest=$(git tag -l --sort=-v:refname | head -n 1)"
+          echo "package=$(node -p "require('./package.json').version")"
 
       - name: Build
         env:
