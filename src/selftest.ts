@@ -588,6 +588,17 @@ async function run(): Promise<void> {
     WELCOME_PLUS_LABEL === "+" && !welcomeText().includes(WELCOME_PLUS_LABEL),
     `plus=${WELCOME_PLUS_LABEL}`,
   );
+  const helpDef = NODE_DEFS["help.note"];
+  const helpParams = defaultParams("help.note");
+  check(
+    "Help is a graph note with no ports",
+    helpDef?.category === "help" &&
+      helpDef.inputs.length === 0 &&
+      helpDef.outputs.length === 0 &&
+      helpDef.params.some((spec) => spec.key === "text" && spec.type === "code") &&
+      helpParams.text === "",
+    `cat=${helpDef?.category} in=${helpDef?.inputs.length} out=${helpDef?.outputs.length} text=${JSON.stringify(helpParams.text)}`,
+  );
 
   engine.setGraph(
     [

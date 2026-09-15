@@ -2221,6 +2221,29 @@ canvas.knob:focus-visible {
   min-width: 220px;
 }
 
+.node--help {
+  min-width: 220px;
+  background: #1c1b18;
+}
+
+.node__note {
+  display: block;
+  width: 220px;
+  min-height: 88px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 12px/1.45 var(--font);
+  resize: both;
+  field-sizing: content;
+}
+
+.node__note::placeholder {
+  color: var(--dim);
+}
+
 /* VU columns on Granular — Source (dry) vs Grains. */
 .level-meters {
   display: flex;

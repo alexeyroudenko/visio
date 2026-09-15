@@ -44,6 +44,7 @@ import { shaderNode } from "./fx/shader";
 import { analyzerNode } from "./audio/analyzer";
 import { granularNode } from "./audio/granular";
 import { modulatorDriveNode } from "./modulator/drive";
+import { helpNoteNode } from "./help/note";
 import { outputNode } from "./output/output";
 
 declare global {
@@ -99,6 +100,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   analyzerNode,
   modulatorDriveNode,
   granularNode,
+  helpNoteNode,
   outputNode,
 ];
 
@@ -136,6 +138,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   fx: "FX",
   audio: "Audio",
   output: "Output",
+  help: "Help",
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -145,6 +148,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   fx: "#5a5a5a",
   audio: "#333333",
   output: "#111111",
+  help: "#3d3a32",
 };
 
 export const PORT_COLORS: Record<string, string> = {

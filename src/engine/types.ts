@@ -120,7 +120,7 @@ export type ParamSpec =
 
 export type ParamValues = Record<string, unknown>;
 
-export type NodeCategory = "source" | "tracking" | "draw" | "fx" | "audio" | "output";
+export type NodeCategory = "source" | "tracking" | "draw" | "fx" | "audio" | "output" | "help";
 
 /** Per-node scratch: GL buffers, MediaPipe instances, accumulators. */
 export interface NodeRuntime<S = unknown> {

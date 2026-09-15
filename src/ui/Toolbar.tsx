@@ -10,7 +10,7 @@ import { useTimelineStore } from "../store/timelineStore";
 import { PresetsModal } from "./PresetsModal";
 import { SettingsModal } from "./SettingsModal";
 
-const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "audio", "output"];
+const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "audio", "output", "help"];
 
 export function Toolbar({
   recording,

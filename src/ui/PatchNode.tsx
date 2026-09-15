@@ -20,6 +20,7 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
   const status = useGraphStore((state) => state.statuses[id]);
   const setBypass = useGraphStore((state) => state.setBypass);
   const setDebug = useGraphStore((state) => state.setDebug);
+  const setParam = useGraphStore((state) => state.setParam);
   const mediaInfo = useMediaInfoStore((state) =>
     data.defType === "source.media" ? state.byId[id] : undefined,
   );
@@ -34,73 +35,89 @@ function PatchNodeView({ id, data, selected }: NodeProps<PatchNodeType>) {
   const accent = CATEGORY_COLORS[definition.category] ?? "#8b8b8b";
   const statusKey = status?.status ?? "idle";
   const isMedia = data.defType === "source.media";
+  const isHelp = data.defType === "help.note";
+  const noteText = typeof data.params.text === "string" ? data.params.text : "";
 
   return (
     <div
-      className={`node ${selected ? "node--selected" : ""} ${bypassed ? "node--bypassed" : ""} ${isMedia ? "node--media" : ""}`}
+      className={`node ${selected ? "node--selected" : ""} ${bypassed ? "node--bypassed" : ""} ${isMedia ? "node--media" : ""} ${isHelp ? "node--help" : ""}`}
       style={{ borderColor: accent }}
     >
       <div className="node__title" style={{ background: accent }}>
         <span>{definition.label}</span>
-        <div className="node__toggles">
-          <button
-            type="button"
-            className={`node__debug nodrag nopan ${debugOn ? "node__debug--on" : ""}`}
-            title={debugOn ? "Debug on — click to hide" : "Show debug info"}
-            aria-pressed={debugOn}
-            aria-label="Debug info"
-            onClick={(event) => {
-              event.stopPropagation();
-              setDebug(id, !debugOn);
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            D
-          </button>
-          <button
-            type="button"
-            className={`node__bypass nodrag nopan ${bypassed ? "node__bypass--on" : ""}`}
-            title={bypassed ? "Bypass on — click to enable" : `${statusKey} — click: bypass`}
-            aria-pressed={bypassed}
-            style={bypassed ? undefined : { background: STATUS_DOT[statusKey] }}
-            onClick={(event) => {
-              event.stopPropagation();
-              setBypass(id, !bypassed);
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-          />
-        </div>
+        {isHelp ? null : (
+          <div className="node__toggles">
+            <button
+              type="button"
+              className={`node__debug nodrag nopan ${debugOn ? "node__debug--on" : ""}`}
+              title={debugOn ? "Debug on — click to hide" : "Show debug info"}
+              aria-pressed={debugOn}
+              aria-label="Debug info"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDebug(id, !debugOn);
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              D
+            </button>
+            <button
+              type="button"
+              className={`node__bypass nodrag nopan ${bypassed ? "node__bypass--on" : ""}`}
+              title={bypassed ? "Bypass on — click to enable" : `${statusKey} — click: bypass`}
+              aria-pressed={bypassed}
+              style={bypassed ? undefined : { background: STATUS_DOT[statusKey] }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setBypass(id, !bypassed);
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="node__ports">
-        <div className="node__column">
-          {definition.inputs.map((port) => (
-            <div className="node__port" key={port.id}>
-              <Handle
-                type="target"
-                position={Position.Left}
-                id={port.id}
-                style={{ background: PORT_COLORS[port.type] ?? "#888" }}
-              />
-              <span>{port.label}</span>
-            </div>
-          ))}
-        </div>
+      {isHelp ? (
+        <textarea
+          className="node__note nodrag nopan nowheel"
+          rows={5}
+          spellCheck={false}
+          placeholder="write a note…"
+          value={noteText}
+          onChange={(event) => setParam(id, "text", event.target.value)}
+          onPointerDown={(event) => event.stopPropagation()}
+        />
+      ) : (
+        <div className="node__ports">
+          <div className="node__column">
+            {definition.inputs.map((port) => (
+              <div className="node__port" key={port.id}>
+                <Handle
+                  type="target"
+                  position={Position.Left}
+                  id={port.id}
+                  style={{ background: PORT_COLORS[port.type] ?? "#888" }}
+                />
+                <span>{port.label}</span>
+              </div>
+            ))}
+          </div>
 
-        <div className="node__column">
-          {definition.outputs.map((port) => (
-            <div className="node__port node__port--out" key={port.id}>
-              <span>{port.label}</span>
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={port.id}
-                style={{ background: PORT_COLORS[port.type] ?? "#888" }}
-              />
-            </div>
-          ))}
+          <div className="node__column">
+            {definition.outputs.map((port) => (
+              <div className="node__port node__port--out" key={port.id}>
+                <span>{port.label}</span>
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={port.id}
+                  style={{ background: PORT_COLORS[port.type] ?? "#888" }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {mediaInfo ? <MediaInfoPanel info={mediaInfo} compact /> : null}
       {data.defType === "audio.granular" ? <LevelMeters nodeId={id} /> : null}
