@@ -280,6 +280,16 @@ function edgeNear(
   return false;
 }
 
+/** Parabolic sub-bin offset in [-0.5, 0.5]. 0 when the peak is not concave. */
+function interpolateBin(left: number, center: number, right: number): number {
+  const denom = 2 * center - left - right;
+  if (!(denom > 1e-6)) return 0;
+  const delta = (0.5 * (right - left)) / denom;
+  if (delta > 0.5) return 0.5;
+  if (delta < -0.5) return -0.5;
+  return delta;
+}
+
 /** Probabilistic Hough transform — the OpenCV HoughLinesP approach. */
 export function linesFromEdges(
   edges: EdgePoint[],
@@ -319,7 +329,7 @@ export function linesFromEdges(
   }
 
   const threshold = opts.votes;
-  const candidates: { ri: number; theta: number; votes: number }[] = [];
+  const candidates: { ri: number; theta: number; votes: number; dRho: number; dTheta: number }[] = [];
   for (let ri = 1; ri < rhoBins - 1; ri += 1) {
     for (let t = 0; t < numTheta; t += 1) {
       const votes = acc[ri * numTheta + t]!;
@@ -335,7 +345,17 @@ export function linesFromEdges(
       ) {
         continue;
       }
-      candidates.push({ ri, theta: t, votes });
+      candidates.push({
+        ri,
+        theta: t,
+        votes,
+        dRho: interpolateBin(
+          acc[(ri - 1) * numTheta + t]!,
+          votes,
+          acc[(ri + 1) * numTheta + t]!,
+        ),
+        dTheta: interpolateBin(acc[ri * numTheta + prev]!, votes, acc[ri * numTheta + next]!),
+      });
     }
   }
 
@@ -392,10 +412,11 @@ export function linesFromEdges(
   };
 
   for (let ci = 0; ci < candidates.length && ci < maxCandidates; ci += 1) {
-    const { ri, theta, votes } = candidates[ci]!;
-    const rho = (ri - rhoOffset) * rhoStep;
-    const cosT = cosTable[theta]!;
-    const sinT = sinTable[theta]!;
+    const { ri, theta, votes, dRho, dTheta } = candidates[ci]!;
+    const thetaRad = (theta + dTheta) * thetaStep;
+    const rho = (ri - rhoOffset + dRho) * rhoStep;
+    const cosT = Math.cos(thetaRad);
+    const sinT = Math.sin(thetaRad);
     const dirX = -sinT;
     const dirY = cosT;
     const px = rho * cosT;
@@ -418,7 +439,10 @@ export function linesFromEdges(
     if (segStart !== null) pushSpan(px, py, dirX, dirY, segStart, lastHit, votes);
   }
 
-  const merged = clipMaxLength(mergeCollinear(pixels, maxGap), maxLength);
+  const merged = clipMaxLength(
+    refitToEdges(mergeCollinear(pixels, maxGap), edges, band),
+    maxLength,
+  );
   merged.sort(
     (a, b) =>
       Math.hypot(b.x2 - b.x1, b.y2 - b.y1) - Math.hypot(a.x2 - a.x1, a.y2 - a.y1),
@@ -440,6 +464,87 @@ interface PixelSeg {
   x2: number;
   y2: number;
   score: number;
+}
+
+/**
+ * Snap a Hough segment to the edge cloud. 1° bins leave a visible tilt on a
+ * full-frame bar; orthogonal regression through in-band points follows the
+ * pixels instead of the quantized (ρ, θ).
+ */
+function refitToEdges(segs: PixelSeg[], edges: EdgePoint[], band: number): PixelSeg[] {
+  if (edges.length === 0 || segs.length === 0) return segs;
+  const gate = Math.max(2, band);
+  return segs.map((seg) => {
+    const dx = seg.x2 - seg.x1;
+    const dy = seg.y2 - seg.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const nx = -uy;
+    const ny = ux;
+    const a = seg.x1 * ux + seg.y1 * uy;
+    const b = seg.x2 * ux + seg.y2 * uy;
+    const minS = Math.min(a, b) - gate;
+    const maxS = Math.max(a, b) + gate;
+    const picked: { x: number; y: number }[] = [];
+    let sx = 0;
+    let sy = 0;
+    for (const edge of edges) {
+      const s = edge.x * ux + edge.y * uy;
+      if (s < minS || s > maxS) continue;
+      if (Math.abs((edge.x - seg.x1) * nx + (edge.y - seg.y1) * ny) > gate) continue;
+      picked.push(edge);
+      sx += edge.x;
+      sy += edge.y;
+    }
+    if (picked.length < 8) return seg;
+    const mx = sx / picked.length;
+    const my = sy / picked.length;
+    let cxx = 0;
+    let cxy = 0;
+    let cyy = 0;
+    for (const point of picked) {
+      const px = point.x - mx;
+      const py = point.y - my;
+      cxx += px * px;
+      cxy += px * py;
+      cyy += py * py;
+    }
+    const trace = cxx + cyy;
+    const disc = Math.max(0, (trace * trace) / 4 - (cxx * cyy - cxy * cxy));
+    const lambda = trace / 2 + Math.sqrt(disc);
+    let vx: number;
+    let vy: number;
+    if (Math.abs(cxy) > 1e-6) {
+      vx = 1;
+      vy = (lambda - cxx) / cxy;
+    } else if (cxx >= cyy) {
+      vx = 1;
+      vy = 0;
+    } else {
+      vx = 0;
+      vy = 1;
+    }
+    const vlen = Math.hypot(vx, vy) || 1;
+    vx /= vlen;
+    vy /= vlen;
+    const mc = mx * vx + my * vy;
+    let minProj = Infinity;
+    let maxProj = -Infinity;
+    for (const point of picked) {
+      const s = point.x * vx + point.y * vy;
+      if (s < minProj) minProj = s;
+      if (s > maxProj) maxProj = s;
+    }
+    if (!(maxProj - minProj > 1)) return seg;
+    return {
+      x1: mx + (minProj - mc) * vx,
+      y1: my + (minProj - mc) * vy,
+      x2: mx + (maxProj - mc) * vx,
+      y2: my + (maxProj - mc) * vy,
+      score: seg.score,
+    };
+  });
 }
 
 /** Shrink over-long segments about their midpoint. `maxLength <= 0` skips. */
