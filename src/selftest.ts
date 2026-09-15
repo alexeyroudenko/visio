@@ -66,7 +66,17 @@ import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
 import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
-import { libraryImage, mediaKind, resolveBundledFile } from "./nodes/shared/fileParam";
+import {
+  fileUrlToPath,
+  isFilesystemPath,
+  libraryImage,
+  localFileRequestUrl,
+  mediaKind,
+  mediaKindFromName,
+  mediaPathLeaf,
+  normalizeMediaPath,
+  resolveBundledFile,
+} from "./nodes/shared/fileParam";
 import { BUILTIN_PRESETS, DEFAULT_PRESET_ID, listPresets } from "./presets";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
@@ -2870,6 +2880,22 @@ async function run(): Promise<void> {
       frame.url === `${base}default-frame.png` &&
       leftAlone.url.startsWith("blob:"),
     `img=${rewritten.url} frame=${frame.url} blob=${leftAlone.url}`,
+  );
+
+  const winPath = String.raw`Y:\clips\shot.mp4`;
+  check(
+    "a pasted Explorer path strips quotes and stays a disk path",
+    normalizeMediaPath(`  "${winPath}"  `) === winPath &&
+      isFilesystemPath(winPath) &&
+      isFilesystemPath("file:///Y:/clips/shot.mp4") &&
+      isFilesystemPath("/Users/me/clip.mov") &&
+      !isFilesystemPath("https://cdn.example/clip.mp4") &&
+      !isFilesystemPath("/imgs/foo.jpg") &&
+      mediaPathLeaf(winPath) === "shot.mp4" &&
+      mediaKindFromName("take.MOV") === "video" &&
+      fileUrlToPath("file:///Y:/clips/shot.mp4") === "Y:/clips/shot.mp4" &&
+      localFileRequestUrl(String.raw`Y:\a b.mp4`).startsWith("/__visio/local-file?path="),
+    `norm=${normalizeMediaPath(`"${winPath}"`)} leaf=${mediaPathLeaf(winPath)}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------

@@ -15,7 +15,7 @@ import { fitAppWindowToPatch } from "../lib/appWindow";
 import { DEFAULT_DURATION_FRAMES, DEFAULT_FPS, paramPath, parseParamPath } from "../lib/keyframes";
 import { loadResetOnVisit } from "../lib/resetOnVisit";
 import { defaultParams, NODE_DEFS } from "../nodes/registry";
-import { fileParamFromFile, mediaKind } from "../nodes/shared/fileParam";
+import { fileParamFromFile, mediaKind, mediaKindFromName, type FileParam } from "../nodes/shared/fileParam";
 import { DEFAULT_PRESET_ID, getPreset } from "../presets";
 import { appLog } from "./consoleStore";
 import { publishMediaInfo } from "./mediaInfoStore";
@@ -78,6 +78,7 @@ interface GraphState {
   removeNode: (id: string) => void;
   dropMediaFiles: (files: File[]) => void;
   setParam: (id: string, key: string, value: unknown) => void;
+  setMediaFile: (id: string, file: FileParam) => void;
   setBypass: (id: string, bypass: boolean) => void;
   setDebug: (id: string, debug: boolean) => void;
   select: (id: string | null) => void;
@@ -369,6 +370,27 @@ function createGraphStore() {
       appLog("ok", "media", `${file.name} → ${target.id} (${kind})`);
       // Only the kind travels — never the name, size or blob URL of the file.
       track("media_dropped", { kind });
+    },
+    setMediaFile(id, file) {
+      const target = get().nodes.find((node) => node.id === id);
+      if (!target || target.data.defType !== "source.media") {
+        get().setParam(id, "file", file);
+        return;
+      }
+      const kind = file.fileObj ? mediaKind(file.fileObj) : mediaKindFromName(file.name);
+      const params: Record<string, unknown> = { ...target.data.params, file };
+      if (kind) params.mode = kind;
+      rememberMedia(params, file.fileObj);
+      set({
+        nodes: get().nodes.map((node) =>
+          node.id === id ? { ...node, data: { ...node.data, params } } : node,
+        ),
+        selectedId: id,
+      });
+      appLog("info", id, `file → ${file.name}`);
+      if (kind && kind !== target.data.params.mode) {
+        appLog("ok", "media", `${file.name} → ${kind}`);
+      }
     },
     removeNode(id) {
       const node = get().nodes.find((n) => n.id === id);

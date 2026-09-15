@@ -24,6 +24,7 @@
     "vite.shipConfig.ts",
     "vite.presetPreviews.ts",
     "vite.presetSave.ts",
-    "vite.imageLibrary.ts"
+    "vite.imageLibrary.ts",
+    "vite.localFile.ts"
   ]
 }

@@ -28,6 +28,8 @@ import {
   BUNDLED_AUDIO_FILES,
   BUNDLED_IMAGE_FILES,
   DEFAULT_AUDIO_FILE,
+  fileParamFromPath,
+  normalizeMediaPath,
   type FileParam,
 } from "../nodes/shared/fileParam";
 import { CATEGORY_LABELS, NODE_DEFS } from "../nodes/registry";
@@ -95,6 +97,9 @@ function FileParamControl({
   const accept =
     acceptOverride ?? (spec.type === "file" ? spec.accept : undefined) ?? "";
   const inputRef = useRef<HTMLInputElement>(null);
+  const [pathDraft, setPathDraft] = useState("");
+  const [pathBusy, setPathBusy] = useState(false);
+  const [pathError, setPathError] = useState<string | null>(null);
   const showLibrary = (() => {
     const tokens = accept
       .split(",")
@@ -147,6 +152,22 @@ function FileParamControl({
     }
   }, [current?.url, current?.fileObj]);
 
+  const loadFromPath = async () => {
+    const raw = pathDraft.trim();
+    if (!raw || pathBusy) return;
+    setPathBusy(true);
+    setPathError(null);
+    try {
+      const file = await fileParamFromPath(raw);
+      onChange(file);
+      setPathDraft(normalizeMediaPath(raw));
+    } catch (error) {
+      setPathError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPathBusy(false);
+    }
+  };
+
   return (
     <div className="param param--file">
       <label className="param">
@@ -177,6 +198,35 @@ function FileParamControl({
         />
         {current ? <em className="param__hint">{current.name}</em> : null}
       </label>
+      <form
+        className="param__path"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void loadFromPath();
+        }}
+      >
+        <input
+          type="text"
+          className="nodrag nopan"
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="full path or URL"
+          value={pathDraft}
+          disabled={pathBusy}
+          onChange={(event) => {
+            setPathDraft(event.target.value);
+            if (pathError) setPathError(null);
+          }}
+        />
+        <button
+          type="submit"
+          className="button button--small"
+          disabled={pathBusy || pathDraft.trim().length === 0}
+        >
+          {pathBusy ? "…" : "Load"}
+        </button>
+      </form>
+      {pathError ? <em className="param__hint param__hint--error">{pathError}</em> : null}
       {showLibrary && BUNDLED_IMAGE_FILES.length > 0 ? (
         <div className="media-library" aria-label="Stock images">
           <span className="param__label">Library</span>
@@ -935,6 +985,7 @@ export function Inspector() {
   );
   const { open: openMediaInfo } = useMediaInfoWindow();
   const setParam = useGraphStore((state) => state.setParam);
+  const setMediaFile = useGraphStore((state) => state.setMediaFile);
   const removeNode = useGraphStore((state) => state.removeNode);
   const published = useGraphStore((state) => state.published);
   const togglePublished = useGraphStore((state) => state.togglePublished);
@@ -1107,6 +1158,10 @@ export function Inspector() {
                       typeof file === "object" &&
                       typeof (file as FileParam).url === "string";
                     if (!hasFile) setParam(node.id, "file", { ...DEFAULT_AUDIO_FILE });
+                    return;
+                  }
+                  if (isMedia && spec.key === "file") {
+                    setMediaFile(node.id, next as FileParam);
                     return;
                   }
                   setParam(node.id, spec.key, next);

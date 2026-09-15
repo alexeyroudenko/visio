@@ -25,6 +25,95 @@ export function fileParam(params: Record<string, unknown>, key = "file"): FilePa
 
 export type MediaKind = "image" | "video" | "audio";
 
+/** Dev/preview endpoint that reads a local media file off disk. */
+export const LOCAL_FILE_ENDPOINT = "/__visio/local-file";
+
+const IMAGE_NAME = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
+const VIDEO_NAME = /\.(mp4|webm|mov|m4v|ogg)$/i;
+const AUDIO_NAME = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i;
+
+const MIME_FROM_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+  avif: "image/avif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  m4v: "video/x-m4v",
+  ogg: "video/ogg",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  oga: "audio/ogg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  opus: "audio/opus",
+};
+
+/** Strip Explorer "Copy as path" quotes and surrounding whitespace. */
+export function normalizeMediaPath(raw: string): string {
+  let value = raw.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  return value;
+}
+
+export function mediaPathLeaf(value: string): string {
+  const stripped = value.replace(/[\\/]+$/, "");
+  const parts = stripped.split(/[\\/]/);
+  return parts[parts.length - 1] || stripped;
+}
+
+export function mimeFromName(name: string): string | undefined {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return undefined;
+  return MIME_FROM_EXT[name.slice(dot + 1).toLowerCase()];
+}
+
+export function mediaKindFromName(name: string): MediaKind | null {
+  if (IMAGE_NAME.test(name)) return "image";
+  if (VIDEO_NAME.test(name)) return "video";
+  if (AUDIO_NAME.test(name)) return "audio";
+  return null;
+}
+
+/**
+ * Absolute disk path (Windows drive, UNC, file://, POSIX home/volumes).
+ * Site-relative URLs (`/imgs/foo.jpg`, `./clip.mp4`) stay URLs.
+ */
+export function isFilesystemPath(value: string): boolean {
+  if (/^(https?:|blob:|data:)/i.test(value)) return false;
+  if (/^file:/i.test(value)) return true;
+  if (/^[a-zA-Z]:[\\/]/.test(value)) return true;
+  if (value.startsWith("\\\\")) return true;
+  return /^\/(Users|home|Volumes|mnt|media|opt|var|tmp|private|data)\b/.test(value);
+}
+
+/** `file:///Y:/clip.mp4` → `Y:/clip.mp4`; POSIX file URLs keep the leading slash. */
+export function fileUrlToPath(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "file:") return url;
+    let pathname = decodeURIComponent(parsed.pathname);
+    if (/^\/[a-zA-Z]:/.test(pathname)) pathname = pathname.slice(1);
+    return pathname;
+  } catch {
+    return url;
+  }
+}
+
+export function localFileRequestUrl(fsPath: string): string {
+  return `${LOCAL_FILE_ENDPOINT}?path=${encodeURIComponent(fsPath)}`;
+}
+
 /**
  * Which Media mode a file belongs in. The extension is the fallback because a
  * drag from the desktop often arrives with an empty `type` (Windows has no MIME
@@ -34,11 +123,7 @@ export function mediaKind(file: File): MediaKind | null {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("video/")) return "video";
   if (file.type.startsWith("audio/")) return "audio";
-  const lower = file.name.toLowerCase();
-  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/.test(lower)) return "image";
-  if (/\.(mp4|webm|mov|m4v|ogg)$/.test(lower)) return "video";
-  if (/\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/.test(lower)) return "audio";
-  return null;
+  return mediaKindFromName(file.name);
 }
 
 /** A picked / dropped File as a param. The blob URL lives until nothing recalls it. */
@@ -50,6 +135,69 @@ export function fileParamFromFile(file: File): FileParam {
     sizeBytes: file.size,
     fileObj: file,
   };
+}
+
+function resolveFetchUrl(value: string): string {
+  if (/^(https?:|blob:|data:)/i.test(value)) return value;
+  try {
+    return new URL(value, window.location.href).href;
+  } catch {
+    return value;
+  }
+}
+
+async function fileParamFromResponse(response: Response, name: string, fallback: string): Promise<FileParam> {
+  const headerType = (response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  if (headerType.includes("html")) throw new Error(fallback);
+  if (!response.ok) {
+    const text = (await response.text()).trim().slice(0, 160);
+    throw new Error(text || fallback);
+  }
+  const blob = await response.blob();
+  const mime = headerType || mimeFromName(name) || blob.type;
+  if (mime.includes("html")) throw new Error(fallback);
+  const file = new File([blob], name, { type: mime || undefined });
+  return fileParamFromFile(file);
+}
+
+/**
+ * Open a pasted full path or URL as a Media file. Disk paths go through the
+ * Vite `/__visio/local-file` endpoint (`npm run dev`); http(s) and site paths
+ * are fetched. Explorer quotes are stripped.
+ */
+export async function fileParamFromPath(raw: string): Promise<FileParam> {
+  const path = normalizeMediaPath(raw);
+  if (!path) throw new Error("empty path");
+  const fsPath = /^file:/i.test(path) ? fileUrlToPath(path) : path;
+  const name = mediaPathLeaf(fsPath);
+  if (!mediaKindFromName(name)) throw new Error("not an image, video or audio file");
+
+  if (isFilesystemPath(path) || isFilesystemPath(fsPath)) {
+    try {
+      const response = await fetch(localFileRequestUrl(fsPath));
+      return await fileParamFromResponse(
+        response,
+        name,
+        "local files need npm run dev (or paste an http URL)",
+      );
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error("local files need npm run dev (or paste an http URL)");
+      }
+      throw error;
+    }
+  }
+
+  try {
+    const response = await fetch(resolveFetchUrl(path));
+    return await fileParamFromResponse(response, name, `failed to load ${name}`);
+  } catch (error) {
+    // CORS / network — still try the URL as a direct <img>/<video> src.
+    if (error instanceof TypeError) {
+      return { name, url: resolveFetchUrl(path), mime: mimeFromName(name) };
+    }
+    throw error;
+  }
 }
 
 function publicFile(name: string): FileParam {
