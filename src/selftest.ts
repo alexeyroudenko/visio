@@ -68,6 +68,7 @@ import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import {
   fileUrlToPath,
+  fileParam,
   isFilesystemPath,
   libraryImage,
   localFileRequestUrl,
@@ -78,6 +79,7 @@ import {
   resolveBundledFile,
 } from "./nodes/shared/fileParam";
 import { BUILTIN_PRESETS, DEFAULT_PRESET_ID, listPresets } from "./presets";
+import { fillMissingMediaFiles } from "./presets/saveBuiltin";
 import { clearMediaMemory, recallMediaParams, rememberedFile, rememberMedia } from "./store/mediaMemory";
 import { useNodeDebugStore } from "./store/nodeDebugStore";
 import { parsePatch, serializePatch } from "./store/persistence";
@@ -2628,6 +2630,33 @@ async function run(): Promise<void> {
     overrideUrlProblems.length === 0,
     overrideUrlProblems.slice(0, 3).join(" | ") || "ok",
   );
+
+  const skeletonLive = listPresets().find((entry) => entry.id === "track-skeleton-grid")?.build();
+  const skeletonMedia = skeletonLive?.nodes.find((node) => node.type === "source.media");
+  check(
+    "Skeleton Grid ships the pose still",
+    skeletonMedia?.params.mode === "image" && fileParam(skeletonMedia.params)?.name === "default-pose.png",
+    `mode=${String(skeletonMedia?.params.mode)} file=${fileParam(skeletonMedia?.params ?? {})?.name ?? "none"}`,
+  );
+
+  {
+    const original = BUILTIN_PRESETS.find((entry) => entry.id === "track-skeleton-grid")?.build();
+    const media = original?.nodes.find((node) => node.type === "source.media");
+    const stripped = original ? structuredClone(original) : null;
+    const strippedMedia = stripped?.nodes.find((node) => node.type === "source.media");
+    if (strippedMedia) {
+      strippedMedia.params.mode = "video";
+      delete strippedMedia.params.file;
+    }
+    const filled = stripped && original ? fillMissingMediaFiles(stripped, original) : null;
+    const restored = filled?.nodes.find((node) => node.type === "source.media");
+    check(
+      "a blob-stripped video override keeps the authored still",
+      fileParam(restored?.params ?? {})?.name === fileParam(media?.params ?? {})?.name &&
+        restored?.params.mode === media?.params.mode,
+      `mode=${String(restored?.params.mode)} file=${fileParam(restored?.params ?? {})?.name ?? "none"}`,
+    );
+  }
 
   check(
     "ship config names real builtins and never the default",

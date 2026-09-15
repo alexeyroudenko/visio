@@ -2,7 +2,7 @@
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "video_2026-08-20_16-14-30.mp4",
+  "source": "default-pose.png",
   "nodes": [
     {
       "id": "image-1",
@@ -12,8 +12,13 @@
         "y": 60
       },
       "params": {
-        "mode": "video",
+        "mode": "image",
         "facing": "environment",
+        "file": {
+          "name": "default-pose.png",
+          "url": "./default-pose.png",
+          "mime": "image/png"
+        },
         "playing": true,
         "muted": false,
         "volume": 1,
@@ -21,7 +26,7 @@
         "syncTimeline": false,
         "mirror": false,
         "fit": "cover",
-        "zoom": 1.2000000000000002
+        "zoom": 1
       }
     },
     {
@@ -50,7 +55,7 @@
         "boneColor": "#7fe3c0",
         "pointSize": 5,
         "boneWidth": 4,
-        "opacity": 0,
+          "opacity": 1,
         "scoreFade": true,
         "blend": "normal"
       }
@@ -105,7 +110,7 @@
       "params": {
         "brightness": -0.1,
         "contrast": 1.05,
-        "saturation": 0,
+        "saturation": 1,
         "hue": 0
       }
     },

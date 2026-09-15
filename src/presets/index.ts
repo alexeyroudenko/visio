@@ -17,7 +17,7 @@ import { datamosh } from "./datamosh";
 import { genMotionMosh } from "./genMotionMosh";
 import { skeletonGrid } from "./skeletonGrid";
 import { isOmitted } from "./ship";
-import { builtinOverride } from "./saveBuiltin";
+import { builtinOverride, fillMissingMediaFiles } from "./saveBuiltin";
 
 export interface PatchPreset {
   id: string;
@@ -1754,7 +1754,11 @@ function withOverride(preset: PatchPreset): PatchPreset {
   const original = preset.build;
   return {
     ...preset,
-    build: () => builtinOverride(preset.id) ?? original(),
+    build: () => {
+      const override = builtinOverride(preset.id);
+      if (!override) return original();
+      return fillMissingMediaFiles(override, original());
+    },
   };
 }
 
