@@ -1,19 +1,17 @@
-import { libraryImage } from "../nodes/shared/fileParam";
 import type { SerializedPatch } from "../store/persistence";
 
 export function pixelSortStart(): SerializedPatch {
-  const patch = {
+  return {
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "img1.jpg",
   "nodes": [
     {
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 829.4319805437722,
-        "y": 488.03751353977475
+        "x": 765.5242398890389,
+        "y": 665.4530323723178
       },
       "params": {
         "background": "#000000"
@@ -27,7 +25,7 @@ export function pixelSortStart(): SerializedPatch {
         "y": 148.1347175885266
       },
       "params": {
-        "thresh": 19,
+        "thresh": 55,
         "vert": true,
         "scale": 1,
         "interval": 1,
@@ -61,13 +59,8 @@ export function pixelSortStart(): SerializedPatch {
         "y": -32.94965614485287
       },
       "params": {
-        "mode": "image",
+        "mode": "camera",
         "facing": "user",
-        "file": {
-          "name": "img1.jpg",
-          "url": "./imgs/img1.jpg",
-          "mime": "image/jpeg"
-        },
         "playing": true,
         "muted": false,
         "volume": 1,
@@ -76,6 +69,32 @@ export function pixelSortStart(): SerializedPatch {
         "mirror": false,
         "fit": "cover",
         "zoom": 1
+      }
+    },
+    {
+      "id": "blend-5",
+      "type": "fx.blend",
+      "position": {
+        "x": 595.6261057582566,
+        "y": 490.6095946115438
+      },
+      "params": {
+        "mode": "over",
+        "opacity": 0.8500000000000001
+      }
+    },
+    {
+      "id": "color-6",
+      "type": "fx.color",
+      "position": {
+        "x": 295.7769833892255,
+        "y": 494.4547998818878
+      },
+      "params": {
+        "brightness": 0,
+        "contrast": 1.7000000000000002,
+        "saturation": 0,
+        "hue": 0
       }
     }
   ],
@@ -95,11 +114,32 @@ export function pixelSortStart(): SerializedPatch {
       "targetHandle": "src"
     },
     {
-      "id": "e-85a12f29-e630-4832-adca-55c63dff4ab0",
-      "source": "colorCorrection-4",
+      "id": "e-b3ce264c-8fbb-4022-ba36-23672b2a3108",
+      "source": "blend-5",
       "sourceHandle": "out",
       "target": "screen-1",
       "targetHandle": "src"
+    },
+    {
+      "id": "e-565a2877-644f-463b-bbcb-8c88e23fc08d",
+      "source": "media-1",
+      "sourceHandle": "out",
+      "target": "color-6",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-9355309e-522e-4262-9523-004ed24d3b8e",
+      "source": "colorCorrection-4",
+      "sourceHandle": "out",
+      "target": "blend-5",
+      "targetHandle": "top"
+    },
+    {
+      "id": "e-19af151e-d2d6-4e1b-9617-970eff46a314",
+      "source": "color-6",
+      "sourceHandle": "out",
+      "target": "blend-5",
+      "targetHandle": "base"
     }
   ],
   "timeline": {
@@ -107,6 +147,10 @@ export function pixelSortStart(): SerializedPatch {
     "durationInFrames": 1473,
     "keyframes": {
       "pixelSort-5:vert": [
+        {
+          "frame": 0,
+          "value": true
+        },
         {
           "frame": 3,
           "value": true
@@ -127,7 +171,7 @@ export function pixelSortStart(): SerializedPatch {
       "pixelSort-5:thresh": [
         {
           "frame": 0,
-          "value": 19
+          "value": 55
         },
         {
           "frame": 3,
@@ -302,7 +346,4 @@ export function pixelSortStart(): SerializedPatch {
     "pixelSort-5:thresh"
   ]
 } as SerializedPatch;
-  const media = patch.nodes.find((node) => node.id === "media-1");
-  if (media) media.params.file = libraryImage("img1.jpg");
-  return patch;
 }
