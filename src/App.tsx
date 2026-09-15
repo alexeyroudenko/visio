@@ -244,6 +244,22 @@ export default function App() {
       setParam(node.id, "mirror", camera.mirror);
     }
   }, [loadPreset, setParam]);
+  const enableIphoneCamera = useCallback(() => {
+    const state = useGraphStore.getState();
+    const selected = state.nodes.find(
+      (node) => node.id === state.selectedId && node.data.defType === "source.media",
+    );
+    const media =
+      selected ?? state.nodes.find((node) => node.data.defType === "source.media");
+    if (!media) {
+      startWelcomeCamera();
+      return;
+    }
+    const camera = welcomeCameraParams();
+    setParam(media.id, "mode", camera.mode);
+    setParam(media.id, "facing", camera.facing);
+    setParam(media.id, "mirror", camera.mirror);
+  }, [setParam, startWelcomeCamera]);
   const [presetNudge, setPresetNudge] = useState(0);
   const [chromeHint, setChromeHint] = useState(false);
   const [holdUntilPresets, setHoldUntilPresets] = useState(false);
@@ -556,6 +572,17 @@ export default function App() {
 
       {vertical ? (
         <div className="shutter-bar" role="toolbar" aria-label="Record">
+          {nodes.length > 0 ? (
+            <button
+              type="button"
+              className="shutter-bar__chip"
+              onClick={enableIphoneCamera}
+            >
+              {WELCOME_CAMERA_LABEL}
+            </button>
+          ) : (
+            <span className="shutter-bar__slot" aria-hidden />
+          )}
           <button
             type="button"
             className={`shutter${recording ? " shutter--recording" : ""}`}
@@ -572,6 +599,7 @@ export default function App() {
           >
             <span className="shutter__inner" aria-hidden />
           </button>
+          <span className="shutter-bar__slot" aria-hidden />
         </div>
       ) : null}
     </div>
