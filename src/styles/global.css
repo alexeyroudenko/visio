@@ -1360,6 +1360,32 @@ input[type="checkbox"] {
   min-height: 1px;
 }
 
+.shutter-bar__render {
+  pointer-events: auto;
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shutter-bar__chip--ghost {
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  border-color: rgb(255 255 255 / 70%);
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.shutter-bar__chip--ghost:disabled {
+  opacity: 0.4;
+}
+
+.shutter-bar__chip--busy {
+  border-color: #fff;
+  color: #fff;
+}
+
 .shutter {
   pointer-events: auto;
   justify-self: center;

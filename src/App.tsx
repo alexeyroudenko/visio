@@ -587,7 +587,7 @@ export default function App() {
             type="button"
             className={`shutter${recording ? " shutter--recording" : ""}`}
             onClick={toggle}
-            disabled={paused || rendering}
+            disabled={paused || rendering || renderingImage}
             title={
               recording
                 ? "Stop recording the output"
@@ -599,7 +599,26 @@ export default function App() {
           >
             <span className="shutter__inner" aria-hidden />
           </button>
-          <span className="shutter-bar__slot" aria-hidden />
+          <div className="shutter-bar__render">
+            <button
+              type="button"
+              className="shutter-bar__chip shutter-bar__chip--ghost"
+              onClick={renderImage}
+              disabled={recording || rendering || renderingImage || !renderImage}
+              title="Save a PNG of the playhead frame"
+            >
+              {renderingImage ? "Saving…" : "image"}
+            </button>
+            <button
+              type="button"
+              className={`shutter-bar__chip shutter-bar__chip--ghost${rendering ? " shutter-bar__chip--busy" : ""}`}
+              onClick={toggleRender}
+              disabled={recording || renderingImage}
+              title="Offline Render video"
+            >
+              {rendering ? `cancel ${Math.round(renderProgress * 100)}%` : "video"}
+            </button>
+          </div>
         </div>
       ) : null}
     </div>
