@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { registerMidiParam } from "../lib/midiParams";
 
 const SENSITIVITY = 150; // vertical pixels for the full min→max sweep
 const DEFAULT_SIZE = 44;
@@ -64,6 +65,7 @@ export function Knob({
   onChange,
   size = DEFAULT_SIZE,
   format,
+  publish = false,
 }: {
   label: string;
   min: number;
@@ -73,13 +75,20 @@ export function Knob({
   onChange: (next: number) => void;
   size?: number;
   format?: (v: number) => string;
+  /** Offer this knob to an external MIDI bridge (published mixer only). */
+  publish?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const rangeRef = useRef({ min, max, step });
+  const labelRef = useRef(label);
   const dragRef = useRef<{ y0: number; v0: number } | null>(null);
   const valueRef = useRef(value);
   const onChangeRef = useRef(onChange);
   valueRef.current = value;
   onChangeRef.current = onChange;
+  rangeRef.current = { min, max, step };
+  labelRef.current = label;
 
   const span = Math.max(1e-9, max - min);
   const t = Math.max(0, Math.min(1, (value - min) / span));
@@ -135,8 +144,30 @@ export function Knob({
     };
   }, [min, max, step]);
 
+  // Registered once per mount: the refs above keep the entry reading fresh
+  // bounds and handlers, so a re-render never churns the bridge's mapping.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!publish || !el) return;
+    return registerMidiParam({
+      get label() {
+        return labelRef.current;
+      },
+      el,
+      getNorm: () => {
+        const { min: lo, max: hi } = rangeRef.current;
+        return Math.max(0, Math.min(1, (valueRef.current - lo) / Math.max(1e-9, hi - lo)));
+      },
+      setNorm: (norm) => {
+        const { min: lo, max: hi, step: inc } = rangeRef.current;
+        const next = clampQuantize(lo + Math.max(0, Math.min(1, norm)) * (hi - lo), lo, hi, inc);
+        if (next !== valueRef.current) onChangeRef.current(next);
+      },
+    });
+  }, [publish]);
+
   return (
-    <div className="kw">
+    <div className="kw" ref={wrapRef}>
       <canvas
         ref={canvasRef}
         className="knob"

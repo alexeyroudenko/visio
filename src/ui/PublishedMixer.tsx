@@ -78,6 +78,7 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
           step={spec.step}
           value={numeric}
           onChange={(next) => setParam(node.id, spec.key, next)}
+          publish
         />
         <button
           type="button"
