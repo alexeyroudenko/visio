@@ -354,6 +354,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const blockAutoscroll = (event: MouseEvent) => {
+      if (event.button !== 1) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+    window.addEventListener("mousedown", blockAutoscroll, { capture: true });
+    return () => window.removeEventListener("mousedown", blockAutoscroll, { capture: true });
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
       if (

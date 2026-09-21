@@ -67,6 +67,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -534,7 +535,7 @@ input[type="checkbox"] {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 20;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   pointer-events: none;
@@ -1500,12 +1501,11 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-/* Output preview paints above the overlay toolbar so the frame is not
-   clipped by Settings / Node / Presets. Clicks fall through the canvas
-   onto those buttons; the Output-window chip still receives pointer events. */
+/* Sit the output below the overlay toolbar so the frame is not under
+   Settings / Node / Presets — and so this column cannot paint over the
+   chrome (middle-click autoscroll used to swallow the whole top bar). */
 .side--right {
-  position: relative;
-  z-index: 25;
+  padding-top: 40px;
 }
 
 .side--fill {
@@ -1537,7 +1537,6 @@ body.is-resizing {
 .preview {
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
-  pointer-events: none;
 }
 
 .preview--fill {
@@ -1546,7 +1545,7 @@ body.is-resizing {
   flex: 1 1 auto;
   min-height: 0;
   border-bottom: none;
-  overflow: auto;
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -1644,7 +1643,6 @@ body.is-resizing {
   justify-content: space-between;
   gap: 8px;
   margin-top: 6px;
-  pointer-events: auto;
 }
 
 .preview__caption {
