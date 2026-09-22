@@ -22,12 +22,13 @@ import { AppConsole } from "./ui/AppConsole";
 import { PublishedMixer } from "./ui/PublishedMixer";
 import { useEngine } from "./ui/useEngine";
 import { useFileDrop } from "./ui/useFileDrop";
+import { useOpenMedia } from "./ui/useOpenMedia";
 import { useRecorder } from "./ui/useRecorder";
 import { useOfflineRender } from "./ui/useOfflineRender";
 import { useOutputWindow } from "./ui/useOutputWindow";
 import { Timeline } from "./ui/Timeline";
 import { NODE_DEFS } from "./nodes/registry";
-import { mediaKind } from "./nodes/shared/fileParam";
+import { fileParamFromPath, mediaKind, mediaPathLeaf } from "./nodes/shared/fileParam";
 import { fitAppWindowOnFirstLaunch } from "./lib/appWindow";
 import {
   APP_MARK,
@@ -51,6 +52,7 @@ import { sourceMediaStem } from "./lib/mediaName";
 import { loadPerformanceMode, savePerformanceMode } from "./lib/performanceMode";
 import { DEFAULT_PRESET_ID } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
+import { appLog } from "./store/consoleStore";
 import { mediaMemoryReady } from "./store/mediaMemory";
 
 const LEFT_WIDTH_KEY = "visio.leftWidth";
@@ -279,6 +281,25 @@ export default function App() {
     [dropMediaFiles, setEnginePaused],
   );
   const dropOver = useFileDrop(onDropFiles);
+
+  // "Open in Visio" from another local app: only a path crosses, the bytes come
+  // back off disk through the dev server, and from there it is an ordinary drop
+  // — same node, same image/video switch.
+  const onOpenPath = useCallback(
+    async (fsPath: string) => {
+      try {
+        const file = await fileParamFromPath(fsPath);
+        if (!file.fileObj) throw new Error("nothing to read");
+        onDropFiles([file.fileObj]);
+        window.focus();
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        appLog("error", "media", `open ${mediaPathLeaf(fsPath)}: ${reason}`);
+      }
+    },
+    [onDropFiles],
+  );
+  useOpenMedia(onOpenPath);
 
   const onPresetsGateClose = useCallback(() => {
     setHoldUntilPresets(false);

@@ -452,6 +452,17 @@ second, then opens the picker; video starts when the modal closes or a preset
 loads. Only the first usable file is taken: the
 memory below keeps one `blob:` URL per kind and revokes the one it replaces, so
 two images in a single drop would leave the first node holding a dead URL.
+- **Another app can hand Visio a file**, and only the path crosses. `GET
+/__visio/open?path=<absolute path>` pushes it to every tab listening on
+`/__visio/open/events`, and answers `{"delivered": true}` when one took it;
+`delivered: false` is the caller's cue to open a tab at `/?media=<path>`, which
+reads the parameter on boot and then drops it from the URL so a reload does not
+re-open the file. Either way the tab fetches the bytes itself through
+`/__visio/local-file` and feeds them to the drop handler above — the file lands
+on the selected Media node and switches it to image/video/audio to match. Dev
+and `npm run preview` only, like the local-file endpoint it rests on. In
+[media-lib](../../Developer/media-lib) this is the second icon on every Grid
+card, next to Copy path.
 - **The footage outlives the patch, in this tab.** Presets ship their own source type and
 file, and loading one used to throw away the video you had just dropped.
 `mediaMemory` remembers the last file per source type plus the type itself, and

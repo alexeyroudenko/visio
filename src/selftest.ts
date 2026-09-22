@@ -31,6 +31,7 @@ import {
   parseModulatorBinds,
   parseModulatorDriveConfig,
 } from "./lib/modulatorBindings";
+import { openMediaParam } from "./lib/openMedia";
 import { computePeaks, resamplePeaks } from "./lib/peaks";
 import {
   applyModulatorsToNodes,
@@ -2936,6 +2937,18 @@ async function run(): Promise<void> {
       fileUrlToPath("file:///Y:/clips/shot.mp4") === "Y:/clips/shot.mp4" &&
       localFileRequestUrl(String.raw`Y:\a b.mp4`).startsWith("/__visio/local-file?path="),
     `norm=${normalizeMediaPath(`"${winPath}"`)} leaf=${mediaPathLeaf(winPath)}`,
+  );
+
+  // "Open in Visio" from another app: the path rides in on the URL of the tab
+  // opened for it, and has to come back out of percent-encoding intact.
+  const linked = `?media=${encodeURIComponent(winPath)}`;
+  check(
+    "a ?media= link hands over the path it was opened with",
+    openMediaParam(linked, "") === winPath &&
+      openMediaParam("", `#media=${encodeURIComponent(winPath)}`) === winPath &&
+      openMediaParam("?other=1", "") === "" &&
+      openMediaParam("", "") === "",
+    `query=${openMediaParam(linked, "")}`,
   );
 
   // --- 6c-bis. noise field --------------------------------------------------
