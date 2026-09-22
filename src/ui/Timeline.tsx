@@ -7,6 +7,7 @@ import {
 import { resamplePeaks } from "../lib/peaks";
 import {
   formatReelSeconds,
+  REEL_MAX_SEC,
   reelWarningMessage,
   zonesFromCuts,
 } from "../lib/reelMarkers";
@@ -227,8 +228,8 @@ export function Timeline() {
   );
 
   // When a video clip reports a real duration, match the composition length
-  // (reel formula recalculates). Fingerprint avoids fighting manual duration edits
-  // until the source length actually changes.
+  // (capped at REEL_MAX_SEC — longer files open as the first 15s only).
+  // Fingerprint avoids fighting manual duration edits until the source length changes.
   const primaryVideoSec = useMemo(() => {
     let best = 0;
     for (const clip of videoClips) {
@@ -245,15 +246,17 @@ export function Timeline() {
   const lastSyncedVideoSec = useRef(0);
   useEffect(() => {
     if (primaryVideoSec < 0.5) return;
-    if (Math.abs(primaryVideoSec - lastSyncedVideoSec.current) < 0.05) return;
-    const targetFrames = Math.round(primaryVideoSec * fps);
+    // Cap at reel max so a long drop opens as a 15s composition.
+    const syncSec = Math.min(primaryVideoSec, REEL_MAX_SEC);
+    if (Math.abs(syncSec - lastSyncedVideoSec.current) < 0.05) return;
+    const targetFrames = Math.round(syncSec * fps);
     // Already matching composition length — don't wipe manual zone edits.
     if (Math.abs(targetFrames - durationInFrames) <= 1) {
-      lastSyncedVideoSec.current = primaryVideoSec;
+      lastSyncedVideoSec.current = syncSec;
       return;
     }
-    lastSyncedVideoSec.current = primaryVideoSec;
-    syncDurationFromMediaSec(primaryVideoSec);
+    lastSyncedVideoSec.current = syncSec;
+    syncDurationFromMediaSec(syncSec);
   }, [primaryVideoSec, syncDurationFromMediaSec, fps, durationInFrames]);
 
   const durationSec = durationInFrames / Math.max(1, fps);

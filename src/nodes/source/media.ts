@@ -15,6 +15,7 @@ import {
   ensureMediaMeta,
 } from "../../lib/mediaMeta";
 import { ensureAudioBuffer } from "../../lib/audioBuffers";
+import { REEL_MAX_SEC } from "../../lib/reelMarkers";
 import { defineNode, paramBool, paramNumber, paramString } from "../defineNode";
 import { DEFAULT_AUDIO_FILE, fileParam } from "../shared/fileParam";
 import { StageCanvas, type FitMode } from "../shared/stage";
@@ -232,12 +233,14 @@ function switchMode(state: MediaState, next: MediaMode): void {
   state.probedFpsUrl = null;
 }
 
-/** Apply mute/volume and timeline/free playback shared by video + audio modes. */
+/** Apply mute/volume and timeline/free playback shared by video + audio modes.
+ *  `maxSec` caps the open window (video opens as the first REEL_MAX_SEC only). */
 function applyAvTransport(
   ctx: EngineContext,
   params: ParamValues,
   state: MediaState,
   video: HTMLVideoElement,
+  maxSec: number | null = null,
 ): void {
   const muted = paramBool(params, "muted", false);
   const volume = Math.max(0, Math.min(1, paramNumber(params, "volume", 1)));
@@ -249,10 +252,16 @@ function applyAvTransport(
   const syncTimeline =
     paramBool(params, "syncTimeline", false) || ctx.timelineForceSync;
 
-  if (syncTimeline && Number.isFinite(video.duration) && video.duration > 0) {
+  const full =
+    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+  const span = full > 0 && maxSec != null ? Math.min(full, maxSec) : full;
+  // Native loop only when the whole file fits the open window.
+  video.loop = maxSec == null || !(full > maxSec);
+
+  if (syncTimeline && span > 0) {
     const speed = Math.max(0.001, paramNumber(params, "speed", 1));
     let t = (ctx.timelineFrame / ctx.timelineFps) * speed;
-    t = ((t % video.duration) + video.duration) % video.duration;
+    t = ((t % span) + span) % span;
     if (Math.abs(video.currentTime - t) > 1 / ctx.timelineFps) {
       try {
         video.currentTime = t;
@@ -262,6 +271,13 @@ function applyAvTransport(
     }
     if (!video.paused) video.pause();
   } else if (!state.suspended) {
+    if (span > 0 && maxSec != null && video.currentTime >= span - 1 / 60) {
+      try {
+        video.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+    }
     if (shouldPlay && video.paused) {
       void video.play().catch(() => {
         // Autoplay with sound is often blocked — fall back to muted.
@@ -302,13 +318,19 @@ function emit(
  * `decodeAudioData` for every Media node would cost even with nothing wired up,
  * so the consumer decodes (once, cached) only when it actually needs them.
  */
-function audioOut(state: MediaState, video: HTMLVideoElement): AudioValue | null {
+function audioOut(
+  state: MediaState,
+  video: HTMLVideoElement,
+  maxSec: number | null = null,
+): AudioValue | null {
   if (!state.loadedUrl) return null;
+  const full =
+    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
   return {
     url: state.loadedUrl,
     buffer: null,
     timeSec: Number.isFinite(video.currentTime) ? video.currentTime : 0,
-    durationSec: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0,
+    durationSec: full > 0 && maxSec != null ? Math.min(full, maxSec) : full,
     playing: !video.paused,
   };
 }
@@ -680,7 +702,6 @@ function evalVideo(
   zoom: number,
 ) {
   state.video.autoplay = false;
-  state.video.loop = true;
   const video = state.video;
   const file = fileParam(params);
 
@@ -706,7 +727,7 @@ function evalVideo(
     return { out: target, frame: null };
   }
 
-  applyAvTransport(ctx, params, state, video);
+  applyAvTransport(ctx, params, state, video, REEL_MAX_SEC);
 
   if (video.readyState < 2 || video.videoWidth === 0) {
     return { out: target, frame: null };
@@ -725,7 +746,11 @@ function evalVideo(
 
   const mime = file?.mime ?? null;
   const fps = ensureProbedFps(state, state.loadedUrl) ?? ctx.timelineFps;
-  const durationSec = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+  const fileDurationSec =
+    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+  // Open window is the first REEL_MAX_SEC — timeline / playhead use that span.
+  const durationSec =
+    fileDurationSec != null ? Math.min(fileDurationSec, REEL_MAX_SEC) : null;
   const currentTimeSec = Number.isFinite(video.currentTime) ? video.currentTime : null;
   const currentFrame =
     currentTimeSec != null ? Math.floor(currentTimeSec * fps) : null;
@@ -746,7 +771,8 @@ function evalVideo(
     currentFrame,
     totalFrames,
     playing: !video.paused,
-    ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, durationSec),
+    // Bitrate from full file length, not the open window.
+    ...fileMetaFields(state.loadedUrl, mime, file?.sizeBytes, fileDurationSec),
   });
 
   state.stage.draw(video, video.videoWidth, video.videoHeight, ctx.width, ctx.height, {
@@ -754,7 +780,7 @@ function evalVideo(
     mirror,
     zoom,
   });
-  return emit(state, target, ctx, audioOut(state, video));
+  return emit(state, target, ctx, audioOut(state, video, REEL_MAX_SEC));
 }
 
 function evalAudio(

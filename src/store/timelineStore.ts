@@ -15,6 +15,7 @@ import {
   cutsFromUnknown,
   moveCut,
   normalizeCuts,
+  REEL_MAX_SEC,
   scaleCuts,
   type ReelCutIndex,
   type ReelCutsSec,
@@ -377,7 +378,9 @@ function createTimelineStore() {
 
     syncDurationFromMediaSec(durationSec) {
       const state = get();
-      const frames = Math.max(MIN_DURATION, Math.round(durationSec * state.fps));
+      // Reels are 7–15s: opening a longer file only takes the first REEL_MAX_SEC.
+      const cappedSec = Math.min(Math.max(0, durationSec), REEL_MAX_SEC);
+      const frames = Math.max(MIN_DURATION, Math.round(cappedSec * state.fps));
       // Force formula from media length (new clip → clean zones).
       set({
         durationInFrames: frames,
