@@ -40,7 +40,7 @@ import {
   WELCOME_DESKTOP_NOTE,
   WELCOME_HINT,
   WELCOME_PLUS_LABEL,
-  WELCOME_TEMPLATE_LABEL,
+  WELCOME_UPLOAD_LABEL,
   welcomeCameraParams,
 } from "./lib/appVersion";
 import {
@@ -50,10 +50,16 @@ import {
 } from "./lib/firstRun";
 import { sourceMediaStem } from "./lib/mediaName";
 import { loadPerformanceMode, savePerformanceMode } from "./lib/performanceMode";
-import { DEFAULT_PRESET_ID } from "./presets";
+import { builtinPreviewUrl, DEFAULT_PRESET_ID, listPresets, type PatchPreset } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 import { appLog } from "./store/consoleStore";
 import { mediaMemoryReady } from "./store/mediaMemory";
+
+function welcomePresetThumb(preset: PatchPreset): string | null {
+  if (preset.preview) return preset.preview;
+  if (preset.builtin) return builtinPreviewUrl(preset.id);
+  return null;
+}
 
 const LEFT_WIDTH_KEY = "visio.leftWidth";
 const RIGHT_WIDTH_KEY = "visio.rightWidth";
@@ -448,23 +454,43 @@ export default function App() {
               </p>
             </div>
             <p className="welcome__hint">{WELCOME_HINT}</p>
-            <button
-              type="button"
-              className="welcome__link"
-              onClick={() => loadPreset(DEFAULT_PRESET_ID)}
-            >
-              {WELCOME_TEMPLATE_LABEL}
-            </button>
+            <div className="welcome__presets" role="list" aria-label="Presets">
+              {listPresets().map((preset) => {
+                const thumb = welcomePresetThumb(preset);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="welcome__preset"
+                    title={preset.label}
+                    aria-label={`Load preset ${preset.label}`}
+                    onClick={() => loadPreset(preset.id)}
+                  >
+                    <span className="welcome__preset-thumb" aria-hidden="true">
+                      {thumb ? (
+                        <img src={thumb} alt="" loading="lazy" />
+                      ) : (
+                        <span className="welcome__preset-empty" />
+                      )}
+                    </span>
+                    <span className="welcome__preset-label">{preset.label}</span>
+                  </button>
+                );
+              })}
+            </div>
             <p className="welcome__desktop">{WELCOME_DESKTOP_NOTE}</p>
           </div>
           <button
             type="button"
-            className="welcome__plus"
+            className="welcome__upload"
             onClick={() => mediaPickRef.current?.click()}
             title="Open a video or image"
-            aria-label="Open a video or image"
+            aria-label="Upload video"
           >
-            {WELCOME_PLUS_LABEL}
+            <span className="welcome__plus" aria-hidden="true">
+              {WELCOME_PLUS_LABEL}
+            </span>
+            <span className="welcome__upload-label">{WELCOME_UPLOAD_LABEL}</span>
           </button>
           <input
             ref={mediaPickRef}

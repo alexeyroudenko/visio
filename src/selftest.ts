@@ -64,7 +64,7 @@ import {
 } from "./nodes/tracking/segmentation";
 import { cannyEdges } from "./nodes/tracking/canny";
 import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
-import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
+import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, WELCOME_UPLOAD_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import {
@@ -590,6 +590,11 @@ async function run(): Promise<void> {
     "welcome plus is a single + and stays out of the title-card copy",
     WELCOME_PLUS_LABEL === "+" && !welcomeText().includes(WELCOME_PLUS_LABEL),
     `plus=${WELCOME_PLUS_LABEL}`,
+  );
+  check(
+    "welcome upload label is set and stays out of the title-card copy",
+    WELCOME_UPLOAD_LABEL === "Upload video" && !welcomeText().includes(WELCOME_UPLOAD_LABEL),
+    `upload=${WELCOME_UPLOAD_LABEL}`,
   );
   const helpDef = NODE_DEFS["help.note"];
   const helpParams = defaultParams("help.note");

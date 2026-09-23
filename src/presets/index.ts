@@ -937,7 +937,7 @@ function blendSplit(): SerializedPatch {
   };
 }
 
-/** What “use template” on the empty screen loads. */
+/** Default / first-pick preset on the empty-screen preview strip. */
 export const DEFAULT_PRESET_ID = "pixel-sort-start";
 
 /** Noise TOP → Output — animated monochrome field. */

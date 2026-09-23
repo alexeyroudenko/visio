@@ -202,7 +202,7 @@ input[type="checkbox"] {
   }
 }
 
-/* First launch / Reset: black field, drop copy, template link. Above every
+/* First launch / Reset: black field, drop copy, preset previews. Above every
    chrome button (toolbar 20, shutter 30, console 30, modals 100) so Node /
    Presets / Render cannot sit on the empty-screen copy. Drop-hint (z 200)
    still wins so a file can be dropped onto this overlay. */
@@ -211,7 +211,7 @@ input[type="checkbox"] {
   inset: 0;
   z-index: 150;
   display: grid;
-  grid-template-columns: 1fr minmax(160px, 32vw);
+  grid-template-columns: 1fr minmax(180px, 32vw);
   align-items: center;
   justify-items: center;
   gap: 16px;
@@ -227,6 +227,8 @@ input[type="checkbox"] {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .welcome__hint {
@@ -277,22 +279,97 @@ input[type="checkbox"] {
   color: var(--accent);
 }
 
-.welcome__link {
+.welcome__presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 10px;
+  width: min(100%, 520px);
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
   margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  cursor: pointer;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #000000 var(--panel-2);
+  text-align: left;
 }
 
-.welcome__link:hover {
-  color: var(--accent);
+.welcome__presets::-webkit-scrollbar {
+  width: 10px;
+}
+
+.welcome__presets::-webkit-scrollbar-track {
+  background: var(--panel-2);
+}
+
+.welcome__presets::-webkit-scrollbar-thumb {
+  background: #000;
+  border: 2px solid var(--panel-2);
+}
+
+.welcome__preset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.welcome__preset:hover,
+.welcome__preset:focus-visible {
+  border-color: var(--accent);
+}
+
+.welcome__preset:hover .welcome__preset-thumb,
+.welcome__preset:focus-visible .welcome__preset-thumb {
+  filter: brightness(1.08);
+}
+
+.welcome__preset-thumb {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 177.5%;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+
+.welcome__preset-thumb img,
+.welcome__preset-empty {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.welcome__preset-empty {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--panel) 80%, #000) 25%, transparent 25%)
+      -8px 0 / 16px 16px,
+    linear-gradient(225deg, color-mix(in srgb, var(--panel) 80%, #000) 25%, transparent 25%)
+      -8px 0 / 16px 16px,
+    var(--panel-2);
+}
+
+.welcome__preset-label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 0 4px 6px;
+  font-size: 10px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--muted);
 }
 
 .welcome__desktop {
@@ -329,32 +406,64 @@ input[type="checkbox"] {
   padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
 }
 
-.welcome__plus {
-  width: min(220px, 28vw);
-  height: min(220px, 28vw);
-  border: 2px solid var(--text);
-  border-radius: 50%;
-  background: transparent;
+.welcome__upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--text);
   font: inherit;
-  font-size: clamp(56px, 8vw, 96px);
-  font-weight: 200;
-  line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.welcome__plus:hover,
-.welcome__plus:active {
+.welcome__plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(220px, 28vw);
+  height: min(220px, 28vw);
+  border: 2px solid var(--text);
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: clamp(56px, 8vw, 96px);
+  font-weight: 200;
+  line-height: 1;
+}
+
+.welcome__upload:hover .welcome__plus,
+.welcome__upload:active .welcome__plus {
   background: #fff;
   color: #000;
+}
+
+.welcome__upload-label {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.welcome__upload:hover .welcome__upload-label {
+  color: var(--accent);
 }
 
 .app--vertical .welcome__plus {
   width: 96px;
   height: 96px;
   font-size: 56px;
+}
+
+.app--vertical .welcome__presets {
+  width: min(100%, 360px);
+  max-height: min(28vh, 240px);
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
 }
 
 /* Thin dark scrollbars like cv-reels sidebar */

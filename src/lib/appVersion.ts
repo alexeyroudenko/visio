@@ -8,11 +8,12 @@ export const APP_MARK = "visi0";
 export const AUTHOR_HANDLE = "arthew0";
 export const AUTHOR_FULL = "Alexey Roudenko";
 export const WELCOME_HINT = "drop vertical video or image here...";
-export const WELCOME_TEMPLATE_LABEL = "use template";
 export const WELCOME_DESKTOP_NOTE = "works even better on desktop for now";
 /** Empty-graph + where the Output node / right preview will sit. */
 export const WELCOME_PLUS_LABEL = "+";
-/** Portrait / iPhone empty screen — under the template link, thumb reach. */
+/** Label under the welcome + circle. */
+export const WELCOME_UPLOAD_LABEL = "Upload video";
+/** Portrait / iPhone empty screen — under the upload control, thumb reach. */
 export const WELCOME_CAMERA_LABEL = "enable camera";
 
 export function welcomeCameraParams(): {
@@ -37,7 +38,6 @@ export function welcomeText(): string {
     APP_VERSION_LABEL,
     `by ${AUTHOR_HANDLE} (${AUTHOR_FULL})`,
     WELCOME_HINT,
-    WELCOME_TEMPLATE_LABEL,
     WELCOME_DESKTOP_NOTE,
   ].join("\n");
 }
