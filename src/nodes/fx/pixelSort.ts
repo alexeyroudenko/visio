@@ -2,7 +2,7 @@ import { copyTexture } from "../../engine/gl/quad";
 import { clearTarget, isRenderTarget, type RenderTarget } from "../../engine/gl/rt";
 import { defineNode, paramBool, paramNumber } from "../defineNode";
 import { PixelBuffer } from "../shared/pixelBuffer";
-import { BINS, sortFrame } from "./pixelSortAlgorithms";
+import { BINS, effectiveSortAngle, sortFrameAtAngle } from "./pixelSortAlgorithms";
 import { PixelSortJob } from "./pixelSortClient";
 import type { PixelSortResponse } from "./pixelSortTypes";
 
@@ -33,9 +33,10 @@ interface PixelSortState {
 
 function ensureBuffers(state: PixelSortState, width: number, height: number): void {
   const pixels = width * height;
-  if (state.lum.length !== pixels) state.lum = new Uint8Array(pixels);
-  const longest = Math.max(width, height);
-  if (state.scratch.length !== longest) state.scratch = new Uint32Array(longest);
+  const diagonal = Math.ceil(Math.hypot(width, height)) + 2;
+  const lumNeed = Math.max(pixels, diagonal * diagonal);
+  if (state.lum.length < lumNeed) state.lum = new Uint8Array(lumNeed);
+  if (state.scratch.length < diagonal) state.scratch = new Uint32Array(diagonal);
 }
 
 function writeSorted(
@@ -71,6 +72,15 @@ export const pixelSortNode = defineNode<PixelSortState>({
   params: [
     { key: "thresh", label: "Threshold", type: "range", min: 0, max: 255, step: 1, default: 110 },
     { key: "vert", label: "Vertical", type: "toggle", default: false },
+    {
+      key: "rotation",
+      label: "Rotation °",
+      type: "range",
+      min: 0,
+      max: 180,
+      step: 1,
+      default: 0,
+    },
     { key: "scale", label: "Scale", type: "range", min: 0.25, max: 1, step: 0.25, default: 1 },
     { key: "interval", label: "Every N frames", type: "range", min: 1, max: 8, step: 1, default: 1 },
     { key: "asyncRead", label: "Async readback", type: "toggle", default: false },
@@ -181,16 +191,27 @@ export const pixelSortNode = defineNode<PixelSortState>({
     const height = image.height;
     const thresh = Math.round(paramNumber(params, "thresh", 110));
     const vert = paramBool(params, "vert", false);
+    const rotation = paramNumber(params, "rotation", 0);
+    const angle = effectiveSortAngle(rotation, vert);
 
     if (useWorker) {
       // Copy: PixelBuffer reuses its array, and posting transfers ownership.
       const words = buffer.words.slice();
-      const posted = state.job.submit({ words, width, height, thresh, vert });
+      const posted = state.job.submit({ words, width, height, thresh, vert, rotation });
       if (posted) return { out: target };
     }
 
     ensureBuffers(state, width, height);
-    sortFrame(buffer.words, width, height, thresh, vert, state.lum, state.counts, state.scratch);
+    sortFrameAtAngle(
+      buffer.words,
+      width,
+      height,
+      thresh,
+      angle,
+      state.lum,
+      state.counts,
+      state.scratch,
+    );
     state.sortMs = performance.now() - sortStart;
 
     const writeStart = performance.now();

@@ -103,6 +103,73 @@ export function sortSpans(
   }
 }
 
+/** Fold degrees into [0, 180). */
+export function normalizeSortAngle(degrees: number): number {
+  let angle = degrees % 180;
+  if (angle < 0) angle += 180;
+  return angle;
+}
+
+/**
+ * Rotation 0 keeps the Vertical toggle; any other angle is absolute degrees
+ * from horizontal (90 ≡ vertical column sort).
+ */
+export function effectiveSortAngle(rotationDeg: number, vert: boolean): number {
+  const angle = normalizeSortAngle(rotationDeg);
+  if (angle < 0.5 || angle > 179.5) return vert ? 90 : 0;
+  return angle;
+}
+
+/**
+ * Rotate packed RGBA words into a padded axis-aligned buffer. Empty cells stay 0.
+ * `minX`/`minY` are the translation applied so every source corner fits.
+ */
+export function rotateWords(
+  src: Uint32Array,
+  width: number,
+  height: number,
+  angleDeg: number,
+): { words: Uint32Array; width: number; height: number; minX: number; minY: number } {
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [width - 1, 0],
+    [width - 1, height - 1],
+    [0, height - 1],
+  ];
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of corners) {
+    const rx = x * cos - y * sin;
+    const ry = x * sin + y * cos;
+    if (rx < minX) minX = rx;
+    if (rx > maxX) maxX = rx;
+    if (ry < minY) minY = ry;
+    if (ry > maxY) maxY = ry;
+  }
+  const outW = Math.max(1, Math.ceil(maxX - minX + 1));
+  const outH = Math.max(1, Math.ceil(maxY - minY + 1));
+  const out = new Uint32Array(outW * outH);
+  const invCos = Math.cos(-rad);
+  const invSin = Math.sin(-rad);
+  for (let y = 0; y < outH; y += 1) {
+    for (let x = 0; x < outW; x += 1) {
+      const dx = x + minX;
+      const dy = y + minY;
+      const sx = Math.round(dx * invCos - dy * invSin);
+      const sy = Math.round(dx * invSin + dy * invCos);
+      if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+        out[y * outW + x] = src[sy * width + sx]!;
+      }
+    }
+  }
+  return { words: out, width: outW, height: outH, minX, minY };
+}
+
 /** Luminance + span sort in one shot — used by the worker and the inline path. */
 export function sortFrame(
   words: Uint32Array,
@@ -118,4 +185,58 @@ export function sortFrame(
   const bytes = new Uint8ClampedArray(words.buffer, words.byteOffset, pixels * 4);
   computeLuminance(bytes, lum, pixels);
   sortSpans(words, lum, width, height, thresh, vert, counts, scratch);
+}
+
+/**
+ * Sort along `angleDeg` degrees from horizontal. Cardinal angles (0 / 90)
+ * use the fast row/column path; other angles rotate → horizontal sort → sample back.
+ */
+export function sortFrameAtAngle(
+  words: Uint32Array,
+  width: number,
+  height: number,
+  thresh: number,
+  angleDeg: number,
+  lum: Uint8Array,
+  counts: Uint32Array,
+  scratch: Uint32Array,
+): void {
+  const angle = normalizeSortAngle(angleDeg);
+  if (angle < 0.5 || angle > 179.5) {
+    sortFrame(words, width, height, thresh, false, lum, counts, scratch);
+    return;
+  }
+  if (Math.abs(angle - 90) < 0.5) {
+    sortFrame(words, width, height, thresh, true, lum, counts, scratch);
+    return;
+  }
+
+  const rotated = rotateWords(words, width, height, -angle);
+  const rPixels = rotated.width * rotated.height;
+  const rLum = lum.length >= rPixels ? lum : new Uint8Array(rPixels);
+  const longest = Math.max(rotated.width, rotated.height);
+  const rScratch = scratch.length >= longest ? scratch : new Uint32Array(longest);
+  sortFrame(
+    rotated.words,
+    rotated.width,
+    rotated.height,
+    thresh,
+    false,
+    rLum,
+    counts,
+    rScratch,
+  );
+
+  const rad = (-angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const rx = Math.round(x * cos - y * sin - rotated.minX);
+      const ry = Math.round(x * sin + y * cos - rotated.minY);
+      if (rx >= 0 && rx < rotated.width && ry >= 0 && ry < rotated.height) {
+        words[y * width + x] = rotated.words[ry * rotated.width + rx]!;
+      }
+    }
+  }
 }

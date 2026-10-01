@@ -3,7 +3,7 @@
  * Counting-sort spans off the main thread. The node still does GL readback /
  * writeback; this only owns luminance + sortSpans.
  */
-import { BINS, sortFrame } from "./pixelSortAlgorithms";
+import { BINS, effectiveSortAngle, sortFrameAtAngle } from "./pixelSortAlgorithms";
 import type { PixelSortRequest, PixelSortResponse } from "./pixelSortTypes";
 
 let lum = new Uint8Array(0);
@@ -13,12 +13,24 @@ let scratch = new Uint32Array(0);
 self.onmessage = (event: MessageEvent<PixelSortRequest>) => {
   const job = event.data;
   const pixels = job.width * job.height;
-  if (lum.length !== pixels) lum = new Uint8Array(pixels);
-  const longest = Math.max(job.width, job.height);
-  if (scratch.length !== longest) scratch = new Uint32Array(longest);
+  const diagonal = Math.ceil(Math.hypot(job.width, job.height)) + 2;
+  if (lum.length < Math.max(pixels, diagonal * diagonal)) {
+    lum = new Uint8Array(Math.max(pixels, diagonal * diagonal));
+  }
+  if (scratch.length < diagonal) scratch = new Uint32Array(diagonal);
 
+  const angle = effectiveSortAngle(job.rotation ?? 0, job.vert);
   const start = performance.now();
-  sortFrame(job.words, job.width, job.height, job.thresh, job.vert, lum, counts, scratch);
+  sortFrameAtAngle(
+    job.words,
+    job.width,
+    job.height,
+    job.thresh,
+    angle,
+    lum,
+    counts,
+    scratch,
+  );
   const sortMs = performance.now() - start;
 
   const response: PixelSortResponse = {

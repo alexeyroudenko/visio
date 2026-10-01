@@ -1778,6 +1778,83 @@ async function run(): Promise<void> {
     `x=10 → ${workerSortedRow[10]}, x=200 → ${workerSortedRow[200]}, ascending=${workerAscending}`,
   );
 
+  // Rotation 90° must match Vertical (fast path), and a non-cardinal angle must
+  // still finish without throwing — rotate→sort→sample-back.
+  {
+    const {
+      BINS: sortBins,
+      sortFrame,
+      sortFrameAtAngle,
+    } = await import("./nodes/fx/pixelSortAlgorithms");
+    const { removeKeyframesAtFrame } = await import("./lib/keyframes");
+    const w = 32;
+    const h = 24;
+    const pixels = w * h;
+    const makeRamp = () => {
+      const words = new Uint32Array(pixels);
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const r = 255 - Math.round((x / (w - 1)) * 255);
+          words[y * w + x] = (255 << 24) | r;
+        }
+      }
+      return words;
+    };
+    const a = makeRamp();
+    const b = makeRamp();
+    const lum = new Uint8Array(pixels);
+    const counts = new Uint32Array(sortBins);
+    const scratch = new Uint32Array(Math.max(w, h));
+    sortFrame(a, w, h, 20, true, lum, counts, scratch);
+    sortFrameAtAngle(b, w, h, 20, 90, lum, counts, scratch);
+    let match = true;
+    for (let i = 0; i < pixels; i += 1) {
+      if (a[i] !== b[i]) {
+        match = false;
+        break;
+      }
+    }
+    check("pixel sort rotation 90° matches Vertical", match, "buffers differ");
+
+    const angled = makeRamp();
+    const diag = Math.ceil(Math.hypot(w, h)) + 2;
+    sortFrameAtAngle(
+      angled,
+      w,
+      h,
+      20,
+      45,
+      new Uint8Array(Math.max(pixels, diag * diag)),
+      new Uint32Array(sortBins),
+      new Uint32Array(diag),
+    );
+    check(
+      "pixel sort rotation 45° completes",
+      angled.length === pixels,
+      `len=${angled.length}`,
+    );
+
+    const trimmed = removeKeyframesAtFrame(
+      {
+        "n:thresh": [
+          { frame: 0, value: 10 },
+          { frame: 12, value: 40 },
+          { frame: 24, value: 80 },
+        ],
+        "n:vert": [{ frame: 12, value: true }],
+      },
+      12,
+    );
+    check(
+      "Delete removes every keyframe on the selected frame",
+      !trimmed["n:vert"] &&
+        trimmed["n:thresh"]?.length === 2 &&
+        trimmed["n:thresh"]?.[0]?.frame === 0 &&
+        trimmed["n:thresh"]?.[1]?.frame === 24,
+      JSON.stringify(trimmed),
+    );
+  }
+
   // --- 4d. custom shader node ----------------------------------------------
   const runShader = (source: string) => {
     engine.setGraph(
