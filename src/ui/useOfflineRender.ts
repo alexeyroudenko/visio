@@ -7,6 +7,8 @@ import {
   downloadTimelineRender,
   exportTimelineImage,
   exportTimelineVideo,
+  RenderCancelledWithPartial,
+  timelinePartialRenderStem,
 } from "../lib/exportTimeline";
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
@@ -127,7 +129,21 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const waitSec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
-      if (controller.signal.aborted || /cancel/i.test(message)) {
+      if (error instanceof RenderCancelledWithPartial) {
+        const stem = downloadTimelineRender(error.blob, timelinePartialRenderStem());
+        const videoExt = error.blob.type.includes("mp4") ? "mp4" : "webm";
+        appLog(
+          "warn",
+          "render",
+          `cancelled · saved partial ${stem}.${videoExt} · ${error.framesEncoded} frames · ${(error.blob.size / (1024 * 1024)).toFixed(1)} MB`,
+        );
+        track("render_cancelled", {
+          wait_sec: waitSec,
+          progress: Number(latestProgress.toFixed(2)),
+          partial: true,
+          frames: error.framesEncoded,
+        });
+      } else if (controller.signal.aborted || /cancel/i.test(message)) {
         appLog("warn", "render", "cancelled");
         // Cancelling at 80% means something different from cancelling at 5%.
         track("render_cancelled", { wait_sec: waitSec, progress: Number(latestProgress.toFixed(2)) });

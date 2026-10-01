@@ -29,6 +29,28 @@ const MIME_CANDIDATES = [
 
 const KEYFRAME_EVERY_SEC = 2;
 
+/**
+ * Thrown when the user aborts an offline render after at least one frame was
+ * encoded. Callers can still download `blob` — Cancel should save what's done.
+ */
+export class RenderCancelledWithPartial extends Error {
+  readonly blob: Blob;
+  readonly framesEncoded: number;
+
+  constructor(blob: Blob, framesEncoded: number) {
+    super("Render cancelled");
+    this.name = "RenderCancelledWithPartial";
+    this.blob = blob;
+    this.framesEncoded = framesEncoded;
+  }
+}
+
+function isCancelError(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /cancel/i.test(message);
+}
+
 function pickMimeType(): string {
   return MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type)) ?? "video/webm";
 }
@@ -280,6 +302,25 @@ async function renderOneFrame(ctx: RenderPassContext, outputIndex: number): Prom
   return timelineFrame;
 }
 
+async function finalizeWebCodecsBlob(
+  muxer: Muxer<ArrayBufferTarget>,
+  encoder: VideoEncoder,
+  audio: EncodedAudioTrack | null,
+  maxTimestampUs: number | null,
+): Promise<Blob> {
+  await encoder.flush();
+  if (audio) {
+    for (const chunk of audio.chunks) {
+      if (maxTimestampUs != null && chunk.timestamp >= maxTimestampUs) continue;
+      muxer.addAudioChunkRaw(chunk.data, chunk.type, chunk.timestamp);
+    }
+  }
+  muxer.finalize();
+  const buffer = muxer.target.buffer;
+  if (!buffer) throw new Error("Muxer produced empty output");
+  return new Blob([buffer], { type: "video/webm" });
+}
+
 async function exportWithWebCodecs(
   canvas: HTMLCanvasElement,
   pass: RenderPassContext,
@@ -328,31 +369,46 @@ async function exportWithWebCodecs(
 
   const durationUs = frameDurationUs(pass.outputFps);
   const keyframeInterval = Math.max(1, Math.round(pass.outputFps * KEYFRAME_EVERY_SEC));
+  let framesEncoded = 0;
 
-  for (let i = 0; i < pass.outputFrames; i += 1) {
-    await renderOneFrame(pass, i);
+  try {
+    for (let i = 0; i < pass.outputFrames; i += 1) {
+      await renderOneFrame(pass, i);
 
-    const videoFrame = new VideoFrame(canvas, {
-      timestamp: frameTimestampUs(i, pass.outputFps),
-      duration: durationUs,
-    });
-    encoder.encode(videoFrame, { keyFrame: i % keyframeInterval === 0 });
-    videoFrame.close();
-  }
+      const videoFrame = new VideoFrame(canvas, {
+        timestamp: frameTimestampUs(i, pass.outputFps),
+        duration: durationUs,
+      });
+      encoder.encode(videoFrame, { keyFrame: i % keyframeInterval === 0 });
+      videoFrame.close();
+      framesEncoded += 1;
+    }
 
-  await encoder.flush();
-
-  if (audio) {
-    for (const chunk of audio.chunks) {
-      muxer.addAudioChunkRaw(chunk.data, chunk.type, chunk.timestamp);
+    return await finalizeWebCodecsBlob(muxer, encoder, audio, null);
+  } catch (error) {
+    if (isCancelError(error, pass.signal) && framesEncoded > 0) {
+      try {
+        const blob = await finalizeWebCodecsBlob(
+          muxer,
+          encoder,
+          audio,
+          frameTimestampUs(framesEncoded, pass.outputFps),
+        );
+        throw new RenderCancelledWithPartial(blob, framesEncoded);
+      } catch (finalizeError) {
+        if (finalizeError instanceof RenderCancelledWithPartial) throw finalizeError;
+        // Fall through — cancel without a usable partial is still a cancel.
+      }
+      throw new Error("Render cancelled");
+    }
+    throw error;
+  } finally {
+    try {
+      if (encoder.state !== "closed") encoder.close();
+    } catch {
+      /* already closed after flush */
     }
   }
-
-  muxer.finalize();
-
-  const buffer = muxer.target.buffer;
-  if (!buffer) throw new Error("Muxer produced empty output");
-  return new Blob([buffer], { type: "video/webm" });
 }
 
 async function exportWithMediaRecorder(
@@ -383,14 +439,28 @@ async function exportWithMediaRecorder(
   };
 
   const frameMs = 1000 / pass.outputFps;
+  let framesEncoded = 0;
 
   try {
     recorder.start(200);
-    for (let i = 0; i < pass.outputFrames; i += 1) {
-      await renderOneFrame(pass, i);
-      track.requestFrame();
-      // Pace wall-clock so MediaRecorder timestamps match source fps.
-      await waitMs(frameMs);
+    try {
+      for (let i = 0; i < pass.outputFrames; i += 1) {
+        await renderOneFrame(pass, i);
+        track.requestFrame();
+        // Pace wall-clock so MediaRecorder timestamps match source fps.
+        await waitMs(frameMs);
+        framesEncoded += 1;
+      }
+    } catch (error) {
+      if (recorder.state !== "inactive") recorder.stop();
+      await stopped.catch(() => undefined);
+      if (isCancelError(error, pass.signal) && chunks.length > 0) {
+        throw new RenderCancelledWithPartial(
+          new Blob(chunks, { type: mimeType }),
+          framesEncoded,
+        );
+      }
+      throw error;
     }
     recorder.stop();
     await stopped;
@@ -499,6 +569,7 @@ export async function exportTimelineVideo(
         );
         return { blob, outputFps, outputFrames, bitrate };
       } catch (err) {
+        if (err instanceof RenderCancelledWithPartial) throw err;
         console.warn("WebCodecs export failed, falling back to MediaRecorder:", err);
       }
     }
@@ -514,6 +585,12 @@ export async function exportTimelineVideo(
 export function timelineRenderStem(now = new Date()): string {
   const stamp = now.toISOString().replace(/[:.]/g, "-");
   return withSourcePrefix(`render-${stamp}`);
+}
+
+/** Basename for a Cancel-mid-render download (video only — no paired patch). */
+export function timelinePartialRenderStem(now = new Date()): string {
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  return withSourcePrefix(`render-partial-${stamp}`);
 }
 
 /** Shared basename for a still PNG at the playhead, without extension. */
