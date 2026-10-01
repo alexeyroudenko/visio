@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "URL=https://visio.aa.arthew0.online/"
+set "URL=https://visio.dev.arthew0.online/"
 set "W=720"
 set "H=1280"
 

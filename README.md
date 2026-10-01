@@ -545,10 +545,10 @@ Manual (same target as CI):
 ../deploy.sh visio ./dist --build "cd visio && npm run build"
 ```
 
-CI: push to `main` (or Actions → **Deploy** → Run workflow) builds and rsyncs to `/var/www/AA/visio/` on `aa.arthew0.online`. Secrets: `AA_SSH_KEY` (base64 of the private key), `AA_SSH_HOST`, `AA_SSH_USER`.
+CI: push to `main` (or Actions → **Deploy** → Run workflow) builds and rsyncs to `/var/www/AA/visio/` on `amsterdam.alexeyroudenko.net` (Caddy `*.dev`). Secrets: `AA_SSH_KEY` (base64 of the private key), `AA_SSH_HOST`, `AA_SSH_USER`.
 
-Live: [https://visio.aa.arthew0.online/](https://visio.aa.arthew0.online/)  
-(New subdomain needs LE expand: `certbot --cert-name aa.arthew0.online --expand -d … -d visio.aa.arthew0.online`.)
+Live: [https://visio.dev.arthew0.online/](https://visio.dev.arthew0.online/)  
+(`*.aa` redirects to `*.dev` once DNS points at amsterdam.)
 
 ## Install as an app (PWA)
 

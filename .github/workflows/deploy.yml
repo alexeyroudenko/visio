@@ -45,6 +45,8 @@ jobs:
 
       - name: Setup SSH
         env:
+          # Same names as AA/deploy.sh — host is amsterdam since 2026-09-30
+          # (*.dev); aa.arthew0.online was decommissioned.
           AA_SSH_KEY: ${{ secrets.AA_SSH_KEY }}
           AA_SSH_HOST: ${{ secrets.AA_SSH_HOST }}
           AA_SSH_USER: ${{ secrets.AA_SSH_USER }}
@@ -73,7 +75,7 @@ jobs:
 
       - name: Verify live URL
         run: |
-          code="$(curl -s -o /dev/null -w '%{http_code}' -L 'https://visio.aa.arthew0.online/')"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L 'https://visio.dev.arthew0.online/')"
           echo "HTTP ${code}"
           case "$code" in
             200|301|302) ;;
@@ -85,7 +87,7 @@ jobs:
       - name: Verify PWA endpoints
         run: |
           for path in manifest.json sw.js icons/icon-512.png apple-touch-icon.png; do
-            url="https://visio.aa.arthew0.online/${path}"
+            url="https://visio.dev.arthew0.online/${path}"
             probe="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -L "$url")"
             echo "${path} → ${probe}"
             [ "${probe%% *}" = "200" ] || { echo "Missing: ${url}" >&2; exit 1; }
