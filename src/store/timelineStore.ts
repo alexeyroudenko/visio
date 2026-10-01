@@ -6,6 +6,7 @@ import {
   moveKeyframeFrame,
   paramPath,
   removeKeyframe,
+  removeKeyframesAtFrame,
   upsertKeyframe,
   type ParamKeyframes,
   type ParamPath,
@@ -104,6 +105,8 @@ interface TimelineState {
   }) => void;
   hasKeyframes: (path: ParamPath) => boolean;
   removeParamKeyframe: (path: ParamPath, frame: number) => void;
+  /** Delete every key on the selected diamond (Delete key). */
+  removeSelectedKeyframe: () => void;
   selectKeyframe: (frame: number | null) => void;
   moveSelectedKeyframe: (toFrame: number) => void;
   clearKeyframes: () => void;
@@ -328,6 +331,18 @@ function createTimelineStore() {
 
     removeParamKeyframe(path, frame) {
       set({ paramKeyframes: removeKeyframe(get().paramKeyframes, path, frame) });
+    },
+
+    removeSelectedKeyframe() {
+      const state = get();
+      if (state.selectedKeyframeFrame === null) return;
+      set({
+        paramKeyframes: removeKeyframesAtFrame(
+          state.paramKeyframes,
+          state.selectedKeyframeFrame,
+        ),
+        selectedKeyframeFrame: null,
+      });
     },
 
     selectKeyframe(frame) {

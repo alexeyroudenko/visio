@@ -120,6 +120,20 @@ export function removeKeyframe(
   return { ...keyframes, [path]: next };
 }
 
+/** Drop every param key sitting on `frame` (timeline diamond Delete). */
+export function removeKeyframesAtFrame(
+  keyframes: ParamKeyframes,
+  frame: number,
+): ParamKeyframes {
+  const next: ParamKeyframes = {};
+  for (const [path, keys] of Object.entries(keyframes)) {
+    if (!keys?.length) continue;
+    const filtered = keys.filter((k) => k.frame !== frame);
+    if (filtered.length) next[path] = filtered;
+  }
+  return next;
+}
+
 export function getKeyframeMarkerFrames(keyframes: ParamKeyframes): number[] {
   const frames = new Set<number>();
   for (const keys of Object.values(keyframes)) {

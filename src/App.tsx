@@ -54,6 +54,7 @@ import { builtinPreviewUrl, DEFAULT_PRESET_ID, listPresets, type PatchPreset } f
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
 import { appLog } from "./store/consoleStore";
 import { mediaMemoryReady } from "./store/mediaMemory";
+import { useTimelineStore } from "./store/timelineStore";
 
 function welcomePresetThumb(preset: PatchPreset): string | null {
   if (preset.preview) return preset.preview;
@@ -415,6 +416,12 @@ export default function App() {
       }
 
       if (event.key !== "Delete") return;
+      const timeline = useTimelineStore.getState();
+      if (timeline.selectedKeyframeFrame !== null) {
+        event.preventDefault();
+        timeline.removeSelectedKeyframe();
+        return;
+      }
       const { selectedId, removeNode } = useGraphStore.getState();
       if (!selectedId) return;
       event.preventDefault();
