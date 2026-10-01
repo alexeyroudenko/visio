@@ -2,7 +2,7 @@
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "default-pose.png",
+  "source": "IMG_9364.MOV",
   "nodes": [
     {
       "id": "image-1",
@@ -12,13 +12,8 @@
         "y": 60
       },
       "params": {
-        "mode": "image",
+        "mode": "video",
         "facing": "environment",
-        "file": {
-          "name": "default-pose.png",
-          "url": "./default-pose.png",
-          "mime": "image/png"
-        },
         "playing": true,
         "muted": false,
         "volume": 1,
@@ -26,15 +21,15 @@
         "syncTimeline": false,
         "mirror": false,
         "fit": "cover",
-        "zoom": 1
+        "zoom": 2
       }
     },
     {
       "id": "pose-1",
       "type": "tracking.pose",
       "position": {
-        "x": 320,
-        "y": 140
+        "x": 192.8139527891002,
+        "y": 189.94060149192063
       },
       "params": {
         "model": "full",
@@ -47,15 +42,15 @@
       "id": "landmarks-1",
       "type": "draw.landmarks",
       "position": {
-        "x": 620,
-        "y": 310
+        "x": 715.1836592086892,
+        "y": 295.7593099516892
       },
       "params": {
         "pointColor": "#f5f0e6",
-        "boneColor": "#7fe3c0",
+        "boneColor": "#ffffff",
         "pointSize": 5,
         "boneWidth": 4,
-          "opacity": 1,
+        "opacity": 1,
         "scoreFade": true,
         "blend": "normal"
       }
@@ -64,8 +59,8 @@
       "id": "landmarksToPoints-1",
       "type": "convert.landmarksToPoints",
       "position": {
-        "x": 606,
-        "y": 130
+        "x": 540.2723675288194,
+        "y": 108.30576250070409
       },
       "params": {
         "minScore": 0.2,
@@ -76,41 +71,41 @@
       "id": "featuresGrid-1",
       "type": "draw.featuresGrid",
       "position": {
-        "x": 1000,
-        "y": 60
+        "x": 880.6651718896858,
+        "y": -65.11870750309353
       },
       "params": {
         "color": "#f5f0e6",
         "maxDepth": 6,
-        "minSize": 32,
-        "stroke": 1,
-        "opacity": 1,
-        "filledOnly": true,
-        "useContentEdge": true,
-        "edgeMinFill": 0.05,
-        "edgeInterval": 3,
-        "labels": true,
+        "minSize": 16,
+        "stroke": 0.5,
+        "opacity": 0,
+        "filledOnly": false,
+        "useContentEdge": false,
+        "edgeMinFill": 0.5,
+        "edgeInterval": 7,
+        "labels": false,
         "labelSize": 18,
         "labelText": "Element",
-        "effectChance": 0.7,
+        "effectChance": 1,
         "effectMinArea": 0,
-        "effectMaxArea": 0.35,
-        "effectSeed": 42,
-        "rectMatch": 0.35,
-        "rectHold": 3
+        "effectMaxArea": 1,
+        "effectSeed": 0,
+        "rectMatch": 0.95,
+        "rectHold": 30
       }
     },
     {
       "id": "color-1",
       "type": "fx.color",
       "position": {
-        "x": 1260,
-        "y": 40
+        "x": 273.38930091782845,
+        "y": -37.99354946121821
       },
       "params": {
-        "brightness": -0.1,
-        "contrast": 1.05,
-        "saturation": 1,
+        "brightness": -0.14,
+        "contrast": 0.8,
+        "saturation": 0,
         "hue": 0
       }
     },
@@ -118,11 +113,43 @@
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 1500,
-        "y": 40
+        "x": 1786.7844923769394,
+        "y": 80.09954590687744
       },
       "params": {
         "background": "#000000"
+      }
+    },
+    {
+      "id": "connectors-8",
+      "type": "draw.connectors",
+      "position": {
+        "x": 1170.2067471532507,
+        "y": 63.60549671076538
+      },
+      "params": {
+        "color": "#ffffff",
+        "maxDist": 600,
+        "width": 4,
+        "opacity": 0.7000000000000001,
+        "fade": true,
+        "blend": "normal"
+      }
+    },
+    {
+      "id": "mst-10",
+      "type": "draw.mst",
+      "position": {
+        "x": 1431.890175707101,
+        "y": 109.60994503011722
+      },
+      "params": {
+        "color": "#ff0000",
+        "width": 4,
+        "opacity": 0.9,
+        "showPoints": true,
+        "pointSize": 4.5,
+        "blend": "normal"
       }
     }
   ],
@@ -133,13 +160,6 @@
       "sourceHandle": "frame",
       "target": "pose-1",
       "targetHandle": "frame"
-    },
-    {
-      "id": "e-bg",
-      "source": "image-1",
-      "sourceHandle": "out",
-      "target": "landmarks-1",
-      "targetHandle": "bg"
     },
     {
       "id": "e-data",
@@ -177,30 +197,65 @@
       "targetHandle": "bg"
     },
     {
-      "id": "e-color",
+      "id": "e-6c25095c-b557-47f7-ab1f-d1a94575acef",
+      "source": "landmarksToPoints-1",
+      "sourceHandle": "points",
+      "target": "connectors-8",
+      "targetHandle": "points"
+    },
+    {
+      "id": "e-3d9d8d29-20b7-46d6-9857-4f75a6c6b7e4",
       "source": "featuresGrid-1",
+      "sourceHandle": "out",
+      "target": "connectors-8",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-055d102f-b1ff-422b-bf3b-2577ff7cc540",
+      "source": "connectors-8",
+      "sourceHandle": "out",
+      "target": "mst-10",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-9764cded-78cd-45ea-aca4-9e0342808612",
+      "source": "landmarksToPoints-1",
+      "sourceHandle": "points",
+      "target": "mst-10",
+      "targetHandle": "points"
+    },
+    {
+      "id": "e-79b2d31f-9e40-472b-9483-44e02d53ff76",
+      "source": "mst-10",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-d31344f6-0e41-4b86-90fe-e8e95f811d4b",
+      "source": "image-1",
       "sourceHandle": "out",
       "target": "color-1",
       "targetHandle": "src"
     },
     {
-      "id": "e-out",
+      "id": "e-5d84e397-f126-4572-b6d6-487da3b5991e",
       "source": "color-1",
       "sourceHandle": "out",
-      "target": "screen-1",
-      "targetHandle": "src"
+      "target": "landmarks-1",
+      "targetHandle": "bg"
     }
   ],
   "timeline": {
     "fps": 30,
-    "durationInFrames": 1298,
+    "durationInFrames": 450,
     "keyframes": {},
     "reelZones": {
       "cutsSec": [
         1,
         1.2,
-        25.96,
-        34.61333333333334
+        9,
+        12
       ],
       "dirty": false
     },
