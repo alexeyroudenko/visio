@@ -16,6 +16,7 @@ import { pixelSortStart } from "./pixelSortStart";
 import { datamosh } from "./datamosh";
 import { genMotionMosh } from "./genMotionMosh";
 import { skeletonGrid } from "./skeletonGrid";
+import { skeletalAnalyze } from "./skeletalAnalyze";
 import { isOmitted } from "./ship";
 import { builtinOverride, fillMissingMediaFiles } from "./saveBuiltin";
 
@@ -1263,6 +1264,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description: "Pose still → Draw Skeleton → landmarks as points → Features Grid → output",
     builtin: true,
     build: skeletonGrid,
+  },
+  {
+    id: "skeletal-analyze",
+    label: "Skeletal Analyze",
+    description: "Pose → grid / connectors / MST → Skeleton Analyze label on camera",
+    builtin: true,
+    build: skeletalAnalyze,
   },
   {
     id: "track-features",

@@ -1,25 +1,31 @@
-{
+import type { SerializedPatch } from "../store/persistence";
+
+/**
+ * Pose → Features Grid + Connectors/MST + Skeleton Analyze label.
+ * Builtin override may replace this with the last Save from the editor.
+ */
+export function skeletalAnalyze(): SerializedPatch {
+  return {
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "video_2026-08-20_16-14-30.mp4",
   "nodes": [
     {
       "id": "image-1",
       "type": "source.media",
       "position": {
-        "x": -160,
-        "y": 60
+        "x": -132.65837091729958,
+        "y": 164.54152296326632
       },
       "params": {
-        "mode": "video",
-        "facing": "environment",
+        "mode": "camera",
+        "facing": "user",
         "playing": true,
-        "muted": false,
-        "volume": 1,
+        "muted": true,
+        "volume": 0,
         "speed": 1,
         "syncTimeline": false,
-        "mirror": false,
+        "mirror": true,
         "fit": "cover",
         "zoom": 1
       }
@@ -28,29 +34,29 @@
       "id": "pose-1",
       "type": "tracking.pose",
       "position": {
-        "x": 192.8139527891002,
-        "y": 189.94060149192063
+        "x": 263.7158242732711,
+        "y": 369.4779642469669
       },
       "params": {
         "model": "full",
         "numPoses": 1,
-        "confidence": 0.1,
-        "interval": 1
+        "confidence": 0.35,
+        "interval": 2
       }
     },
     {
       "id": "landmarks-1",
       "type": "draw.landmarks",
       "position": {
-        "x": 642.5530279312404,
-        "y": 226.12003618408215
+        "x": 996.6553375247352,
+        "y": 388.63278800561943
       },
       "params": {
-        "pointColor": "#ff0000",
-        "boneColor": "#ffffff",
-        "pointSize": 5.5,
-        "boneWidth": 4,
-        "opacity": 1,
+        "pointColor": "#ffffff",
+        "boneColor": "#ff0000",
+        "pointSize": 5,
+        "boneWidth": 3,
+        "opacity": 0,
         "scoreFade": true,
         "blend": "normal"
       }
@@ -59,53 +65,54 @@
       "id": "landmarksToPoints-1",
       "type": "convert.landmarksToPoints",
       "position": {
-        "x": 540.2723675288194,
-        "y": 108.30576250070409
+        "x": 534.2935280631507,
+        "y": 83.44979693196088
       },
       "params": {
-        "minScore": 0.2,
-        "subject": -1
+        "minScore": 0.13,
+        "subject": -1,
+        "faceKeep": 0.17,
+        "noseLift": 0.2
       }
     },
     {
       "id": "featuresGrid-1",
       "type": "draw.featuresGrid",
       "position": {
-        "x": 899.7711084745864,
-        "y": 23.72715010913707
+        "x": 769.8190471082145,
+        "y": 189.98433349519271
       },
       "params": {
-        "color": "#f5f0e6",
-        "maxDepth": 6,
+        "color": "#ffffff",
+        "maxDepth": 8,
         "minSize": 16,
         "stroke": 0.5,
-        "opacity": 0,
+        "opacity": 1,
         "filledOnly": false,
-        "useContentEdge": false,
+        "useContentEdge": true,
         "edgeMinFill": 0.5,
-        "edgeInterval": 7,
-        "labels": false,
-        "labelSize": 8,
+        "edgeInterval": 3,
+        "labels": true,
+        "labelSize": 9,
         "labelText": "Element",
-        "effectChance": 0.9500000000000001,
-        "effectMinArea": 0,
-        "effectMaxArea": 0.48,
-        "effectSeed": 0,
-        "rectMatch": 0.65,
-        "rectHold": 30
-      },
-      "bypass": true
+        "effectChance": 1,
+        "effectMinArea": 0.26,
+        "effectMaxArea": 0.28,
+        "effectSeed": 1963,
+        "rectMatch": 0.05,
+        "rectHold": 9
+      }
     },
     {
       "id": "color-1",
       "type": "fx.color",
       "position": {
-        "x": 273.38930091782845,
-        "y": -37.99354946121821
+        "x": 229.71150125420291,
+        "y": 70.6264227050711
       },
       "params": {
-        "brightness": -0.14,
-        "contrast": 0.8,
+        "brightness": -0.14999999999999997,
+        "contrast": 0.7000000000000001,
         "saturation": 0,
         "hue": 0
       }
@@ -114,8 +121,8 @@
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 1786.7844923769394,
-        "y": 80.09954590687744
+        "x": 2079.784227078354,
+        "y": 313.26596938317425
       },
       "params": {
         "background": "#000000"
@@ -125,14 +132,15 @@
       "id": "connectors-8",
       "type": "draw.connectors",
       "position": {
-        "x": 1133.841107884665,
-        "y": 69.11544205449047
+        "x": 1237.1311205770182,
+        "y": 229.41618102890175
       },
       "params": {
         "color": "#ffffff",
         "maxDist": 600,
-        "width": 4,
-        "opacity": 0.7000000000000001,
+        "minDist": 380,
+        "width": 3,
+        "opacity": 0.1,
         "fade": true,
         "blend": "normal"
       }
@@ -141,16 +149,51 @@
       "id": "mst-10",
       "type": "draw.mst",
       "position": {
-        "x": 1431.890175707101,
-        "y": 109.60994503011722
+        "x": 1611.6646907992817,
+        "y": 165.63255705581406
       },
       "params": {
         "color": "#ff0000",
-        "width": 4,
-        "opacity": 0.9,
+        "width": 3,
+        "opacity": 1,
         "showPoints": true,
-        "pointSize": 4.5,
+        "pointSize": 9.5,
         "blend": "normal"
+      }
+    },
+    {
+      "id": "skeletonAnalyze-1",
+      "type": "tracking.skeletonAnalyze",
+      "position": {
+        "x": 1479.5029813316482,
+        "y": 457.9336149191664
+      },
+      "params": {
+        "subject": 0,
+        "minScore": 0.7000000000000001,
+        "historyFrames": 33,
+        "minConfidence": 0.35,
+        "holdFrames": 2,
+        "showConfidence": true,
+        "showScores": false,
+        "color": "#f5f0e6",
+        "fontSize": 86,
+        "opacity": 1,
+        "align": "bottom-center",
+        "margin": 0,
+        "bottomInset": 0.14
+      }
+    },
+    {
+      "id": "blend-2",
+      "type": "fx.blend",
+      "position": {
+        "x": 1732.1327278475674,
+        "y": 564.4668348174557
+      },
+      "params": {
+        "mode": "over",
+        "opacity": 1
       }
     }
   ],
@@ -191,25 +234,11 @@
       "targetHandle": "frame"
     },
     {
-      "id": "e-grid-bg",
-      "source": "landmarks-1",
-      "sourceHandle": "out",
-      "target": "featuresGrid-1",
-      "targetHandle": "bg"
-    },
-    {
       "id": "e-6c25095c-b557-47f7-ab1f-d1a94575acef",
       "source": "landmarksToPoints-1",
       "sourceHandle": "points",
       "target": "connectors-8",
       "targetHandle": "points"
-    },
-    {
-      "id": "e-3d9d8d29-20b7-46d6-9857-4f75a6c6b7e4",
-      "source": "featuresGrid-1",
-      "sourceHandle": "out",
-      "target": "connectors-8",
-      "targetHandle": "bg"
     },
     {
       "id": "e-9764cded-78cd-45ea-aca4-9e0342808612",
@@ -219,13 +248,6 @@
       "targetHandle": "points"
     },
     {
-      "id": "e-79b2d31f-9e40-472b-9483-44e02d53ff76",
-      "source": "mst-10",
-      "sourceHandle": "out",
-      "target": "screen-1",
-      "targetHandle": "src"
-    },
-    {
       "id": "e-d31344f6-0e41-4b86-90fe-e8e95f811d4b",
       "source": "image-1",
       "sourceHandle": "out",
@@ -233,17 +255,66 @@
       "targetHandle": "src"
     },
     {
-      "id": "e-5d84e397-f126-4572-b6d6-487da3b5991e",
+      "id": "e-2d835621-9609-4676-b94b-58fe59d46468",
+      "source": "connectors-8",
+      "sourceHandle": "out",
+      "target": "mst-10",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-c5886e0c-b4cf-42d1-9890-24ca6e35d473",
       "source": "color-1",
+      "sourceHandle": "out",
+      "target": "featuresGrid-1",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-fbb698ca-e600-42d6-930b-55ca59a1491c",
+      "source": "featuresGrid-1",
       "sourceHandle": "out",
       "target": "landmarks-1",
       "targetHandle": "bg"
     },
     {
-      "id": "e-3f762d82-9a98-4c4d-8a46-d3b8bb470065",
+      "id": "e-ce29d6e0-f15f-42c4-a04b-d9dc856681d7",
       "source": "landmarks-1",
       "sourceHandle": "out",
-      "target": "mst-10",
+      "target": "connectors-8",
+      "targetHandle": "bg"
+    },
+    {
+      "id": "e-b434680b-e633-4b96-870b-70e9ba7bb04b",
+      "source": "pose-1",
+      "sourceHandle": "out",
+      "target": "skeletonAnalyze-1",
+      "targetHandle": "landmarks"
+    },
+    {
+      "id": "e-b03cee2d-ced9-48fd-a22e-079891497c7b",
+      "source": "mst-10",
+      "sourceHandle": "out",
+      "target": "blend-2",
+      "targetHandle": "base"
+    },
+    {
+      "id": "e-d1a6c182-5828-4801-ad7d-5d2de1c48cf6",
+      "source": "skeletonAnalyze-1",
+      "sourceHandle": "out",
+      "target": "blend-2",
+      "targetHandle": "top"
+    },
+    {
+      "id": "e-87ccb86e-1891-4bbf-a39f-5ef46004135d",
+      "source": "blend-2",
+      "sourceHandle": "out",
+      "target": "screen-1",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-18af9f0a-da20-490e-aa7d-70ef08276de8",
+      "source": "mst-10",
+      "sourceHandle": "out",
+      "target": "skeletonAnalyze-1",
       "targetHandle": "bg"
     }
   ],
@@ -361,5 +432,14 @@
         "drift": 0.4
       }
     }
-  }
+  },
+  "published": [
+    "landmarksToPoints-1:noseLift",
+    "connectors-8:opacity",
+    "featuresGrid-1:opacity",
+    "featuresGrid-1:effectChance",
+    "landmarks-1:opacity",
+    "mst-10:opacity"
+  ]
+} as SerializedPatch;
 }

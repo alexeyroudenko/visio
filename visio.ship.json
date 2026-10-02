@@ -38,7 +38,6 @@
     "draw.circles",
     "draw.delaunay",
     "draw.lines",
-    "draw.mst",
     "draw.radial",
     "draw.voronoi",
     "fx.blockScatter",

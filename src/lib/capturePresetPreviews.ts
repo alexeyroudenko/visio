@@ -24,6 +24,7 @@ const TRACKING_PRESET_IDS = new Set([
   "track-segmentation",
   "track-face-mesh",
   "track-skeleton-grid",
+  "skeletal-analyze",
   "track-features",
   "track-features-points",
   "features-tracking",

@@ -13,6 +13,7 @@ import { houghLinesNode } from "./tracking/houghLines";
 import { landmarksToPointsNode } from "./convert/landmarksToPoints";
 import { pointsNoiseNode } from "./generate/pointsNoise";
 import { noiseNode } from "./generate/noise";
+import { skeletonAnalyzeNode } from "./tracking/skeletonAnalyze";
 import { drawLandmarksNode } from "./draw/landmarks";
 import { drawPointsNode } from "./draw/points";
 import { drawBoxesNode } from "./draw/boxes";
@@ -68,6 +69,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   houghCirclesNode,
   houghLinesNode,
   landmarksToPointsNode,
+  skeletonAnalyzeNode,
   pointsNoiseNode,
   drawLandmarksNode,
   drawPointsNode,

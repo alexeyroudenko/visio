@@ -16,7 +16,7 @@ export const connectorsNode = defineNode<ConnectorsState>({
   type: "draw.connectors",
   label: "Connectors",
   category: "draw",
-  description: "Link points within a max distance (cv-reels Connections).",
+  description: "Link points within a distance band (cv-reels Connections).",
   inputs: [
     { id: "bg", label: "bg", type: "texture" },
     { id: "points", label: "points", type: "points" },
@@ -33,6 +33,15 @@ export const connectorsNode = defineNode<ConnectorsState>({
       step: 5,
       default: 120,
     },
+    {
+      key: "minDist",
+      label: "Min distance",
+      type: "range",
+      min: 0,
+      max: 600,
+      step: 1,
+      default: 0,
+    },
     { key: "width", label: "Stroke", type: "range", min: 0.5, max: 12, step: 0.5, default: 1.5 },
     { key: "opacity", label: "Opacity", type: "range", min: 0, max: 1, step: 0.05, default: 0.85 },
     { key: "fade", label: "Fade by distance", type: "toggle", default: true },
@@ -44,8 +53,11 @@ export const connectorsNode = defineNode<ConnectorsState>({
   evaluate({ ctx, nodeId, inputs, params, runtime }) {
     const target = beginDraw(ctx, nodeId, inputs.bg ?? null);
     const data = inputs.points as PointsValue | null;
+    const minDist = Math.max(0, paramNumber(params, "minDist", 0));
     const maxDist = paramNumber(params, "maxDist", 120);
-    if (!data || data.points.length === 0 || maxDist <= 0) return { out: target };
+    if (!data || data.points.length === 0 || maxDist <= 0 || minDist >= maxDist) {
+      return { out: target };
+    }
 
     const { batch } = runtime.state;
     batch.reset();
@@ -61,7 +73,9 @@ export const connectorsNode = defineNode<ConnectorsState>({
       y: point.y * height,
     }));
 
+    const minDistSq = minDist * minDist;
     const maxDistSq = maxDist * maxDist;
+    const fadeSpan = maxDist - minDist;
     for (let i = 0; i < pixels.length; i += 1) {
       for (let j = i + 1; j < pixels.length; j += 1) {
         const a = pixels[i]!;
@@ -69,9 +83,11 @@ export const connectorsNode = defineNode<ConnectorsState>({
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const distSq = dx * dx + dy * dy;
+        // minDist>0 drops short edges (typical face-mesh links are a few px).
         if (distSq > maxDistSq || distSq <= 0) continue;
+        if (minDist > 0 && distSq < minDistSq) continue;
         const dist = Math.sqrt(distSq);
-        const alpha = doFade ? (1 - dist / maxDist) * opacity : opacity;
+        const alpha = doFade ? (1 - (dist - minDist) / fadeSpan) * opacity : opacity;
         if (alpha <= 0.01) continue;
         batch.addSegment(a.x, a.y, b.x, b.y, stroke, alpha);
       }

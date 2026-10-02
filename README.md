@@ -74,7 +74,7 @@ to be read at module top level and dragged the whole package into the main bundl
 | Category | Nodes                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Sources  | Media (camera · image · video · audio), **Noise**, **Text**                                                                      |
-| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), **Segmentation** (Image Segmenter), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Points Noise** |
+| Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), **Segmentation** (Image Segmenter), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Skeleton Analyze**, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
 | FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Gen Motion Vectors**, **Datamosh**, **Shader**           |
 | Audio    | **Granular**                                                                                                                     |
