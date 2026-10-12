@@ -3,6 +3,7 @@ import { Engine } from "../engine/runtime";
 import { applyAnalyzerBindings, graphHasAnalyzerBindings } from "../lib/analyzerBindings";
 import { audioModulatorDriveSamples, audioModulatorSamples } from "../lib/audioModSamples";
 import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
+import { bindPointerHoldTarget } from "../lib/pointerHold";
 import { applyKeyframesToNodes } from "../lib/keyframes";
 import {
   applyModulatorBindings,
@@ -61,6 +62,10 @@ export function useEngine(
     engine.onStatus((statuses) => useGraphStore.getState().setStatuses(statuses));
     engineRef.current = engine;
     bindPresetPreviewCapture(canvas);
+    // Tap / hold on the output starts interactive FX (Datamosh4) when Auto is off.
+    canvas.style.touchAction = "none";
+    canvas.style.cursor = "crosshair";
+    const unbindHold = bindPointerHoldTarget(canvas);
 
     const pushGraph = () => {
       const { width, height, nodes, edges } = useGraphStore.getState();
@@ -259,6 +264,7 @@ export function useEngine(
       unsubTimeline();
       unsubModulators();
       unsubQuality();
+      unbindHold();
       bindPresetPreviewCapture(null);
       engine.dispose();
       engineRef.current = null;

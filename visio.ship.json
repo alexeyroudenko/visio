@@ -29,7 +29,6 @@
     "track-features-points",
     "track-hough-circles",
     "track-hough-lines",
-    "track-noise-glitch",
     "track-segmentation"
   ],
   "omitNodes": [

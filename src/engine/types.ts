@@ -189,6 +189,11 @@ export interface EngineContext {
    * of the Sync with timeline toggle.
    */
   timelineForceSync: boolean;
+  /**
+   * Primary pointer / touch is held on the preview (or output window).
+   * Datamosh4 uses this as the mosh trigger when Auto is off.
+   */
+  pointerHeld: boolean;
   /** Persistent render target owned by (nodeId, slot), resized on demand. */
   target: (nodeId: string, slot: string, width?: number, height?: number) => RenderTarget;
   /** Marks a node's status for the UI. */

@@ -14,6 +14,7 @@ import { particlesFeedbackCloseup } from "./particlesFeedbackCloseup";
 import { noiseElementGrid } from "./noiseElementGrid";
 import { pixelSortStart } from "./pixelSortStart";
 import { datamosh } from "./datamosh";
+import { datamosh4 } from "./datamosh4";
 import { genMotionMosh } from "./genMotionMosh";
 import { skeletonGrid } from "./skeletonGrid";
 import { skeletalAnalyze } from "./skeletalAnalyze";
@@ -1201,6 +1202,13 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
     description: "Keyframed push on a still → motion vectors → P-frame smear — press play",
     builtin: true,
     build: datamosh,
+  },
+  {
+    id: "datamosh4",
+    label: "Datamosh4",
+    description: "Camera → Motion Vectors → Datamosh4 — hold the preview to mosh (Auto off)",
+    builtin: true,
+    build: datamosh4,
   },
   {
     id: "gen-motion-mosh",

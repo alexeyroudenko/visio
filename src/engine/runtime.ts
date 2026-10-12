@@ -7,6 +7,7 @@ import {
   resizeRenderTarget,
   type RenderTarget,
 } from "./gl/rt";
+import { isPointerHeld } from "../lib/pointerHold";
 import type {
   DebugRow,
   EngineContext,
@@ -421,6 +422,7 @@ export class Engine {
       timelineFps: this.timelineFps,
       timelinePlaying: this.timelinePlaying,
       timelineForceSync: this.timelineForceSync,
+      pointerHeld: isPointerHeld(),
       target: this.target,
       report: this.report,
       debugRows: this.debugRows,

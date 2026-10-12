@@ -76,7 +76,7 @@ to be read at module top level and dragged the whole package into the main bundl
 | Sources  | Media (camera · image · video · audio), **Noise**, **Text**                                                                      |
 | Tracking | Pose (33 points), Hands, Face Mesh, Objects (EfficientDet), **Segmentation** (Image Segmenter), Corners (Shi–Tomasi), **Features Tracking** (PyrLK trails), Hough Circles, Hough Lines, Landmarks → Points, **Skeleton Analyze**, **Points Noise** |
 | Draw     | Draw Skeleton, Draw Points, Draw Boxes, Draw Circles, Draw Lines, Features Grid, Connectors, **Voronoi**, **Delaunay**, **MST**, **Radial**, Quadtree, **Particles**             |
-| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Gen Motion Vectors**, **Datamosh**, **Shader**           |
+| FX       | Feedback, **Displace Feedback**, Blend, Color, **Threshold**, Zoom, Slice Shift, Block Scatter, Pixel Sort, **Motion Vectors**, **Gen Motion Vectors**, **Datamosh**, **Datamosh4**, **Shader**           |
 | Audio    | **Granular**                                                                                                                     |
 | Output   | Output                                                                                                                           |
 
@@ -363,6 +363,12 @@ over this one is the original technique.
 
 With nothing wired into `vectors` the node estimates its own, so it works as a
 single node; wire the field in and its own estimator is skipped.
+
+**Datamosh4** is the niccolofanton-style P-frame bloom: same Motion Vectors
+field (separate node in the preset), decode with macroblock skip / residual /
+lost sectors. Trigger is Auto cycle, Latch, or **hold / tap the preview** when
+Auto is off — release fades back with Recovery ms. The `datamosh4` preset wires
+Camera → Motion Vectors → Datamosh4 → Screen with Auto off for that hold path.
 
 ### Audio (approach from [granular-video](../granular-video))
 

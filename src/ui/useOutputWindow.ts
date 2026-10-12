@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { bindPointerHoldTarget } from "../lib/pointerHold";
 
 const WINDOW_NAME = "visio-output";
 
@@ -12,8 +13,11 @@ const WINDOW_NAME = "visio-output";
 export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
   const windowRef = useRef<Window | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const unbindHoldRef = useRef<(() => void) | null>(null);
 
   const close = useCallback(() => {
+    unbindHoldRef.current?.();
+    unbindHoldRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     windowRef.current?.close();
@@ -43,8 +47,8 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
     <title>visio — output</title>
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-      body { display: grid; place-items: center; cursor: none; }
-      video { width: 100%; height: 100%; object-fit: contain; display: block; }
+      body { display: grid; place-items: center; cursor: crosshair; }
+      video { width: 100%; height: 100%; object-fit: contain; display: block; touch-action: none; }
       #hint {
         position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
         color: #6b7280; font: 12px ui-sans-serif, system-ui, sans-serif;
@@ -72,11 +76,16 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
       else void popup.document.documentElement.requestFullscreen().catch(() => undefined);
     });
 
+    unbindHoldRef.current?.();
+    unbindHoldRef.current = bindPointerHoldTarget(video);
+
     const hint = popup.document.getElementById("hint");
     popup.setTimeout(() => hint?.style.setProperty("opacity", "0"), 2500);
 
     // If the user closes the window, drop the stream with it.
     popup.addEventListener("pagehide", () => {
+      unbindHoldRef.current?.();
+      unbindHoldRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       windowRef.current = null;

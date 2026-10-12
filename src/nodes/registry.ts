@@ -34,6 +34,7 @@ import { blendNode } from "./fx/blend";
 import { motionNode } from "./fx/motion";
 import { genMotionNode } from "./fx/genMotion";
 import { datamoshNode } from "./fx/datamosh";
+import { datamosh4Node } from "./fx/datamosh4";
 import { colorNode } from "./fx/color";
 import { colorCorrectionNode } from "./fx/colorCorrection";
 import { thresholdNode } from "./fx/threshold";
@@ -91,6 +92,7 @@ export const NODE_LIST: NodeDefinition<never>[] = [
   motionNode,
   genMotionNode,
   datamoshNode,
+  datamosh4Node,
   colorNode,
   colorCorrectionNode,
   thresholdNode,
