@@ -12,16 +12,27 @@ import {
 } from "../lib/exportTimeline";
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps } from "../lib/renderFps";
+import {
+  type RenderFormat,
+  loadRenderFormat,
+} from "../lib/renderFormat";
 import { appLog } from "../store/consoleStore";
 import { serializeCurrentPatch, useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
 import { downloadPatch } from "../store/persistence";
 import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
 
+export interface OfflineRenderOptions {
+  format?: RenderFormat;
+  outputFps?: number;
+  startFrame?: number;
+  endFrame?: number;
+}
+
 /**
  * Offline frame-by-frame timeline export (toolbar Render). Not realtime —
  * seeks the playhead, forces video sync, ticks the graph, captures canvas.
- * Honours the scrubber In/Out render range when set.
+ * Honours the scrubber In/Out render range when set (or an explicit range).
  */
 export function useOfflineRender(engineRef: RefObject<Engine | null>) {
   const [rendering, setRendering] = useState(false);
@@ -33,7 +44,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     abortRef.current?.abort();
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (options: OfflineRenderOptions = {}) => {
     const engine = engineRef.current;
     if (!engine || rendering || renderingImage) return;
 
@@ -41,16 +52,25 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     const { nodes, edges, width, height } = useGraphStore.getState();
     const modulators = useModulatorStore.getState().byPath;
     const savedFrame = timeline.currentFrame;
-    const outputFps = loadRenderFps();
+    const outputFps = options.outputFps ?? loadRenderFps();
     const bitrate = loadRenderBitrate();
-    const { startFrame, endFrame } = resolveRenderRange(
-      timeline.durationInFrames,
-      timeline.renderInFrame,
-      timeline.renderOutFrame,
-    );
+    const format = options.format ?? loadRenderFormat();
+    const resolved =
+      options.startFrame != null && options.endFrame != null
+        ? {
+            startFrame: Math.round(options.startFrame),
+            endFrame: Math.round(options.endFrame),
+          }
+        : resolveRenderRange(
+            timeline.durationInFrames,
+            timeline.renderInFrame,
+            timeline.renderOutFrame,
+          );
+    let { startFrame, endFrame } = resolved;
+    if (endFrame < startFrame) [startFrame, endFrame] = [endFrame, startFrame];
     const rangeFrames = Math.max(1, endFrame - startFrame + 1);
     const ranged =
-      timeline.renderInFrame != null && timeline.renderOutFrame != null;
+      startFrame > 0 || endFrame < timeline.durationInFrames;
 
     timeline.pause();
     const controller = new AbortController();
@@ -63,8 +83,8 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       "info",
       "render",
       ranged
-        ? `started · F${startFrame}–F${endFrame} (${rangeFrames} tl-frames) @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`
-        : `started · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`,
+        ? `started · ${format} · F${startFrame}–F${endFrame} (${rangeFrames} tl-frames) @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`
+        : `started · ${format} · ${timeline.durationInFrames} tl-frames @ ${timeline.fps} fps → export ${outputFps} fps · ${formatBitrate(bitrate)}`,
     );
 
     const startedAt = performance.now();
@@ -72,6 +92,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     track("render_started", {
       frames: rangeFrames,
       ranged,
+      format,
       timeline_fps: timeline.fps,
       output_fps: outputFps,
       bitrate,
@@ -94,6 +115,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         modulators,
         outputFps,
         bitrate,
+        format,
         signal: controller.signal,
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);
@@ -221,5 +243,13 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
     else void start();
   }, [cancel, rendering, start]);
 
-  return { rendering, renderingImage, progress, toggle, renderImage: startImage, cancel };
+  return {
+    rendering,
+    renderingImage,
+    progress,
+    start,
+    toggle,
+    renderImage: startImage,
+    cancel,
+  };
 }

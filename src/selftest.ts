@@ -3711,6 +3711,23 @@ async function run(): Promise<void> {
     `default=${formatBitrate(DEFAULT_RENDER_BITRATE)} clamped=${clampRenderBitrate(0)}`,
   );
 
+  const { DEFAULT_RENDER_FORMAT, isRenderFormat, loadRenderFormat, saveRenderFormat } =
+    await import("./lib/renderFormat");
+  const formatPrev = localStorage.getItem("visio.renderFormat.v1");
+  localStorage.removeItem("visio.renderFormat.v1");
+  check(
+    "render format defaults to mp4 and persists webm",
+    DEFAULT_RENDER_FORMAT === "mp4" &&
+      loadRenderFormat() === "mp4" &&
+      isRenderFormat("webm") &&
+      !isRenderFormat("gif") &&
+      saveRenderFormat("webm") === "webm" &&
+      loadRenderFormat() === "webm",
+    `default=${DEFAULT_RENDER_FORMAT} saved=${loadRenderFormat()}`,
+  );
+  if (formatPrev == null) localStorage.removeItem("visio.renderFormat.v1");
+  else localStorage.setItem("visio.renderFormat.v1", formatPrev);
+
   const { exportTimelineImage, timelineImageStem } = await import("./lib/exportTimeline");
   const stillAt = new Date("2026-08-13T20:00:00.000Z");
   check(

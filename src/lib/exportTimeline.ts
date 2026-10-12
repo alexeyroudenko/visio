@@ -1,4 +1,15 @@
 import type { Edge } from "@xyflow/react";
+import {
+  AudioBufferSource,
+  BufferTarget,
+  CanvasSource,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_HIGH,
+  Quality,
+  getFirstEncodableAudioCodec,
+  getFirstEncodableVideoCodec,
+} from "mediabunny";
 import { ArrayBufferTarget, Muxer } from "webm-muxer";
 import type { Engine } from "../engine/runtime";
 import { NODE_DEFS } from "../nodes/registry";
@@ -15,6 +26,7 @@ import {
 import { applyModulatorsToNodes, type Modulators } from "./modulators";
 import { withSourcePrefix } from "./mediaName";
 import { clampRenderBitrate, loadRenderBitrate } from "./renderBitrate";
+import { type RenderFormat, loadRenderFormat } from "./renderFormat";
 import {
   encodeAudioBufferOpus,
   mixRenderAudio,
@@ -157,6 +169,8 @@ export interface ExportTimelineOptions {
   outputFps?: number;
   /** Video bitrate in bits per second. Defaults to the stored render setting. */
   bitrate?: number;
+  /** Container format. Defaults to the stored render setting (MP4). */
+  format?: RenderFormat;
   /** LFO + audio modulators — applied after keyframes so Render matches playback. */
   modulators?: Modulators;
   /** Called with the timeline frame shown in the UI playhead. */
@@ -411,6 +425,110 @@ async function exportWithWebCodecs(
   }
 }
 
+/**
+ * MP4 via Mediabunny (WebCodecs H.264/AVC when the browser can encode it).
+ * Same frame loop as the WebM path so Cancel / progress stay consistent.
+ */
+async function exportWithMediabunnyMp4(
+  canvas: HTMLCanvasElement,
+  pass: RenderPassContext,
+  mixedAudio: AudioBuffer | null,
+): Promise<Blob> {
+  const width = canvas.width;
+  const height = canvas.height;
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target: new BufferTarget(),
+  });
+
+  const videoCodec = await getFirstEncodableVideoCodec(
+    output.format.getSupportedVideoCodecs(),
+    { width, height },
+  );
+  if (!videoCodec) {
+    throw new Error("This browser cannot encode MP4 video (WebCodecs)");
+  }
+
+  const canvasSource = new CanvasSource(canvas, {
+    codec: videoCodec,
+    quality: new Quality({ bitrate: pass.bitrate }),
+    keyFrameInterval: KEYFRAME_EVERY_SEC,
+  });
+  output.addVideoTrack(canvasSource, { frameRate: pass.outputFps });
+
+  let audioSource: AudioBufferSource | null = null;
+  if (mixedAudio) {
+    const audioCodec = await getFirstEncodableAudioCodec(
+      output.format.getSupportedAudioCodecs(),
+      {
+        numberOfChannels: mixedAudio.numberOfChannels,
+        sampleRate: mixedAudio.sampleRate,
+      },
+    );
+    if (audioCodec) {
+      audioSource = new AudioBufferSource({
+        codec: audioCodec,
+        quality: QUALITY_HIGH,
+      });
+      output.addAudioTrack(audioSource);
+    } else {
+      console.warn("No MP4 audio codec — render continues without audio");
+    }
+  }
+
+  await output.start();
+  let framesEncoded = 0;
+
+  const finalizeMp4 = async (): Promise<Blob> => {
+    canvasSource.close();
+    if (audioSource && mixedAudio && framesEncoded >= pass.outputFrames) {
+      await audioSource.add(mixedAudio);
+    }
+    audioSource?.close();
+    await output.finalize();
+    const buffer = (output.target as BufferTarget).buffer;
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error("MP4 export produced empty buffer");
+    }
+    return new Blob([buffer], { type: "video/mp4" });
+  };
+
+  try {
+    for (let i = 0; i < pass.outputFrames; i += 1) {
+      await renderOneFrame(pass, i);
+      await canvasSource.add(i / pass.outputFps, 1 / pass.outputFps);
+      framesEncoded += 1;
+    }
+    return await finalizeMp4();
+  } catch (error) {
+    if (isCancelError(error, pass.signal) && framesEncoded > 0) {
+      try {
+        // Partial: video frames only — skip full-timeline audio mux.
+        canvasSource.close();
+        audioSource?.close();
+        await output.finalize();
+        const buffer = (output.target as BufferTarget).buffer;
+        if (buffer && buffer.byteLength > 0) {
+          throw new RenderCancelledWithPartial(
+            new Blob([buffer], { type: "video/mp4" }),
+            framesEncoded,
+          );
+        }
+      } catch (finalizeError) {
+        if (finalizeError instanceof RenderCancelledWithPartial) throw finalizeError;
+      }
+      throw new Error("Render cancelled");
+    }
+    try {
+      canvasSource.close();
+      audioSource?.close();
+    } catch {
+      /* already closed */
+    }
+    throw error;
+  }
+}
+
 async function exportWithMediaRecorder(
   canvas: HTMLCanvasElement,
   pass: RenderPassContext,
@@ -494,6 +612,7 @@ export async function exportTimelineVideo(
     modulators = {},
     outputFps: outputFpsOpt,
     bitrate: bitrateOpt,
+    format: formatOpt,
     onFrame,
     onProgress,
     signal,
@@ -514,11 +633,14 @@ export async function exportTimelineVideo(
 
   const outputFps = Math.max(1, Math.round(outputFpsOpt ?? 60));
   const bitrate = clampRenderBitrate(bitrateOpt ?? loadRenderBitrate());
+  const format: RenderFormat = formatOpt ?? loadRenderFormat();
   const durationSec = rangeFrames / Math.max(1, timelineFps);
   const startSec = startFrame / Math.max(1, timelineFps);
   const outputFrames = Math.max(1, Math.round(durationSec * outputFps));
 
   const wasPaused = engine.isPaused;
+  const prevW = engine.width;
+  const prevH = engine.height;
   engine.setPaused(true);
   engine.setTimelineForceSync(true);
   engine.setDefinitions(NODE_DEFS);
@@ -540,23 +662,39 @@ export async function exportTimelineVideo(
     signal,
   };
 
-  let encodedAudio: EncodedAudioTrack | null = null;
+  let mixedAudio: AudioBuffer | null = null;
   try {
     const audioSources = engine.collectRenderAudioSources();
     if (audioSources.length > 0) {
-      const mixed = await mixRenderAudio(audioSources, durationSec, startSec);
-      if (mixed) {
-        encodedAudio = await encodeAudioBufferOpus(mixed);
-        if (!encodedAudio) {
-          console.warn("AudioEncoder unavailable — render continues without audio");
-        }
-      }
+      mixedAudio = await mixRenderAudio(audioSources, durationSec, startSec);
     }
   } catch (err) {
-    console.warn("Audio mix/encode failed — render continues without audio:", err);
+    console.warn("Audio mix failed — render continues without audio:", err);
   }
 
   try {
+    if (format === "mp4") {
+      try {
+        const blob = await exportWithMediabunnyMp4(engine.canvas, pass, mixedAudio);
+        return { blob, outputFps, outputFrames, bitrate };
+      } catch (err) {
+        if (err instanceof RenderCancelledWithPartial) throw err;
+        console.warn("MP4 export failed, falling back to WebM:", err);
+      }
+    }
+
+    let encodedAudio: EncodedAudioTrack | null = null;
+    if (mixedAudio) {
+      try {
+        encodedAudio = await encodeAudioBufferOpus(mixedAudio);
+        if (!encodedAudio) {
+          console.warn("AudioEncoder unavailable — render continues without audio");
+        }
+      } catch (err) {
+        console.warn("Audio encode failed — render continues without audio:", err);
+      }
+    }
+
     const encoderConfig = await pickEncoderConfig(width, height, outputFps, bitrate);
     if (encoderConfig && typeof VideoFrame !== "undefined") {
       try {
@@ -576,7 +714,10 @@ export async function exportTimelineVideo(
     const blob = await exportWithMediaRecorder(engine.canvas, pass);
     return { blob, outputFps, outputFrames, bitrate };
   } finally {
+    // Restore preview buffer size (same as PNG path) — otherwise live playback
+    // stays at full export resolution and hitchs when previewQuality < 1.
     engine.setTimelineForceSync(false);
+    engine.setResolution(prevW, prevH);
     if (!wasPaused) engine.setPaused(false);
   }
 }

@@ -520,9 +520,11 @@ Opens a separate window with the image: drag it to a projector or second screen;
 double-click inside for fullscreen. Uses `captureStream()`, so the WebGL context
 stays in the main window and nothing is rendered twice.
 - **Recording** to webm — toolbar ● Record (realtime canvas capture).
-- **Render video** — toolbar: offline frame-by-frame timeline export (not realtime).
-  On finish it downloads the video **and** a matching patch JSON with the same
-  basename (`clip-render-….webm` + `clip-render-….json`).
+- **Render video** — toolbar opens a popup (format / fps / in–out range), then
+  offline frame-by-frame timeline export (not realtime). Default format is
+  **MP4** (WebCodecs via Mediabunny); WebM remains available. On finish it
+  downloads the video **and** a matching patch JSON with the same basename
+  (`clip-render-….mp4` / `.webm` + `clip-render-….json`).
 - **Render image** — toolbar, next to video: PNG of the playhead frame at the
   patch resolution (preview quality does not apply). Basename `clip-still-….png`.
 Both video writers use the bitrate set in Settings (12 Mbps by default); fps is a

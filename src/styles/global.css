@@ -775,7 +775,8 @@ input[type="checkbox"] {
 }
 
 .button,
-.select {
+.select,
+.input {
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--line);
@@ -787,8 +788,22 @@ input[type="checkbox"] {
   transition: all 0.15s;
 }
 
+.input {
+  color: var(--text);
+  cursor: text;
+  font-variant-numeric: tabular-nums;
+}
+
 .button:hover,
-.select:hover {
+.select:hover,
+.input:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.input:focus {
+  outline: none;
   border-color: var(--accent);
   color: var(--text);
   background: var(--panel-2);
@@ -901,6 +916,10 @@ input[type="checkbox"] {
   z-index: 100;
 }
 
+.modal-backdrop--render {
+  z-index: 170;
+}
+
 .modal-backdrop--presets {
   z-index: 160;
 }
@@ -917,7 +936,8 @@ input[type="checkbox"] {
   width: min(920px, 100%);
 }
 
-.modal--settings {
+.modal--settings,
+.modal--render {
   width: min(420px, 100%);
 }
 
@@ -958,8 +978,34 @@ input[type="checkbox"] {
   letter-spacing: 0.1em;
 }
 
-.modal__field .select {
+.modal__field .select,
+.modal__field .input {
   width: 100%;
+}
+
+.modal__field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.render-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.render-progress__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.render-progress__bar {
+  height: 100%;
+  background: var(--render);
+  transition: width 0.15s ease;
 }
 
 .modal__field--check {
@@ -982,10 +1028,22 @@ input[type="checkbox"] {
   line-height: 1.4;
 }
 
+.modal__hint--lead {
+  margin-top: 0;
+}
+
+.modal__footer-row--tight {
+  margin-bottom: 4px;
+}
+
 .modal__status {
   margin: 0;
   color: var(--success);
   font-size: 11px;
+}
+
+.modal__status--error {
+  color: var(--danger);
 }
 
 .modal__footer {

@@ -235,9 +235,11 @@ export default function App() {
     rendering,
     renderingImage,
     progress: renderProgress,
-    toggle: toggleRender,
+    start: startRender,
+    cancel: cancelRender,
     renderImage,
   } = useOfflineRender(engineRef);
+  const [renderOpen, setRenderOpen] = useState(false);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
   const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
@@ -523,7 +525,12 @@ export default function App() {
           onToggleRecord={toggle}
           rendering={rendering}
           renderProgress={renderProgress}
-          onToggleRender={toggleRender}
+          onStartRender={(options) => {
+            void startRender(options);
+          }}
+          onCancelRender={cancelRender}
+          renderOpen={renderOpen}
+          onRenderOpenChange={setRenderOpen}
           renderingImage={renderingImage}
           onRenderImage={renderImage}
           paused={paused}
@@ -682,7 +689,10 @@ export default function App() {
             <button
               type="button"
               className={`shutter-bar__chip shutter-bar__chip--ghost${rendering ? " shutter-bar__chip--busy" : ""}`}
-              onClick={toggleRender}
+              onClick={() => {
+                if (rendering) cancelRender();
+                else setRenderOpen(true);
+              }}
               disabled={recording || renderingImage}
               title="Offline Render video"
             >

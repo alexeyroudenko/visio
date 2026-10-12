@@ -8,6 +8,7 @@ import { useEngineStatsStore } from "../store/engineStatsStore";
 import { useGraphStore } from "../store/graphStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { PresetsModal } from "./PresetsModal";
+import { RenderModal, type RenderStartOptions } from "./RenderModal";
 import { SettingsModal } from "./SettingsModal";
 
 const CATEGORY_ORDER = ["source", "tracking", "draw", "fx", "audio", "output", "help"];
@@ -17,7 +18,10 @@ export function Toolbar({
   onToggleRecord,
   rendering,
   renderProgress,
-  onToggleRender,
+  onStartRender,
+  onCancelRender,
+  renderOpen = false,
+  onRenderOpenChange,
   renderingImage = false,
   onRenderImage,
   paused,
@@ -34,7 +38,11 @@ export function Toolbar({
   onToggleRecord: () => void;
   rendering: boolean;
   renderProgress: number;
-  onToggleRender: () => void;
+  onStartRender: (options: RenderStartOptions) => void;
+  onCancelRender: () => void;
+  /** Shared open state so portrait shutter can open the same popup. */
+  renderOpen?: boolean;
+  onRenderOpenChange?: (open: boolean) => void;
   renderingImage?: boolean;
   onRenderImage?: () => void;
   paused: boolean;
@@ -58,6 +66,9 @@ export function Toolbar({
   const [presetsBlinking, setPresetsBlinking] = useState(false);
   const [presetsGated, setPresetsGated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [localRenderOpen, setLocalRenderOpen] = useState(false);
+  const renderPopupOpen = onRenderOpenChange ? renderOpen : localRenderOpen;
+  const setRenderPopupOpen = onRenderOpenChange ?? setLocalRenderOpen;
   const [renderFps, setRenderFpsState] = useState(() => loadRenderFps());
   const [renderBitrate, setRenderBitrateState] = useState(() => loadRenderBitrate());
   const nudgeTimer = useRef(0);
@@ -79,6 +90,14 @@ export function Toolbar({
     }
   }, [onPresetsGateClose, presetsGated]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  const wasRendering = useRef(false);
+  useEffect(() => {
+    if (wasRendering.current && !rendering) {
+      setRenderPopupOpen(false);
+    }
+    wasRendering.current = rendering;
+  }, [rendering, setRenderPopupOpen]);
 
   useEffect(() => {
     if (!presetNudge) return;
@@ -267,13 +286,16 @@ export function Toolbar({
                 className={`button button--render ${rendering ? "button--recording" : ""}${chromeHint ? " button--hint" : ""}`}
                 onClick={() => {
                   onChromeHintAck?.();
-                  onToggleRender();
+                  if (rendering) onCancelRender();
+                  else setRenderPopupOpen(true);
                 }}
                 disabled={recording || renderingImage}
                 title={
-                  renderInFrame != null && renderOutFrame != null
-                    ? `Offline Render video F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
-                    : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
+                  rendering
+                    ? "Cancel offline render"
+                    : renderInFrame != null && renderOutFrame != null
+                      ? `Offline Render video F${Math.min(renderInFrame, renderOutFrame)}–F${Math.max(renderInFrame, renderOutFrame)} @ ${renderFps} fps`
+                      : `Offline frame-by-frame timeline export @ ${renderFps} fps (not realtime)`
                 }
               >
                 {rendering ? `■ Cancel ${Math.round(renderProgress * 100)}%` : "Render video"}
@@ -300,6 +322,18 @@ export function Toolbar({
           onRenderFpsChange={commitRenderFps}
           renderBitrate={renderBitrate}
           onRenderBitrateChange={commitRenderBitrate}
+        />
+        <RenderModal
+          open={renderPopupOpen}
+          onClose={() => {
+            if (!rendering) setRenderPopupOpen(false);
+          }}
+          rendering={rendering}
+          renderProgress={renderProgress}
+          onStart={(options) => {
+            onStartRender(options);
+          }}
+          onCancel={onCancelRender}
         />
       </header>
 
