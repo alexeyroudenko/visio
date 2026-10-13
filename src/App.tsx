@@ -240,6 +240,10 @@ export default function App() {
     renderImage,
   } = useOfflineRender(engineRef);
   const [renderOpen, setRenderOpen] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
+  const togglePresetsOpen = useCallback(() => {
+    setPresetsOpen((open) => !open);
+  }, []);
   const outputWindow = useOutputWindow(() => canvasRef.current);
 
   const dropMediaFiles = useGraphStore((state) => state.dropMediaFiles);
@@ -568,6 +572,8 @@ export default function App() {
           onPresetsGateClose={onPresetsGateClose}
           performance={performance}
           onTogglePerformance={togglePerformance}
+          presetsOpen={presetsOpen}
+          onPresetsOpenChange={setPresetsOpen}
         />
         {vertical && performance ? <PublishedMixer variant="bar" /> : null}
       </div>
@@ -598,7 +604,11 @@ export default function App() {
                 {/* Exact-fit: stretch the patch canvas to the phone screen — no
                     letterbox. Patch resolution stays {width}×{height}; only the
                     CSS box fills the shell. */}
-                <div className="editor__backdrop-frame">
+                <div
+                  className="editor__backdrop-frame"
+                  onDoubleClick={togglePresetsOpen}
+                  title="Double-click to show or hide Presets"
+                >
                   {stage}
                 </div>
               </div>
@@ -647,7 +657,11 @@ export default function App() {
               style={performance ? undefined : { width: rightWidth }}
             >
               <div className={`preview preview--fill${performance ? " preview--fit-height" : ""}`}>
-                <div className="preview__stage">
+                <div
+                  className="preview__stage"
+                  onDoubleClick={togglePresetsOpen}
+                  title="Double-click to show or hide Presets"
+                >
                   <div className="preview__frame" style={{ aspectRatio: `${width} / ${height}` }}>
                     {stage}
                   </div>
