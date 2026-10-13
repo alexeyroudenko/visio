@@ -102,6 +102,10 @@ export function Toolbar({
     wasRendering.current = rendering;
   }, [rendering, setRenderPopupOpen]);
 
+  useEffect(() => {
+    if (performance) setMenuOpen(false);
+  }, [performance]);
+
   // Any close path (toolbar, backdrop, preview double-click) clears blink + drop gate.
   useEffect(() => {
     if (presetsWasOpen.current && !presetsPopupOpen) {
@@ -172,88 +176,90 @@ export function Toolbar({
             ⚙
           </button>
 
-          <div className="menu">
-            <button
-              type="button"
-              className={`button${chromeHint ? " button--hint" : ""}`}
-              onClick={() => {
-                onChromeHintAck?.();
-                setMenuOpen((open) => !open);
-              }}
-            >
-              + Node
-            </button>
-            {menuOpen ? (
-              <div
-                className="menu__panel"
-                data-ship={shipTick}
-                onMouseLeave={() => setMenuOpen(false)}
+          {performance ? null : (
+            <div className="menu">
+              <button
+                type="button"
+                className={`button${chromeHint ? " button--hint" : ""}`}
+                onClick={() => {
+                  onChromeHintAck?.();
+                  setMenuOpen((open) => !open);
+                }}
               >
-                {CATEGORY_ORDER.map((category) => {
-                  const nodes = menuNodes.filter((definition) => definition.category === category);
-                  if (nodes.length === 0) return null;
-                  return (
-                    <section key={category}>
-                      <h4>{CATEGORY_LABELS[category]}</h4>
-                      {nodes.map((definition) => {
-                        const omitted = isNodeOmitted(definition.type);
-                        const locked = isNodeLocked(definition.type);
-                        return (
-                          <div
-                            key={definition.type}
-                            className={`menu__row${omitted ? " menu__row--omitted" : ""}`}
-                          >
-                            {import.meta.env.DEV ? (
-                              <label
-                                className="menu__ship"
-                                title={
-                                  locked
-                                    ? "Media and Output always ship"
-                                    : omitted
-                                      ? "Unchecked: left out of the production build"
-                                      : "Checked: included in the production build"
-                                }
-                                onClick={(event) => event.stopPropagation()}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={!omitted}
-                                  disabled={locked}
-                                  aria-label={`Include ${definition.label} in the production build`}
-                                  onChange={async (event) => {
-                                    const ship = event.target.checked;
-                                    const ok = await setNodeShipped(definition.type, ship);
-                                    if (!ok) event.target.checked = !ship;
-                                    setShipTick((tick) => tick + 1);
-                                  }}
-                                />
-                              </label>
-                            ) : null}
-                            <button
-                              type="button"
-                              className="menu__item"
-                              onClick={() => {
-                                // Drop new nodes in a loose diagonal so they never stack exactly.
-                                addNode(definition.type, {
-                                  x: 120 + Math.random() * 320,
-                                  y: 80 + Math.random() * 320,
-                                });
-                                setMenuOpen(false);
-                              }}
+                + Node
+              </button>
+              {menuOpen ? (
+                <div
+                  className="menu__panel"
+                  data-ship={shipTick}
+                  onMouseLeave={() => setMenuOpen(false)}
+                >
+                  {CATEGORY_ORDER.map((category) => {
+                    const nodes = menuNodes.filter((definition) => definition.category === category);
+                    if (nodes.length === 0) return null;
+                    return (
+                      <section key={category}>
+                        <h4>{CATEGORY_LABELS[category]}</h4>
+                        {nodes.map((definition) => {
+                          const omitted = isNodeOmitted(definition.type);
+                          const locked = isNodeLocked(definition.type);
+                          return (
+                            <div
+                              key={definition.type}
+                              className={`menu__row${omitted ? " menu__row--omitted" : ""}`}
                             >
-                              <span>{definition.label}</span>
-                              <em>{definition.description}</em>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </section>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
+                              {import.meta.env.DEV ? (
+                                <label
+                                  className="menu__ship"
+                                  title={
+                                    locked
+                                      ? "Media and Output always ship"
+                                      : omitted
+                                        ? "Unchecked: left out of the production build"
+                                        : "Checked: included in the production build"
+                                  }
+                                  onClick={(event) => event.stopPropagation()}
+                                  onPointerDown={(event) => event.stopPropagation()}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={!omitted}
+                                    disabled={locked}
+                                    aria-label={`Include ${definition.label} in the production build`}
+                                    onChange={async (event) => {
+                                      const ship = event.target.checked;
+                                      const ok = await setNodeShipped(definition.type, ship);
+                                      if (!ok) event.target.checked = !ship;
+                                      setShipTick((tick) => tick + 1);
+                                    }}
+                                  />
+                                </label>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="menu__item"
+                                onClick={() => {
+                                  // Drop new nodes in a loose diagonal so they never stack exactly.
+                                  addNode(definition.type, {
+                                    x: 120 + Math.random() * 320,
+                                    y: 80 + Math.random() * 320,
+                                  });
+                                  setMenuOpen(false);
+                                }}
+                              >
+                                <span>{definition.label}</span>
+                                <em>{definition.description}</em>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <button
             type="button"
