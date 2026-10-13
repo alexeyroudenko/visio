@@ -637,7 +637,8 @@ function createGraphStore() {
       const node = get().nodes.find((entry) => entry.id === parsed.nodeId);
       if (!node) return;
       const spec = NODE_DEFS[node.data.defType]?.params.find((param) => param.key === parsed.key);
-      if (!spec || spec.type !== "range") return;
+      // Mixer accepts range knobs and toggle checkboxes (↑ in the inspector).
+      if (!spec || (spec.type !== "range" && spec.type !== "toggle")) return;
       const published = get().published;
       const on = published.includes(path);
       set({ published: on ? published.filter((entry) => entry !== path) : [...published, path] });

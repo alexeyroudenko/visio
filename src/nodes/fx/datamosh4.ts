@@ -13,8 +13,10 @@ import {
 /**
  * Datamosh4 decode pass — port of visio-datamosh4 / niccolofanton "Feeding a
  * Decoder the Wrong Frame". Motion comes from an external Motion Vectors node
- * (or a built-in matcher). Holding the pointer on the preview (when Auto is
- * off) withholds keyframes so the P-frame loop blooms.
+ * (or a built-in matcher).
+ *
+ * Trigger: Auto cycle, Latch, or hold (when Auto is off and Latch is off).
+ * Reset (I-frame): Auto+Latch → every Keyframe ms; Auto off → tap the preview.
  */
 const DECODE_FS = `#version 300 es
 precision highp float;
@@ -205,6 +207,8 @@ void main() {
 const LOST_SECTOR_DELAY_MS = 300;
 const AUTO_HOLD_MS = 2600;
 const AUTO_REST_MS = 1400;
+/** When Auto+Latch and Keyframe ms is 0, still inject I-frames on this period. */
+const AUTO_LATCH_KEYFRAME_MS = 1000;
 
 interface Datamosh4State {
   motion: MotionState;
@@ -216,6 +220,7 @@ interface Datamosh4State {
   lastKeyframe: number;
   gestureStart: number;
   autoT0: number;
+  wasPointerHeld: boolean;
 }
 
 export const datamosh4Node = defineNode<Datamosh4State>({
@@ -223,7 +228,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
   label: "Datamosh4",
   category: "fx",
   description:
-    "P-frame bloom (datamosh4): warp history along motion vectors. Hold the preview to mosh when Auto is off.",
+    "P-frame bloom (datamosh4): warp history along motion vectors. Auto+Latch resets every Keyframe ms; Auto off — tap the preview to reset.",
   inputs: [
     { id: "src", label: "texture", type: "texture" },
     { id: "mv", label: "vectors", type: "texture" },
@@ -283,6 +288,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
       lastKeyframe: 0,
       gestureStart: -Infinity,
       autoT0: -1,
+      wasPointerHeld: false,
     };
   },
   evaluate({ ctx, nodeId, inputs, params, runtime, debug }) {
@@ -305,10 +311,16 @@ export const datamosh4Node = defineNode<Datamosh4State>({
       state.lastRelease = -1;
       state.wasActive = false;
       state.autoT0 = -1;
+      state.wasPointerHeld = false;
     }
 
     const now = ctx.timeMs;
     const auto = paramBool(params, "auto", false);
+    const latch = paramBool(params, "latch", false);
+    const held = ctx.pointerHeld;
+    const tap = held && !state.wasPointerHeld;
+    state.wasPointerHeld = held;
+
     let autoOn = false;
     if (auto) {
       if (state.autoT0 < 0) state.autoT0 = now;
@@ -317,8 +329,8 @@ export const datamosh4Node = defineNode<Datamosh4State>({
       state.autoT0 = -1;
     }
 
-    // Trigger: Auto cycle, Latch, or pointer/touch held on the preview.
-    const pressed = autoOn || paramBool(params, "latch", false) || ctx.pointerHeld;
+    // Mosh trigger: Auto hold phase, Latch, or (Auto off) press-and-hold.
+    const pressed = autoOn || latch || (!auto && held);
     if (pressed !== state.pressed) {
       state.pressed = pressed;
       state.lastRelease = pressed ? -1 : now;
@@ -332,8 +344,15 @@ export const datamosh4Node = defineNode<Datamosh4State>({
           : Math.min(1, Math.max(0, (now - state.lastRelease) / fade));
 
     const gestureStart = pressed && !state.wasActive;
-    const interval = paramNumber(params, "keyframe", 0);
-    const gop = pressed && !gestureStart && interval > 0 && now - state.lastKeyframe >= interval;
+    const keyframeMs = paramNumber(params, "keyframe", 0);
+    // Auto+Latch: periodic I-frames (Keyframe ms, or a 1s default when unset).
+    const interval =
+      auto && latch ? (keyframeMs > 0 ? keyframeMs : AUTO_LATCH_KEYFRAME_MS) : keyframeMs;
+    const periodicGop =
+      pressed && !gestureStart && interval > 0 && now - state.lastKeyframe >= interval;
+    // Auto off: tap the preview → one I-frame reset (even while Latch is holding mosh).
+    const tapReset = !auto && tap;
+    const gop = periodicGop || tapReset;
     if (gestureStart || gop) state.lastKeyframe = now;
     if (gestureStart) state.gestureStart = now;
     state.wasActive = pressed;
@@ -353,7 +372,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
     const showVectors = paramBool(params, "vectors", false);
     const frozen =
       now - state.gestureStart >= LOST_SECTOR_DELAY_MS ? paramNumber(params, "lostDensity", 1) : 0;
-    const keyframe = gop || !state.historyPrimed ? 1 : 0;
+    const keyframe = gop || gestureStart || !state.historyPrimed ? 1 : 0;
     state.historyPrimed = true;
 
     const program = getProgram(gl, FULLSCREEN_VS, DECODE_FS);
@@ -396,7 +415,30 @@ export const datamosh4Node = defineNode<Datamosh4State>({
         recover < 1 ? (pressed ? "MOSH" : `recover ${Math.round(recover * 100)}%`) : "clean";
       ctx.debugRows(nodeId, [
         { label: "state", value: label },
-        { label: "trigger", value: pressed ? (autoOn ? "auto" : ctx.pointerHeld ? "hold" : "latch") : "—" },
+        {
+          label: "trigger",
+          value: pressed
+            ? autoOn
+              ? "auto"
+              : latch
+                ? "latch"
+                : held
+                  ? "hold"
+                  : "—"
+            : "—",
+        },
+        {
+          label: "i-frame",
+          value: keyframe
+            ? tapReset
+              ? "tap"
+              : periodicGop
+                ? "interval"
+                : gestureStart
+                  ? "start"
+                  : "prime"
+            : "—",
+        },
         { label: "vectors", value: isRenderTarget(external) ? "external" : "internal" },
       ]);
     }

@@ -2,7 +2,6 @@
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "face-rotate.mp4",
   "nodes": [
     {
       "id": "screen-1",
@@ -23,8 +22,8 @@
         "y": 245.57646728872083
       },
       "params": {
-        "mode": "video",
-        "facing": "user",
+        "mode": "camera",
+        "facing": "environment",
         "playing": true,
         "muted": false,
         "volume": 1,
@@ -39,13 +38,13 @@
       "id": "color-6",
       "type": "fx.color",
       "position": {
-        "x": 700.4893260168374,
-        "y": 333.61268005670905
+        "x": 329.3298110865602,
+        "y": 297.1798442353322
       },
       "params": {
-        "brightness": -0.13,
-        "contrast": 1.75,
-        "saturation": 0,
+        "brightness": -0.010000000000000009,
+        "contrast": 1.7000000000000002,
+        "saturation": 1.4500000000000002,
         "hue": 0
       },
       "debug": true
@@ -54,12 +53,12 @@
       "id": "datamosh4-7",
       "type": "fx.datamosh4",
       "position": {
-        "x": 351.17442189273703,
-        "y": 288.28036610326257
+        "x": 619.8665860753916,
+        "y": 374.8083511790328
       },
       "params": {
-        "auto": true,
-        "latch": false,
+        "auto": false,
+        "latch": true,
         "gain": 1.5,
         "fade": 401,
         "keyframe": 3000,
@@ -88,22 +87,22 @@
   ],
   "edges": [
     {
-      "id": "e-3afa76f5-290b-4f91-ab42-8a7ad84d3f67",
+      "id": "e-2abe5844-6d84-4d2f-9f3c-34c3a92720ac",
       "source": "media-1",
-      "sourceHandle": "out",
-      "target": "datamosh4-7",
-      "targetHandle": "src"
-    },
-    {
-      "id": "e-441debfd-0776-4fe1-8a98-6c34d3c86f6c",
-      "source": "datamosh4-7",
       "sourceHandle": "out",
       "target": "color-6",
       "targetHandle": "src"
     },
     {
-      "id": "e-b2ff40e4-67a4-45ee-9b5a-ff9079ed6d71",
+      "id": "e-147f3474-2dc7-4b2f-923f-8b39f3e2586e",
       "source": "color-6",
+      "sourceHandle": "out",
+      "target": "datamosh4-7",
+      "targetHandle": "src"
+    },
+    {
+      "id": "e-dba3fd02-dd25-4940-83a4-78ea87c7c861",
+      "source": "datamosh4-7",
       "sourceHandle": "out",
       "target": "screen-1",
       "targetHandle": "src"
@@ -225,9 +224,11 @@
     }
   },
   "published": [
-    "datamosh4-7:auto",
     "datamosh4-7:gain",
     "datamosh4-7:fade",
-    "datamosh4-7:latch"
+    "datamosh4-7:latch",
+    "datamosh4-7:auto",
+    "datamosh4-7:vectors",
+    "color-6:saturation"
   ]
 }

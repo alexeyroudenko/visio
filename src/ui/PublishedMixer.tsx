@@ -26,6 +26,13 @@ type PublishedToggle = {
 
 type PublishedItem = PublishedRange | PublishedToggle;
 
+type PublishedGroup = {
+  nodeId: string;
+  nodeLabel: string;
+  toggles: PublishedToggle[];
+  ranges: PublishedRange[];
+};
+
 function publishedItems(nodes: PatchNode[], published: string[]): PublishedItem[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const items: PublishedItem[] = [];
@@ -46,6 +53,29 @@ function publishedItems(nodes: PatchNode[], published: string[]): PublishedItem[
   return items;
 }
 
+/** Keep publish order, but cluster by node — toggles then knobs inside each. */
+function groupPublished(items: PublishedItem[]): PublishedGroup[] {
+  const groups: PublishedGroup[] = [];
+  const indexById = new Map<string, number>();
+  for (const item of items) {
+    let index = indexById.get(item.node.id);
+    if (index === undefined) {
+      index = groups.length;
+      indexById.set(item.node.id, index);
+      groups.push({
+        nodeId: item.node.id,
+        nodeLabel: item.nodeLabel,
+        toggles: [],
+        ranges: [],
+      });
+    }
+    const group = groups[index]!;
+    if (item.kind === "toggle") group.toggles.push(item);
+    else group.ranges.push(item);
+  }
+  return groups;
+}
+
 /**
  * Live mixer for params the user published with ↑. Desktop: left column.
  * Phone: a strip under the toolbar. The graph is hidden while this is up.
@@ -63,28 +93,32 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
   const modulators = useModulatorStore((state) => state.byPath);
 
   const items = publishedItems(nodes, published);
+  const groups = groupPublished(items);
   const frame = Math.round(currentFrame);
 
-  const controls = items.map((item) => {
-    if (item.kind === "toggle") {
-      const { path, node, nodeLabel, spec } = item;
-      const base = node.data.params[spec.key];
-      const value = typeof base === "boolean" ? base : spec.default;
-      const label = variant === "bar" ? `${nodeLabel} ${spec.label}` : spec.label;
-      return (
-        <div key={path} className="param-block param-block--toggle">
-          <label className="param param--row">
-            <input
-              type="checkbox"
-              checked={value}
-              onChange={(event) => setParam(node.id, spec.key, event.target.checked)}
-            />
-            <span className="param__label">{label}</span>
-          </label>
-        </div>
-      );
-    }
+  const renderToggle = (item: PublishedToggle) => {
+    const { path, node, nodeLabel, spec } = item;
+    const base = node.data.params[spec.key];
+    const value = typeof base === "boolean" ? base : spec.default;
+    return (
+      <div
+        key={path}
+        className="param-block param-block--toggle"
+        title={`${nodeLabel} · ${spec.label}`}
+      >
+        <label className="param param--row">
+          <input
+            type="checkbox"
+            checked={value}
+            onChange={(event) => setParam(node.id, spec.key, event.target.checked)}
+          />
+          <span className="param__label">{spec.label}</span>
+        </label>
+      </div>
+    );
+  };
 
+  const renderKnob = (item: PublishedRange) => {
     const { path, node, nodeLabel, spec } = item;
     const keys = paramKeyframes[path];
     const animated = !!keys?.length;
@@ -101,12 +135,11 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
       );
     }
     const numeric = typeof value === "number" ? value : spec.default;
-    const label = variant === "bar" ? `${nodeLabel} ${spec.label}` : spec.label;
 
     return (
-      <div key={path} className="param-block param-block--knob">
+      <div key={path} className="param-block param-block--knob" title={`${nodeLabel} · ${spec.label}`}>
         <Knob
-          label={label}
+          label={spec.label}
           min={spec.min}
           max={spec.max}
           step={spec.step}
@@ -136,35 +169,53 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
         </button>
       </div>
     );
-  });
+  };
 
   if (variant === "bar") {
     return (
       <div className="published-mixer published-mixer--bar">
-        {items.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="published-mixer__empty">
             No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox.
           </p>
         ) : (
-          controls
+          groups.map((group) => (
+            <section key={group.nodeId} className="published-mixer__group" aria-label={group.nodeLabel}>
+              <header className="published-mixer__group-head">{group.nodeLabel}</header>
+              {group.toggles.length > 0 ? (
+                <div className="published-mixer__group-toggles">
+                  {group.toggles.map((item) => renderToggle(item))}
+                </div>
+              ) : null}
+              {group.ranges.length > 0 ? (
+                <div className="published-mixer__group-knobs">
+                  {group.ranges.map((item) => renderKnob(item))}
+                </div>
+              ) : null}
+            </section>
+          ))
         )}
       </div>
     );
   }
 
-  let lastNode = "";
   const grouped: ReactNode[] = [];
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i];
-    if (item.node.id !== lastNode) {
-      lastNode = item.node.id;
-      grouped.push(
-        <p key={`h-${item.node.id}`} className="published-mixer__node">
-          {item.nodeLabel}
-        </p>,
-      );
-    }
-    grouped.push(controls[i]);
+  for (const group of groups) {
+    grouped.push(
+      <section key={group.nodeId} className="published-mixer__cluster">
+        <p className="published-mixer__node">{group.nodeLabel}</p>
+        {group.toggles.length > 0 ? (
+          <div className="published-mixer__cluster-toggles">
+            {group.toggles.map((item) => renderToggle(item))}
+          </div>
+        ) : null}
+        {group.ranges.length > 0 ? (
+          <div className="published-mixer__cluster-knobs">
+            {group.ranges.map((item) => renderKnob(item))}
+          </div>
+        ) : null}
+      </section>,
+    );
   }
 
   return (
@@ -175,12 +226,12 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
           <span className="inspector__category">Performance</span>
         </div>
       </header>
-      {items.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="inspector__empty">
           No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox to put it here.
         </p>
       ) : (
-        <div className="inspector__params">{grouped}</div>
+        <div className="inspector__params inspector__params--mixer">{grouped}</div>
       )}
     </aside>
   );

@@ -177,7 +177,7 @@ function serializablePublished(nodes: PatchNode[], published: string[] | undefin
     const defType = defTypeById.get(parsed.nodeId);
     if (!defType) continue;
     const spec = NODE_DEFS[defType]?.params.find((p) => p.key === parsed.key);
-    if (!spec || spec.type !== "range") continue;
+    if (!spec || (spec.type !== "range" && spec.type !== "toggle")) continue;
     seen.add(path);
     clean.push(path);
   }

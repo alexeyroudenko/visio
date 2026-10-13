@@ -3297,17 +3297,19 @@ async function run(): Promise<void> {
     1080,
     undefined,
     undefined,
-    ["cam-1:zoom", "cam-1:file", "ghost-1:zoom", "cam-1:zoom"],
+    ["cam-1:zoom", "cam-1:mirror", "cam-1:file", "ghost-1:zoom", "cam-1:zoom"],
   );
   check(
-    "published range paths persist; file params, dead nodes and dupes drop",
-    JSON.stringify(pubPatch.published) === JSON.stringify(["cam-1:zoom"]),
+    "published range+toggle paths persist; file params, dead nodes and dupes drop",
+    JSON.stringify(pubPatch.published) === JSON.stringify(["cam-1:zoom", "cam-1:mirror"]),
     `published=${JSON.stringify(pubPatch.published ?? null)}`,
   );
   const pubRound = parsePatch(JSON.parse(JSON.stringify(pubPatch)));
   check(
     "published paths round-trip",
-    pubRound?.published.length === 1 && pubRound.published[0] === "cam-1:zoom",
+    pubRound?.published.length === 2 &&
+      pubRound.published[0] === "cam-1:zoom" &&
+      pubRound.published[1] === "cam-1:mirror",
     `published=${JSON.stringify(pubRound?.published ?? null)}`,
   );
   check(

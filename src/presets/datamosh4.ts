@@ -4,8 +4,8 @@ import type { SerializedPatch } from "../store/persistence";
  * Camera → Motion Vectors → Datamosh4 → Screen.
  *
  * Vectors stay a separate node so the field can be inspected or swapped for
- * Gen Motion. Auto is off: hold / tap the preview to withhold keyframes and
- * bloom; release fades back with Recovery ms.
+ * Gen Motion. Auto+Latch: mosh with I-frame every Keyframe ms. Auto off: hold
+ * to bloom, tap to reset; Latch keeps mosh on.
  */
 export function datamosh4(): SerializedPatch {
   return {

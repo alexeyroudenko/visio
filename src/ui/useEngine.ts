@@ -65,6 +65,34 @@ export function useEngine(
     // Tap / hold on the output starts interactive FX (Datamosh4) when Auto is off.
     canvas.style.touchAction = "none";
     canvas.style.cursor = "crosshair";
+
+    /** Portrait shell: WebKit keeps bitmap aspect unless display px are set. */
+    let ro: ResizeObserver | null = null;
+    const clearDisplaySize = () => {
+      canvas.style.width = "";
+      canvas.style.height = "";
+    };
+    const syncDisplaySize = () => {
+      if (layoutKey !== "vertical") {
+        clearDisplaySize();
+        return;
+      }
+      const box = canvas.parentElement;
+      if (!box) return;
+      const w = box.clientWidth;
+      const h = box.clientHeight;
+      if (w < 1 || h < 1) return;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    };
+    if (layoutKey === "vertical") {
+      syncDisplaySize();
+      ro = new ResizeObserver(syncDisplaySize);
+      const box = canvas.parentElement;
+      if (box) ro.observe(box);
+      window.visualViewport?.addEventListener("resize", syncDisplaySize);
+    }
+
     const unbindHold = bindPointerHoldTarget(canvas);
 
     const pushGraph = () => {
@@ -264,6 +292,9 @@ export function useEngine(
       unsubTimeline();
       unsubModulators();
       unsubQuality();
+      ro?.disconnect();
+      window.visualViewport?.removeEventListener("resize", syncDisplaySize);
+      clearDisplaySize();
       unbindHold();
       bindPresetPreviewCapture(null);
       engine.dispose();

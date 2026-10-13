@@ -36,6 +36,7 @@ import {
   AUTHOR_FULL,
   AUTHOR_HANDLE,
   AUTHOR_URL,
+  SWITCH_CAMERA_LABEL,
   WELCOME_CAMERA_LABEL,
   WELCOME_DESKTOP_NOTE,
   WELCOME_HINT,
@@ -48,7 +49,6 @@ import {
   chromeHintsPending,
   markChromeHintsDone,
 } from "./lib/firstRun";
-import { sourceMediaStem } from "./lib/mediaName";
 import { loadPerformanceMode, savePerformanceMode } from "./lib/performanceMode";
 import { builtinPreviewUrl, DEFAULT_PRESET_ID, listPresets, type PatchPreset } from "./presets";
 import { useGraphStore, type PatchNode as PatchNodeType } from "./store/graphStore";
@@ -255,13 +255,15 @@ export default function App() {
       setParam(node.id, "mirror", camera.mirror);
     }
   }, [loadPreset, setParam]);
-  const enableIphoneCamera = useCallback(() => {
+  const findMediaNode = useCallback(() => {
     const state = useGraphStore.getState();
     const selected = state.nodes.find(
       (node) => node.id === state.selectedId && node.data.defType === "source.media",
     );
-    const media =
-      selected ?? state.nodes.find((node) => node.data.defType === "source.media");
+    return selected ?? state.nodes.find((node) => node.data.defType === "source.media");
+  }, []);
+  const enableIphoneCamera = useCallback(() => {
+    const media = findMediaNode();
     if (!media) {
       startWelcomeCamera();
       return;
@@ -270,7 +272,14 @@ export default function App() {
     setParam(media.id, "mode", camera.mode);
     setParam(media.id, "facing", camera.facing);
     setParam(media.id, "mirror", camera.mirror);
-  }, [setParam, startWelcomeCamera]);
+  }, [findMediaNode, setParam, startWelcomeCamera]);
+  const switchIphoneCamera = useCallback(() => {
+    const media = findMediaNode();
+    if (!media || media.data.params.mode !== "camera") return;
+    const nextFacing = media.data.params.facing === "user" ? "environment" : "user";
+    setParam(media.id, "facing", nextFacing);
+    setParam(media.id, "mirror", nextFacing === "user");
+  }, [findMediaNode, setParam]);
   const [presetNudge, setPresetNudge] = useState(0);
   const [chromeHint, setChromeHint] = useState(false);
   const [holdUntilPresets, setHoldUntilPresets] = useState(false);
@@ -331,8 +340,9 @@ export default function App() {
   const onEdgesChange = useGraphStore((state) => state.onEdgesChange);
   const onConnect = useGraphStore((state) => state.onConnect);
   const select = useGraphStore((state) => state.select);
-  // Recompute when the graph changes so captions/downloads follow the open file.
-  const mediaStem = sourceMediaStem();
+  const cameraLive = nodes.some(
+    (node) => node.data.defType === "source.media" && node.data.params.mode === "camera",
+  );
 
   const nodeTypes = useMemo(() => ({ patch: PatchNode }), []);
 
@@ -490,18 +500,38 @@ export default function App() {
             </div>
             {vertical ? null : <p className="welcome__desktop">{WELCOME_DESKTOP_NOTE}</p>}
           </div>
-          <button
-            type="button"
-            className="welcome__upload"
-            onClick={() => mediaPickRef.current?.click()}
-            title="Open a video or image"
-            aria-label="Upload video"
-          >
-            <span className="welcome__plus" aria-hidden="true">
-              {WELCOME_PLUS_LABEL}
-            </span>
-            <span className="welcome__upload-label">{WELCOME_UPLOAD_LABEL}</span>
-          </button>
+          {vertical ? (
+            <div className="welcome__footer">
+              <button
+                type="button"
+                className="welcome__upload"
+                onClick={() => mediaPickRef.current?.click()}
+                title="Open a video or image"
+                aria-label="Upload video"
+              >
+                <span className="welcome__plus" aria-hidden="true">
+                  {WELCOME_PLUS_LABEL}
+                </span>
+                <span className="welcome__upload-label">{WELCOME_UPLOAD_LABEL}</span>
+              </button>
+              <button type="button" className="welcome__camera" onClick={startWelcomeCamera}>
+                {WELCOME_CAMERA_LABEL}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="welcome__upload"
+              onClick={() => mediaPickRef.current?.click()}
+              title="Open a video or image"
+              aria-label="Upload video"
+            >
+              <span className="welcome__plus" aria-hidden="true">
+                {WELCOME_PLUS_LABEL}
+              </span>
+              <span className="welcome__upload-label">{WELCOME_UPLOAD_LABEL}</span>
+            </button>
+          )}
           <input
             ref={mediaPickRef}
             type="file"
@@ -513,11 +543,6 @@ export default function App() {
               if (files.length) onDropFiles(files);
             }}
           />
-          {vertical ? (
-            <button type="button" className="welcome__camera" onClick={startWelcomeCamera}>
-              {WELCOME_CAMERA_LABEL}
-            </button>
-          ) : null}
         </div>
       ) : null}
       <div className="chrome">
@@ -576,10 +601,6 @@ export default function App() {
                 <div className="editor__backdrop-frame">
                   {stage}
                 </div>
-                <span className="editor__backdrop-caption">
-                  {mediaStem ? `${mediaStem} · ` : null}
-                  window · {width}×{height}
-                </span>
               </div>
             ) : null}
 
@@ -651,13 +672,42 @@ export default function App() {
       {vertical ? (
         <div className="shutter-bar" role="toolbar" aria-label="Record">
           {nodes.length > 0 ? (
-            <button
-              type="button"
-              className="shutter-bar__chip"
-              onClick={enableIphoneCamera}
-            >
-              {WELCOME_CAMERA_LABEL}
-            </button>
+            cameraLive ? (
+              <button
+                type="button"
+                className="shutter-bar__flip"
+                onClick={switchIphoneCamera}
+                title={SWITCH_CAMERA_LABEL}
+                aria-label={SWITCH_CAMERA_LABEL}
+              >
+                <svg
+                  className="shutter-bar__flip-icon"
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 8V5h-3" />
+                  <path d="M4 16v3h3" />
+                  <path d="M20 5a9 9 0 0 0-14.5 3.5" />
+                  <path d="M4 19a9 9 0 0 0 14.5-3.5" />
+                  <circle cx="12" cy="12" r="2.5" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="shutter-bar__chip"
+                onClick={enableIphoneCamera}
+              >
+                {WELCOME_CAMERA_LABEL}
+              </button>
+            )
           ) : (
             <span className="shutter-bar__slot" aria-hidden />
           )}

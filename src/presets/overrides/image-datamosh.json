@@ -31,7 +31,7 @@
         "y": 33.79105873877253
       },
       "params": {
-        "block": 4,
+        "block": 26,
         "search": 96,
         "scale": "4",
         "threshold": 0.01,
@@ -48,15 +48,15 @@
         "y": 180.98507562419798
       },
       "params": {
-        "amount": 4,
-        "bloom": 1.8,
+        "amount": 2.9000000000000004,
+        "bloom": 0.1,
         "decay": 1,
         "refresh": 0,
-        "keyframe": 52,
-        "block": 22,
-        "search": 4,
-        "scale": "8",
-        "threshold": 0.15,
+        "keyframe": 0,
+        "block": 20,
+        "search": 70,
+        "scale": "4",
+        "threshold": 0,
         "smooth": 0,
         "resetAtFirst": true,
         "clear": false
@@ -125,13 +125,6 @@
       "targetHandle": "src"
     },
     {
-      "id": "e-fc85914e-a9af-450a-b535-92ee0fe1fc24",
-      "source": "genMotion-1",
-      "sourceHandle": "out",
-      "target": "datamosh-1",
-      "targetHandle": "mv"
-    },
-    {
       "id": "e-77fbbdfa-395d-46ce-9ca9-88b5c1c46424",
       "source": "datamosh-1",
       "sourceHandle": "out",
@@ -144,6 +137,13 @@
       "sourceHandle": "out",
       "target": "screen-1",
       "targetHandle": "src"
+    },
+    {
+      "id": "e-f00e91d6-c228-4962-8025-b6ac56a71351",
+      "source": "motion-1",
+      "sourceHandle": "out",
+      "target": "datamosh-1",
+      "targetHandle": "mv"
     }
   ],
   "timeline": {
@@ -283,5 +283,11 @@
         "drift": 0.4
       }
     }
-  }
+  },
+  "published": [
+    "datamosh-1:resetAtFirst",
+    "datamosh-1:bloom",
+    "datamosh-1:amount",
+    "datamosh-1:clear"
+  ]
 }

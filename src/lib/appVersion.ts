@@ -15,6 +15,8 @@ export const WELCOME_PLUS_LABEL = "+";
 export const WELCOME_UPLOAD_LABEL = "Upload video";
 /** Portrait / iPhone empty screen — under the upload control, thumb reach. */
 export const WELCOME_CAMERA_LABEL = "enable camera";
+/** Portrait shutter: flip front ↔ back once camera is live. */
+export const SWITCH_CAMERA_LABEL = "Switch camera";
 
 export function welcomeCameraParams(): {
   mode: "camera";

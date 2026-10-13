@@ -34,7 +34,6 @@ const MASKED_TEXT = [
   ".media-info__value",
   ".timeline__clip-label",
   ".param__hint",
-  ".editor__backdrop-caption",
   ".modal__status",
   ".ph-mask",
 ];
