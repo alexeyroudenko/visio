@@ -33,6 +33,8 @@ export function Toolbar({
   onPresetsGateClose,
   performance = true,
   onTogglePerformance,
+  presetsOpen = false,
+  onPresetsOpenChange,
 }: {
   recording: boolean;
   onToggleRecord: () => void;
@@ -59,19 +61,25 @@ export function Toolbar({
   /** Graph hidden; published knobs on the mixer. Default on. */
   performance?: boolean;
   onTogglePerformance?: () => void;
+  /** Shared open state so the preview stage can toggle the same Presets modal. */
+  presetsOpen?: boolean;
+  onPresetsOpenChange?: (open: boolean) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [shipTick, setShipTick] = useState(0);
-  const [presetsOpen, setPresetsOpen] = useState(false);
+  const [localPresetsOpen, setLocalPresetsOpen] = useState(false);
   const [presetsBlinking, setPresetsBlinking] = useState(false);
   const [presetsGated, setPresetsGated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [localRenderOpen, setLocalRenderOpen] = useState(false);
   const renderPopupOpen = onRenderOpenChange ? renderOpen : localRenderOpen;
   const setRenderPopupOpen = onRenderOpenChange ?? setLocalRenderOpen;
+  const presetsPopupOpen = onPresetsOpenChange ? presetsOpen : localPresetsOpen;
+  const setPresetsPopupOpen = onPresetsOpenChange ?? setLocalPresetsOpen;
   const [renderFps, setRenderFpsState] = useState(() => loadRenderFps());
   const [renderBitrate, setRenderBitrateState] = useState(() => loadRenderBitrate());
   const nudgeTimer = useRef(0);
+  const presetsWasOpen = useRef(false);
   const fps = useEngineStatsStore((state) => state.fps);
   const frameMs = useEngineStatsStore((state) => state.frameMs);
   const nodeCount = useEngineStatsStore((state) => state.nodeCount);
@@ -82,13 +90,8 @@ export function Toolbar({
   const width = useGraphStore((state) => state.width);
   const height = useGraphStore((state) => state.height);
   const closePresets = useCallback(() => {
-    setPresetsOpen(false);
-    setPresetsBlinking(false);
-    if (presetsGated) {
-      setPresetsGated(false);
-      onPresetsGateClose?.();
-    }
-  }, [onPresetsGateClose, presetsGated]);
+    setPresetsPopupOpen(false);
+  }, [setPresetsPopupOpen]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   const wasRendering = useRef(false);
@@ -99,6 +102,18 @@ export function Toolbar({
     wasRendering.current = rendering;
   }, [rendering, setRenderPopupOpen]);
 
+  // Any close path (toolbar, backdrop, preview double-click) clears blink + drop gate.
+  useEffect(() => {
+    if (presetsWasOpen.current && !presetsPopupOpen) {
+      setPresetsBlinking(false);
+      if (presetsGated) {
+        setPresetsGated(false);
+        onPresetsGateClose?.();
+      }
+    }
+    presetsWasOpen.current = presetsPopupOpen;
+  }, [presetsPopupOpen, presetsGated, onPresetsGateClose]);
+
   useEffect(() => {
     if (!presetNudge) return;
     setPresetsBlinking(true);
@@ -106,10 +121,10 @@ export function Toolbar({
     nudgeTimer.current = window.setTimeout(() => {
       setPresetsBlinking(false);
       setPresetsGated(true);
-      setPresetsOpen(true);
+      setPresetsPopupOpen(true);
     }, 1000);
     return () => window.clearTimeout(nudgeTimer.current);
-  }, [presetNudge]);
+  }, [presetNudge, setPresetsPopupOpen]);
 
   const commitRenderFps = useCallback((value: number) => {
     setRenderFpsState(saveRenderFps(value));
@@ -248,7 +263,7 @@ export function Toolbar({
               window.clearTimeout(nudgeTimer.current);
               if (presetsBlinking) setPresetsGated(true);
               setPresetsBlinking(false);
-              setPresetsOpen(true);
+              setPresetsPopupOpen(true);
             }}
             title="Load a preset patch · export / import / reset"
           >
@@ -314,7 +329,7 @@ export function Toolbar({
           )}
         </div>
 
-        <PresetsModal open={presetsOpen} onClose={closePresets} />
+        <PresetsModal open={presetsPopupOpen} onClose={closePresets} />
         <SettingsModal
           open={settingsOpen}
           onClose={closeSettings}
