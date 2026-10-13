@@ -122,12 +122,16 @@ void main() {
   }
 
   // How much better than standing still — flat or unchanged blocks score 0, so
-  // noise in an empty sky never turns into a vector. Threshold after smooth:
-  // otherwise a still block keeps bleeding last frame's vectors forever.
+  // noise in an empty sky never turns into a vector. Threshold after smooth
+  // (and clear conf too): otherwise a still block bleeds last frame's vectors,
+  // or shows as blue-grey from a leftover B channel on a 0.5/0.5 field.
   float conf = clamp((zeroCost - bestCost) / max(zeroCost, 0.01), 0.0, 1.0);
   vec2 mv = best * uBoost;
   if (uSmooth > 0.0) mv = mix(mv, decodeMotion(texture(uPrevMv, vUv)), uSmooth);
-  if (conf < uThreshold) mv = vec2(0.0);
+  if (conf < uThreshold) {
+    mv = vec2(0.0);
+    conf = 0.0;
+  }
 
   vec2 enc = clamp(mv * ${(1 / (2 * MOTION_SCALE)).toFixed(4)} + 0.5, 0.0, 1.0);
   fragColor = vec4(enc, conf, 1.0);
