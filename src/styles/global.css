@@ -1056,6 +1056,34 @@ input[type="checkbox"] {
   width: min(420px, 100%);
 }
 
+/* Settings modal only: compact copy (~⅓) + larger selects (~2×). */
+.modal--settings .modal__header h2 {
+  font-size: 4px; /* was 12px */
+}
+
+.modal--settings .modal__field span {
+  font-size: 3px; /* was --label-size 9px */
+}
+
+.modal--settings .modal__field--check span {
+  font-size: 4px; /* was 12px */
+}
+
+.modal--settings .modal__hint {
+  font-size: 4px; /* was 12px */
+}
+
+.modal--settings .modal__field .select {
+  font-size: 20px; /* was --button-size 10px → 2× */
+  line-height: 1.35;
+  padding: 6px 16px; /* was 3px 8px → 2× */
+  min-height: 44px; /* ~2× typical closed control */
+}
+
+.modal--settings .modal__field .select option {
+  font-size: 20px;
+}
+
 .modal__header {
   display: flex;
   align-items: center;
