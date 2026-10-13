@@ -1781,6 +1781,11 @@ input[type="checkbox"] {
   padding: 0;
 }
 
+/* Portrait performance: no graph on top — let the content surface take holds. */
+.app--vertical.app--performance .editor__backdrop {
+  pointer-events: auto;
+}
+
 .editor__backdrop-frame {
   position: absolute;
   inset: 0;
@@ -1961,6 +1966,21 @@ body.is-resizing {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   pointer-events: none;
+}
+
+/* Press / touch hold feedback on preview canvas or output window video. */
+.pointer-hold-frame {
+  position: absolute;
+  inset: 5%;
+  border: 2px solid rgb(255 255 255 / 55%);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 5;
+  display: none;
+}
+
+.pointer-hold-frame[data-active] {
+  display: block;
 }
 
 .preview__bar {
