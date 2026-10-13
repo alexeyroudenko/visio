@@ -5,7 +5,7 @@
  */
 const STORAGE_KEY = "visio.renderBitrate.v1";
 
-export const DEFAULT_RENDER_BITRATE = 12_000_000;
+export const DEFAULT_RENDER_BITRATE = 20_000_000;
 export const MIN_RENDER_BITRATE = 500_000;
 export const MAX_RENDER_BITRATE = 200_000_000;
 
@@ -34,7 +34,7 @@ export function saveRenderBitrate(bps: number): number {
   return next;
 }
 
-/** `12_000_000` → `12 Mbps`; keeps one decimal for values like 2.5 Mbps. */
+/** `20_000_000` → `20 Mbps`; keeps one decimal for values like 2.5 Mbps. */
 export function formatBitrate(bps: number): string {
   const mbps = bps / 1_000_000;
   return `${Number.isInteger(mbps) ? mbps : mbps.toFixed(1)} Mbps`;

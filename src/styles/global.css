@@ -403,7 +403,28 @@ input[type="checkbox"] {
 .app--vertical .welcome {
   display: flex;
   flex-direction: column;
-  padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+  padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 48px));
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+}
+
+.app--vertical .welcome__copy {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.app--vertical .welcome__brand {
+  gap: 4px;
+  margin-bottom: 0;
+}
+
+.app--vertical .welcome__mark {
+  font-size: 48px;
 }
 
 .welcome__upload {
@@ -460,10 +481,27 @@ input[type="checkbox"] {
   font-size: 56px;
 }
 
+.app--vertical .welcome__upload {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* Four portrait thumbs across the phone width — no letterboxed 64px crumbs. */
 .app--vertical .welcome__presets {
-  width: min(100%, 360px);
-  max-height: min(28vh, 240px);
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 2px;
+}
+
+.app--vertical .welcome__preset-label {
+  -webkit-line-clamp: 1;
+  font-size: 9px;
+  padding: 0 2px 4px;
 }
 
 /* Thin dark scrollbars like cv-reels sidebar */
@@ -1605,37 +1643,35 @@ input[type="checkbox"] {
   position: absolute;
   inset: 0;
   z-index: 0;
-  display: grid;
-  place-items: center;
   pointer-events: none;
-  background: #050505;
-  /* Keep the output frame out from under the overlay toolbar and shutter. */
-  padding-top: max(72px, calc(env(safe-area-inset-top, 0px) + 70px));
-  padding-bottom: max(96px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+  background: #000;
+  /* Edge-to-edge behind toolbar / shutter — chrome sits on top. */
+  padding: 0;
 }
 
 .editor__backdrop-frame {
-  position: relative;
-  /* Fit the output frame inside the window; aspect-ratio comes from inline style. */
-  max-width: 100%;
-  max-height: 100%;
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  width: auto;
   background: #000;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 80px rgba(0, 0, 0, 0.55);
 }
 
+/* Exact fit: stretch the patch bitmap to the phone screen (no cover crop,
+   no letterbox). Same idea as Media fit → stretch. */
 .editor__backdrop-frame canvas {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: fill;
 }
 
 .editor__backdrop-caption {
   position: absolute;
   left: 10px;
-  bottom: 10px;
+  /* Sit above the shutter bar now that the frame is full-bleed. */
+  bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 96px));
   padding: 3px 8px;
   border-radius: var(--radius);
   background: rgba(0, 0, 0, 0.55);
@@ -1871,8 +1907,23 @@ body.is-resizing {
   -webkit-overflow-scrolling: touch;
 }
 
-.published-mixer--bar .param-block--knob {
+.published-mixer--bar .param-block--knob,
+.published-mixer--bar .param-block--toggle {
   flex: 0 0 auto;
+}
+
+.published-mixer .param-block--toggle,
+.published-mixer--bar .param-block--toggle {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.published-mixer--bar .param-block--toggle {
+  white-space: nowrap;
 }
 
 .published-mixer__empty {

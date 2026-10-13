@@ -8,27 +8,40 @@ import { useModulatorStore } from "../store/modulatorStore";
 import { useTimelineStore } from "../store/timelineStore";
 import { Knob } from "./Knob";
 
-function publishedKnobs(nodes: PatchNode[], published: string[]) {
+type PublishedRange = {
+  kind: "range";
+  path: string;
+  node: PatchNode;
+  nodeLabel: string;
+  spec: Extract<ParamSpec, { type: "range" }>;
+};
+
+type PublishedToggle = {
+  kind: "toggle";
+  path: string;
+  node: PatchNode;
+  nodeLabel: string;
+  spec: Extract<ParamSpec, { type: "toggle" }>;
+};
+
+type PublishedItem = PublishedRange | PublishedToggle;
+
+function publishedItems(nodes: PatchNode[], published: string[]): PublishedItem[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const items: {
-    path: string;
-    node: PatchNode;
-    nodeLabel: string;
-    spec: Extract<ParamSpec, { type: "range" }>;
-  }[] = [];
+  const items: PublishedItem[] = [];
   for (const path of published) {
     const parsed = parseParamPath(path);
     if (!parsed) continue;
     const node = byId.get(parsed.nodeId);
     if (!node) continue;
     const spec = NODE_DEFS[node.data.defType]?.params.find((param) => param.key === parsed.key);
-    if (!spec || spec.type !== "range") continue;
-    items.push({
-      path,
-      node,
-      nodeLabel: NODE_DEFS[node.data.defType]?.label ?? node.data.defType,
-      spec,
-    });
+    if (!spec) continue;
+    const nodeLabel = NODE_DEFS[node.data.defType]?.label ?? node.data.defType;
+    if (spec.type === "range") {
+      items.push({ kind: "range", path, node, nodeLabel, spec });
+    } else if (spec.type === "toggle") {
+      items.push({ kind: "toggle", path, node, nodeLabel, spec });
+    }
   }
   return items;
 }
@@ -36,6 +49,7 @@ function publishedKnobs(nodes: PatchNode[], published: string[]) {
 /**
  * Live mixer for params the user published with ↑. Desktop: left column.
  * Phone: a strip under the toolbar. The graph is hidden while this is up.
+ * Ranges become knobs; toggles become checkboxes (e.g. Datamosh4 Auto / Latch).
  */
 export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar" }) {
   const nodes = useGraphStore((state) => state.nodes);
@@ -48,10 +62,30 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
   const fps = useTimelineStore((state) => state.fps);
   const modulators = useModulatorStore((state) => state.byPath);
 
-  const items = publishedKnobs(nodes, published);
+  const items = publishedItems(nodes, published);
   const frame = Math.round(currentFrame);
 
-  const knobs = items.map(({ path, node, nodeLabel, spec }) => {
+  const controls = items.map((item) => {
+    if (item.kind === "toggle") {
+      const { path, node, nodeLabel, spec } = item;
+      const base = node.data.params[spec.key];
+      const value = typeof base === "boolean" ? base : spec.default;
+      const label = variant === "bar" ? `${nodeLabel} ${spec.label}` : spec.label;
+      return (
+        <div key={path} className="param-block param-block--toggle">
+          <label className="param param--row">
+            <input
+              type="checkbox"
+              checked={value}
+              onChange={(event) => setParam(node.id, spec.key, event.target.checked)}
+            />
+            <span className="param__label">{label}</span>
+          </label>
+        </div>
+      );
+    }
+
+    const { path, node, nodeLabel, spec } = item;
     const keys = paramKeyframes[path];
     const animated = !!keys?.length;
     const onFrame = !!keys?.some((key) => key.frame === frame);
@@ -109,10 +143,10 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
       <div className="published-mixer published-mixer--bar">
         {items.length === 0 ? (
           <p className="published-mixer__empty">
-            No published knobs. Turn ⚙ off, then press ↑ on a knob.
+            No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox.
           </p>
         ) : (
-          knobs
+          controls
         )}
       </div>
     );
@@ -130,7 +164,7 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
         </p>,
       );
     }
-    grouped.push(knobs[i]);
+    grouped.push(controls[i]);
   }
 
   return (
@@ -143,7 +177,7 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
       </header>
       {items.length === 0 ? (
         <p className="inspector__empty">
-          No published knobs. Turn ⚙ off, then press ↑ on a knob to put it here.
+          No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox to put it here.
         </p>
       ) : (
         <div className="inspector__params">{grouped}</div>

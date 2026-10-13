@@ -223,5 +223,11 @@
         "drift": 0.4
       }
     }
-  }
+  },
+  "published": [
+    "datamosh4-7:auto",
+    "datamosh4-7:gain",
+    "datamosh4-7:fade",
+    "datamosh4-7:latch"
+  ]
 }

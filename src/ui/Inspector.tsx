@@ -612,13 +612,17 @@ function KeyToggle({ animated, onFrame, onClick }: {
   );
 }
 
-/** ↑ promotes a range knob onto the patch mixer (performance view). */
+/** ↑ promotes a range / toggle onto the patch mixer (performance view). */
 function PublishToggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       className={`param-pub${on ? " param-pub--on" : ""}`}
-      title={on ? "Unpublish — hide this knob from the patch mixer" : "Publish — show this knob on the patch mixer"}
+      title={
+        on
+          ? "Unpublish — hide this control from the patch mixer"
+          : "Publish — show this control on the patch mixer"
+      }
       aria-label="Publish"
       aria-pressed={on}
       onClick={onClick}
@@ -1167,7 +1171,7 @@ export function Inspector() {
                   setParam(node.id, spec.key, next);
                 }}
               />
-              {spec.type === "range" ? (
+              {spec.type === "range" || spec.type === "toggle" ? (
                 <PublishToggle
                   on={published.includes(path)}
                   onClick={() => togglePublished(path)}

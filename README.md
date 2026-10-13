@@ -533,7 +533,7 @@ stays in the main window and nothing is rendered twice.
   (`clip-render-….mp4` / `.webm` + `clip-render-….json`).
 - **Render image** — toolbar, next to video: PNG of the playhead frame at the
   patch resolution (preview quality does not apply). Basename `clip-still-….png`.
-Both video writers use the bitrate set in Settings (12 Mbps by default); fps is a
+Both video writers use the bitrate set in Settings (20 Mbps by default); fps is a
 Render setting alone, since Record follows the clock.
 - **Exported patches** lead with the footage they were built on —
 `clip-visio-patch-2026-08-08.json`, and a `source` field inside. Dropped files

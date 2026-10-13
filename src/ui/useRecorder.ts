@@ -2,8 +2,8 @@
  * Records the engine canvas straight off its capture stream. The engine keeps
  * preserveDrawingBuffer on, so frames survive long enough to be grabbed.
  *
- * MIME order prefers WebM where available; Safari/iOS often only offers mp4 —
- * we try that next and surface a clear error when nothing is supported.
+ * MIME order prefers MP4 (same as offline Render) — Safari/iOS and Chromium
+ * that expose AVC; WebM is the fallback. Clear error when nothing is supported.
  */
 import { useCallback, useRef, useState } from "react";
 // Aliased: `track` is already a MediaStream track in this file.
@@ -13,10 +13,11 @@ import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
 import { appLog } from "../store/consoleStore";
 
 const MIME_CANDIDATES = [
+  "video/mp4;codecs=avc1",
+  "video/mp4",
   "video/webm;codecs=vp9",
   "video/webm;codecs=vp8",
   "video/webm",
-  "video/mp4",
 ];
 
 export function pickRecorderMimeType(): string | null {

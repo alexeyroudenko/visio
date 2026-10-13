@@ -462,7 +462,8 @@ export default function App() {
                 ({AUTHOR_FULL})
               </p>
             </div>
-            <p className="welcome__hint">{WELCOME_HINT}</p>
+            {/* Drop hint is desktop-only — on phone it steals space from thumbs. */}
+            {vertical ? null : <p className="welcome__hint">{WELCOME_HINT}</p>}
             <div className="welcome__presets" role="list" aria-label="Presets">
               {listPresets().map((preset) => {
                 const thumb = welcomePresetThumb(preset);
@@ -487,7 +488,7 @@ export default function App() {
                 );
               })}
             </div>
-            <p className="welcome__desktop">{WELCOME_DESKTOP_NOTE}</p>
+            {vertical ? null : <p className="welcome__desktop">{WELCOME_DESKTOP_NOTE}</p>}
           </div>
           <button
             type="button"
@@ -569,10 +570,10 @@ export default function App() {
           <section className={`editor${vertical ? " editor--vertical" : ""}`}>
             {vertical ? (
               <div className="editor__backdrop" aria-hidden>
-                <div
-                  className="editor__backdrop-frame"
-                  style={{ aspectRatio: `${width} / ${height}` }}
-                >
+                {/* Exact-fit: stretch the patch canvas to the phone screen — no
+                    letterbox. Patch resolution stays {width}×{height}; only the
+                    CSS box fills the shell. */}
+                <div className="editor__backdrop-frame">
                   {stage}
                 </div>
                 <span className="editor__backdrop-caption">

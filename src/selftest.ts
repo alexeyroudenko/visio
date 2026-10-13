@@ -3702,12 +3702,12 @@ async function run(): Promise<void> {
     "./lib/renderBitrate"
   );
   check(
-    "render bitrate defaults to 12 Mbps and clamps custom values",
-    DEFAULT_RENDER_BITRATE === 12_000_000 &&
+    "render bitrate defaults to 20 Mbps and clamps custom values",
+    DEFAULT_RENDER_BITRATE === 20_000_000 &&
       clampRenderBitrate(40_000_000) === 40_000_000 &&
       clampRenderBitrate(0) === 500_000 &&
       clampRenderBitrate(1e12) === 200_000_000 &&
-      formatBitrate(12_000_000) === "12 Mbps",
+      formatBitrate(20_000_000) === "20 Mbps",
     `default=${formatBitrate(DEFAULT_RENDER_BITRATE)} clamped=${clampRenderBitrate(0)}`,
   );
 
