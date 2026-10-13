@@ -64,7 +64,17 @@ import {
 } from "./nodes/tracking/segmentation";
 import { cannyEdges } from "./nodes/tracking/canny";
 import { linesFromEdges } from "./nodes/tracking/houghAlgorithms";
-import { APP_MARK, WELCOME_CAMERA_LABEL, WELCOME_PLUS_LABEL, WELCOME_UPLOAD_LABEL, welcomeCameraParams, welcomeText } from "./lib/appVersion";
+import {
+  APP_MARK,
+  APP_VERSION_DISPLAY,
+  APP_VERSION_LABEL,
+  formatVersionAt,
+  WELCOME_CAMERA_LABEL,
+  WELCOME_PLUS_LABEL,
+  WELCOME_UPLOAD_LABEL,
+  welcomeCameraParams,
+  welcomeText,
+} from "./lib/appVersion";
 import { defaultParams, NODE_DEFS, NODE_LIST } from "./nodes/registry";
 import { LOCKED_NODE_TYPES } from "./nodes/ship";
 import {
@@ -575,6 +585,14 @@ async function run(): Promise<void> {
       textDefault.default === welcomeText() &&
       textDefault.default.includes(APP_MARK),
     `default=${typeof textDefault?.default === "string" ? textDefault.default.slice(0, 40) : "none"}`,
+  );
+  check(
+    "version stamp formats tagger ISO as YYYY-MM-DD HH:mm",
+    formatVersionAt("2026-10-13T05:17:36+03:00") === "2026-10-13 05:17" &&
+      formatVersionAt("") === "" &&
+      APP_VERSION_DISPLAY.startsWith(APP_VERSION_LABEL) &&
+      welcomeText().includes(APP_VERSION_DISPLAY),
+    `display=${APP_VERSION_DISPLAY}`,
   );
   const cameraOffer = welcomeCameraParams();
   check(

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORY_LABELS, NODE_LIST } from "../nodes/registry";
 import { isNodeLocked, isNodeOmitted, setNodeShipped } from "../nodes/ship";
-import { APP_VERSION_LABEL } from "../lib/appVersion";
+import { APP_VERSION_DISPLAY } from "../lib/appVersion";
 import { loadRenderBitrate, saveRenderBitrate } from "../lib/renderBitrate";
 import { loadRenderFps, saveRenderFps } from "../lib/renderFps";
 import { useEngineStatsStore } from "../store/engineStatsStore";
@@ -353,7 +353,7 @@ export function Toolbar({
       </header>
 
       <div className="toolbar__stats" aria-live="polite">
-        <span className="toolbar__stats-ver">{APP_VERSION_LABEL}</span>
+        <span className="toolbar__stats-ver">{APP_VERSION_DISPLAY}</span>
         {" · "}
         {rendering
           ? `rendering · F${timelineFrame} · ${Math.round(renderProgress * 100)}%`

@@ -16,6 +16,11 @@ interface ImportMeta {
 declare module "virtual:app-version" {
   /** Latest git tag (`v0.0.2`), or `package.json` version if tags are missing. */
   export const GIT_TAG: string;
+  /**
+   * ISO timestamp when that tag was created (annotated tagger date from
+   * `tag.ps1`), or empty when the version fell back to package.json.
+   */
+  export const GIT_TAG_AT: string;
 }
 
 declare module "virtual:image-library" {
