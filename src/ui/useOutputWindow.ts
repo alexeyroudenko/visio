@@ -47,8 +47,13 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
     <title>visio — output</title>
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-      body { display: grid; place-items: center; cursor: crosshair; }
+      body { position: relative; display: grid; place-items: center; cursor: crosshair; }
       video { width: 100%; height: 100%; object-fit: contain; display: block; touch-action: none; }
+      .pointer-hold-frame {
+        position: absolute; inset: 5%; border: 2px solid rgb(255 255 255 / 55%);
+        box-sizing: border-box; pointer-events: none; z-index: 5; display: none;
+      }
+      .pointer-hold-frame[data-active] { display: block; }
       #hint {
         position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
         color: #6b7280; font: 12px ui-sans-serif, system-ui, sans-serif;
