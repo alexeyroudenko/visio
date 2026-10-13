@@ -52,6 +52,13 @@ function waitForVideoSeek(video: HTMLVideoElement, time: number): Promise<void> 
 
 const TEXTURE_BYPASS_PREF = new Set(["src", "bg", "base"]);
 
+/**
+ * Categories skipped while the content surface is held — sources keep
+ * uploading, audio keeps running, output still presents; visual processing
+ * forwards textures so the canvas shows the incoming stream only.
+ */
+const HOLD_PASSTHROUGH_CATEGORIES = new Set(["fx", "draw", "tracking"]);
+
 /** Map each output to a same-typed input (same id → preferred names → first match). */
 function bypassOutputs(
   definition: NodeDefinition<never>,
@@ -552,8 +559,12 @@ export class Engine {
       const startedAt = debug ? performance.now() : 0;
       this.debugExtra = debug ? [] : null;
 
+      const holdPassthrough =
+        ctx.pointerHeld && HOLD_PASSTHROUGH_CATEGORIES.has(slot.definition.category);
+      const bypassed = node.bypass === true || holdPassthrough;
+
       try {
-        const result = node.bypass
+        const result = bypassed
           ? bypassOutputs(slot.definition, inputs)
           : slot.definition.evaluate({
               ctx,
@@ -574,7 +585,7 @@ export class Engine {
       }
 
       if (publish) {
-        this.publishDebug(id, slot, inputs, performance.now() - startedAt, node.bypass === true);
+        this.publishDebug(id, slot, inputs, performance.now() - startedAt, bypassed);
       }
       this.debugExtra = null;
     }

@@ -48,7 +48,15 @@ export function useOutputWindow(getCanvas: () => HTMLCanvasElement | null) {
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
       body { position: relative; display: grid; place-items: center; cursor: crosshair; }
-      video { width: 100%; height: 100%; object-fit: contain; display: block; touch-action: none; }
+      video {
+        width: 100%; height: 100%; object-fit: contain; display: block;
+        touch-action: none; user-select: none; -webkit-user-select: none;
+        -webkit-touch-callout: none; -webkit-user-drag: none;
+      }
+      .pointer-hold-target {
+        user-select: none; -webkit-user-select: none;
+        -webkit-touch-callout: none; -webkit-user-drag: none;
+      }
       .pointer-hold-frame {
         position: absolute; inset: 5%; border: 2px solid rgb(255 255 255 / 55%);
         box-sizing: border-box; pointer-events: none; z-index: 5; display: none;

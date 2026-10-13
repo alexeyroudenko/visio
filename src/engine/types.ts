@@ -191,7 +191,8 @@ export interface EngineContext {
   timelineForceSync: boolean;
   /**
    * Primary pointer / touch is held on the preview (or output window).
-   * Datamosh4 uses this as the mosh trigger when Auto is off.
+   * While true, the runtime bypasses fx/draw/tracking and presents the
+   * incoming source stream (passthrough).
    */
   pointerHeld: boolean;
   /** Persistent render target owned by (nodeId, slot), resized on demand. */

@@ -1943,6 +1943,18 @@ body.is-resizing {
   display: block;
   width: 100%;
   height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
+/* Bound by bindPointerHoldTarget — blocks long-press selection UI. */
+.pointer-hold-target {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .preview__error {

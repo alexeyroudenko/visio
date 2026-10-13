@@ -1,10 +1,12 @@
 /**
  * Global pointer/touch hold against the patch output (preview canvas or
- * detached output window). Nodes like Datamosh4 read this each frame via
- * EngineContext.pointerHeld.
+ * detached output window). The engine reads this each frame via
+ * EngineContext.pointerHeld and, while held, bypasses fx/draw/tracking so
+ * only the incoming source stream is presented.
  *
  * While held, a semi-transparent white frame (5% inset, 2px) overlays the
- * content surface as press feedback.
+ * content surface as press feedback. Selection / callout on long-press is
+ * suppressed on the bound surface.
  */
 
 const HOLD_FRAME_CLASS = "pointer-hold-frame";
@@ -62,15 +64,44 @@ function attachHoldFrame(el: HTMLElement): { show: () => void; hide: () => void;
   };
 }
 
+/** Block long-press text/image selection and iOS callout on a hold target. */
+function suppressSelection(el: HTMLElement): () => void {
+  el.classList.add("pointer-hold-target");
+  el.style.userSelect = "none";
+  el.style.webkitUserSelect = "none";
+  // Safari / iOS long-press image callout.
+  (el.style as CSSStyleDeclaration & { webkitTouchCallout?: string }).webkitTouchCallout = "none";
+
+  const block = (event: Event) => {
+    event.preventDefault();
+  };
+  el.addEventListener("selectstart", block);
+  el.addEventListener("contextmenu", block);
+  el.addEventListener("dragstart", block);
+
+  return () => {
+    el.classList.remove("pointer-hold-target");
+    el.style.userSelect = "";
+    el.style.webkitUserSelect = "";
+    (el.style as CSSStyleDeclaration & { webkitTouchCallout?: string }).webkitTouchCallout = "";
+    el.removeEventListener("selectstart", block);
+    el.removeEventListener("contextmenu", block);
+    el.removeEventListener("dragstart", block);
+  };
+}
+
 /**
  * Bind primary-button / touch down→up on an element. Returns an unbind.
  * Also clears hold on window blur / lost pointer capture.
  */
 export function bindPointerHoldTarget(el: HTMLElement): () => void {
   const frame = attachHoldFrame(el);
+  const releaseSelection = suppressSelection(el);
 
   const onDown = (event: PointerEvent) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    // Stop browser long-press selection / magnifier without killing pointer capture.
+    event.preventDefault();
     el.setPointerCapture(event.pointerId);
     frame.show();
     setPointerHeld(true);
@@ -96,6 +127,7 @@ export function bindPointerHoldTarget(el: HTMLElement): () => void {
     el.removeEventListener("pointercancel", onUp);
     el.removeEventListener("lostpointercapture", onUp);
     window.removeEventListener("blur", onBlur);
+    releaseSelection();
     frame.dispose();
     setPointerHeld(false);
   };

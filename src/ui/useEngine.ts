@@ -62,7 +62,7 @@ export function useEngine(
     engine.onStatus((statuses) => useGraphStore.getState().setStatuses(statuses));
     engineRef.current = engine;
     bindPresetPreviewCapture(canvas);
-    // Tap / hold on the output starts interactive FX (Datamosh4) when Auto is off.
+    // Hold on the output → engine passthrough (skip fx/draw/tracking).
     canvas.style.touchAction = "none";
     canvas.style.cursor = "crosshair";
 
