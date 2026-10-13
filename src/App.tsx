@@ -32,7 +32,7 @@ import { fileParamFromPath, mediaKind, mediaPathLeaf } from "./nodes/shared/file
 import { fitAppWindowOnFirstLaunch } from "./lib/appWindow";
 import {
   APP_MARK,
-  APP_VERSION_LABEL,
+  APP_VERSION_DISPLAY,
   AUTHOR_FULL,
   AUTHOR_HANDLE,
   AUTHOR_URL,
@@ -467,7 +467,7 @@ export default function App() {
           <div className="welcome__copy">
             <div className="welcome__brand">
               <p className="welcome__mark">{APP_MARK}</p>
-              <p className="welcome__ver">{APP_VERSION_LABEL}</p>
+              <p className="welcome__ver">{APP_VERSION_DISPLAY}</p>
               <p className="welcome__credit">
                 by{" "}
                 <a href={AUTHOR_URL} target="_blank" rel="noopener">

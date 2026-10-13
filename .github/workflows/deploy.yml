@@ -30,9 +30,13 @@ jobs:
 
       - name: Show baked version
         run: |
-          echo "describe=$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          echo "describe=${tag}"
           echo "latest=$(git tag -l --sort=-v:refname | head -n 1)"
           echo "package=$(node -p "require('./package.json').version")"
+          if [ -n "$tag" ]; then
+            echo "tagged_at=$(git for-each-ref --format='%(creatordate:iso-strict)' "refs/tags/${tag}")"
+          fi
 
       - name: Build
         env:

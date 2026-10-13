@@ -21,9 +21,26 @@ function packageVersion(): string {
   return "0.0.0";
 }
 
+function tryGit(command: string): string | null {
+  try {
+    const raw = execSync(command, {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const line = raw
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .find(Boolean);
+    return line ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Latest `vX.Y.Z` reachable from HEAD; same sort as `tag.ps1`. Falls back to package.json. */
 function gitTag(): string {
-  const tryGit = (command: string): string | null => {
+  const pickSemver = (command: string): string | null => {
     try {
       const raw = execSync(command, {
         cwd: ROOT,
@@ -42,10 +59,27 @@ function gitTag(): string {
   // Prefer a tag that actually leads to this commit — `tag -l` can be empty
   // on a shallow clone that only fetched HEAD.
   return (
-    tryGit("git describe --tags --abbrev=0") ??
-    tryGit("git tag -l --sort=-v:refname") ??
+    pickSemver("git describe --tags --abbrev=0") ??
+    pickSemver("git tag -l --sort=-v:refname") ??
     packageVersion()
   );
+}
+
+/**
+ * When `tag.ps1` annotated the release (`git tag -a`), this is the tagger
+ * timestamp. Falls back to creatordate (works for lightweight tags too).
+ */
+function gitTagAt(tag: string): string {
+  const candidates = tag.startsWith("v") || tag.startsWith("V") ? [tag] : [`v${tag}`, tag];
+  for (const name of candidates) {
+    // creatordate = taggerdate for annotated tags, committer date for lightweight.
+    // Quote the format — bare `%(…)` is a subshell to /bin/sh.
+    const at = tryGit(
+      `git for-each-ref --format='%(creatordate:iso-strict)' "refs/tags/${name}"`,
+    );
+    if (at) return at;
+  }
+  return "";
 }
 
 /**
@@ -60,7 +94,13 @@ export function appVersion(): Plugin {
     },
     load(id) {
       if (id !== RESOLVED_ID) return null;
-      return `export const GIT_TAG = ${JSON.stringify(gitTag())};\n`;
+      const tag = gitTag();
+      const at = gitTagAt(tag);
+      return [
+        `export const GIT_TAG = ${JSON.stringify(tag)};`,
+        `export const GIT_TAG_AT = ${JSON.stringify(at)};`,
+        "",
+      ].join("\n");
     },
   };
 }
