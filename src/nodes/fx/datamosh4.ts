@@ -177,12 +177,13 @@ void main() {
 
   if (uDebugMotion > 0.5) {
     vec2 shown = motion * (1.0 - skip);
-    vec3 wheel = clamp(abs(mod(atan(shown.y, shown.x) / 6.2831853 * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
     float value = clamp(length(shown * resolution) / max(uDebugScale, 0.01), 0.0, 1.0);
-    vec3 debug = mix(vec3(0.12), wheel, step(0.02, value)) * max(value, 0.12);
+    // No floor brightness — sub-threshold motion stays black, not a tinted wash.
+    vec3 wheel = clamp(abs(mod(atan(shown.y, shown.x) / 6.2831853 * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    vec3 debug = value < 0.04 ? vec3(0.0) : wheel * value;
     vec2 grid = abs(fract(uv * blocks) - 0.5);
-    debug = mix(vec3(0.35), debug, 1.0 - step(0.47, max(grid.x, grid.y)));
-    float arrow = arrowAt(uv, blocks, blockId) * step(1e-6, length(shown));
+    debug = mix(vec3(0.25), debug, 1.0 - step(0.47, max(grid.x, grid.y)));
+    float arrow = arrowAt(uv, blocks, blockId) * step(0.04, value);
     debug = mix(debug, 1.0 - debug, arrow);
     float border = lostRegion(blockUV).y * uShowLostSectors * uBlockiness;
     fragColor = vec4(mix(debug, vec3(1.0), border), 1.0);

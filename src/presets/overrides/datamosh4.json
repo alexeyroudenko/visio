@@ -2,14 +2,14 @@
   "format": 1,
   "width": 1080,
   "height": 1920,
-  "source": "AQPtgfXIU5a1ssPzYddoZ7WxFVJCN1TuW_p3HTsylhsZ8QSgzTk5Fu2QPOegrIS.mp4",
+  "source": "face-rotate.mp4",
   "nodes": [
     {
       "id": "screen-1",
       "type": "output.screen",
       "position": {
-        "x": 925.4180240046514,
-        "y": 196.43692490294134
+        "x": 1048.124094491061,
+        "y": 392.7666376811968
       },
       "params": {
         "background": "#000000"
@@ -19,8 +19,8 @@
       "id": "media-1",
       "type": "source.media",
       "position": {
-        "x": -126.92337191403831,
-        "y": 207.49700508144772
+        "x": -44.1512633463246,
+        "y": 245.57646728872083
       },
       "params": {
         "mode": "video",
@@ -32,41 +32,42 @@
         "syncTimeline": false,
         "mirror": false,
         "fit": "cover",
-        "zoom": 2
+        "zoom": 1.05
       }
     },
     {
       "id": "color-6",
       "type": "fx.color",
       "position": {
-        "x": 662.3128206612433,
-        "y": 190.87736224216633
+        "x": 700.4893260168374,
+        "y": 333.61268005670905
       },
       "params": {
-        "brightness": 0.20999999999999996,
-        "contrast": 1.4000000000000001,
+        "brightness": -0.13,
+        "contrast": 1.75,
         "saturation": 0,
         "hue": 0
-      }
+      },
+      "debug": true
     },
     {
       "id": "datamosh4-7",
       "type": "fx.datamosh4",
       "position": {
-        "x": 411.81619168181976,
-        "y": 196.0895227141244
+        "x": 351.17442189273703,
+        "y": 288.28036610326257
       },
       "params": {
         "auto": true,
-        "latch": true,
+        "latch": false,
         "gain": 1.5,
-        "fade": 2000,
-        "keyframe": 1020,
+        "fade": 401,
+        "keyframe": 3000,
         "residual": 9.9,
-        "quant": 48,
+        "quant": 64,
         "block": 64,
-        "blockiness": 1,
-        "skip": 2.45,
+        "blockiness": 0.54,
+        "skip": 0.25,
         "mismatch": 0.3,
         "lostDensity": 0.06,
         "lostLayers": 1,
@@ -76,8 +77,8 @@
         "lostVariance": 0.1,
         "precision": "2",
         "search": 20,
-        "threshold": 0.01,
-        "smooth": 0.65,
+        "threshold": 0.12,
+        "smooth": 0.2,
         "scale": "4",
         "vectors": false,
         "sectors": false,
@@ -110,14 +111,14 @@
   ],
   "timeline": {
     "fps": 30,
-    "durationInFrames": 286,
+    "durationInFrames": 90,
     "keyframes": {},
     "reelZones": {
       "cutsSec": [
         1,
         1.2,
-        5.766666666666667,
-        8.15
+        1.7142857142857142,
+        2.571428571428571
       ],
       "dirty": false
     },

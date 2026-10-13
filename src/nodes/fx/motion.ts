@@ -80,7 +80,7 @@ export const motionNode = defineNode<MotionState>({
     const source = inputs.src;
     if (!isRenderTarget(source)) {
       const target = ctx.target(nodeId, "out");
-      clearTarget(gl, target, 0.5, 0.5, 0, 1);
+      clearTarget(gl, target, 0.5, 0.5, 0.5, 1);
       return { out: target };
     }
 

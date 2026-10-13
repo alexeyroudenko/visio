@@ -9,11 +9,12 @@ import type { EngineContext } from "../../engine/types";
  * (which invents one), and `fx.datamosh` (which drags pixels along it), so all
  * three encode vectors the same way.
  *
- * The field is an RGBA8 texture at block resolution: RG hold the vector, B the
- * confidence, A is 1. RG are centred on 0.5 like every other displacement map
- * in the patch, so the output also lands straight in Displace Feedback's map
- * input. The vector points *into the previous frame* — where this block came
- * from — which is what both a codec and a texture lookup want.
+ * The field is an RGBA8 texture at block resolution: RG hold the vector, B is
+ * kept at 0.5 (neutral grey with zero motion — putting confidence in B made
+ * idle fields look blue), A is 1. RG are centred on 0.5 like every other
+ * displacement map in the patch, so the output also lands straight in Displace
+ * Feedback's map input. The vector points *into the previous frame* — where
+ * this block came from — which is what both a codec and a texture lookup want.
  */
 
 /** Half-range of an encoded vector, in uv units per frame. */
@@ -22,7 +23,10 @@ export const MOTION_SCALE = 0.25;
 /** GLSL that turns a sampled field texel back into a uv offset. */
 export const DECODE_MOTION_GLSL = `
 vec2 decodeMotion(vec4 texel) {
-  return (texel.rg - 0.5) * ${(2 * MOTION_SCALE).toFixed(4)};
+  vec2 mv = (texel.rg - 0.5) * ${(2 * MOTION_SCALE).toFixed(4)};
+  // RGBA8 cannot store 0.5 exactly — a "zero" field quantises to ~1px at
+  // 1080p, which lit the whole debug wheel blue/olive. Kill that noise.
+  return dot(mv, mv) < 4.0e-6 ? vec2(0.0) : mv;
 }`;
 
 /** Pack a uv offset into RG, matching `decodeMotion`. */
@@ -121,20 +125,20 @@ void main() {
     }
   }
 
-  // How much better than standing still — flat or unchanged blocks score 0, so
-  // noise in an empty sky never turns into a vector. Threshold after smooth
-  // (and clear conf too): otherwise a still block bleeds last frame's vectors,
-  // or shows as blue-grey from a leftover B channel on a 0.5/0.5 field.
+  // How much better than standing still — flat or unchanged blocks score 0.
+  // Also reject sub-texel winners: noise loves a 1-tap “improvement”.
   float conf = clamp((zeroCost - bestCost) / max(zeroCost, 0.01), 0.0, 1.0);
-  vec2 mv = best * uBoost;
-  if (uSmooth > 0.0) mv = mix(mv, decodeMotion(texture(uPrevMv, vUv)), uSmooth);
-  if (conf < uThreshold) {
-    mv = vec2(0.0);
-    conf = 0.0;
+  float shiftTx = length(best / max(uLoTexel, vec2(1e-6)));
+  bool still = conf < uThreshold || shiftTx < 0.75;
+  vec2 mv = still ? vec2(0.0) : best * uBoost;
+  // Smooth only while the block is alive — never re-animate a still from history.
+  if (!still && uSmooth > 0.0) {
+    mv = mix(mv, decodeMotion(texture(uPrevMv, vUv)), uSmooth);
   }
 
   vec2 enc = clamp(mv * ${(1 / (2 * MOTION_SCALE)).toFixed(4)} + 0.5, 0.0, 1.0);
-  fragColor = vec4(enc, conf, 1.0);
+  // B = 0.5 keeps a zero field neutral grey in the raw vectors view.
+  fragColor = vec4(enc, 0.5, 1.0);
 }`;
 
 export interface MotionState {
@@ -195,9 +199,9 @@ export function estimateMotion(
 
   if (!state.primed) {
     clearTarget(gl, previous, 0, 0, 0, 1);
-    // A field of 0.5 decodes to no motion — the neutral start for smoothing.
-    clearTarget(gl, read, 0.5, 0.5, 0, 1);
-    clearTarget(gl, write, 0.5, 0.5, 0, 1);
+    // RG 0.5 = no motion; B 0.5 = neutral grey in the raw vectors view.
+    clearTarget(gl, read, 0.5, 0.5, 0.5, 1);
+    clearTarget(gl, write, 0.5, 0.5, 0.5, 1);
     state.primed = true;
   }
 

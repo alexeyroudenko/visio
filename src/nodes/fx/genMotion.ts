@@ -133,7 +133,8 @@ void main() {
   }
 
   vec2 enc = encodeMotion(mv);
-  fragColor = vec4(enc, 1.0, 1.0);
+  // B = 0.5 so a zero field reads as neutral grey, not blue (B=1).
+  fragColor = vec4(enc, 0.5, 1.0);
 }`;
 
 const MODE_IDS: Record<string, number> = {
