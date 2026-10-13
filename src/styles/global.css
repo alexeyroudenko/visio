@@ -2007,112 +2007,59 @@ body.is-resizing {
   text-transform: uppercase;
 }
 
-/* Desktop performance column: one card per published node. */
-.published-mixer__cluster {
-  flex: 1 1 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-left: 2px solid var(--text);
-  background: color-mix(in srgb, var(--panel-2) 70%, transparent);
-}
-
-.published-mixer__cluster + .published-mixer__cluster {
-  margin-top: 8px;
-}
-
-.published-mixer__cluster-toggles {
+/* Single sequential list — publish order, no per-node group cards. */
+.published-mixer__list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.published-mixer__cluster-knobs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 12px;
   align-items: flex-start;
+  gap: 4px 6px;
+  min-width: 0;
 }
 
 .published-mixer .param-block--toggle {
   display: flex;
   align-items: center;
-  min-height: 36px;
-  padding: 3px 8px;
+  min-height: 28px;
+  padding: 2px 6px;
   border: 1px solid var(--line);
   background: var(--panel-2);
 }
 
+/* Portrait performance strip: one compact panel (was 72% → 86% opaque). */
 .published-mixer--bar {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   overflow-x: hidden;
   overflow-y: auto;
   max-height: none;
-  padding: 6px 8px;
-  padding-left: max(8px, env(safe-area-inset-left, 0px));
-  padding-right: max(8px, env(safe-area-inset-right, 0px));
-  background: rgb(17 17 17 / 72%);
+  padding: 4px 6px;
+  padding-left: max(6px, env(safe-area-inset-left, 0px));
+  padding-right: max(6px, env(safe-area-inset-right, 0px));
+  background: rgb(17 17 17 / 86%);
   border-bottom: 1px solid rgb(255 255 255 / 8%);
   pointer-events: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Portrait: node cluster — toggles in a 3-up row, knobs under. */
-.published-mixer__group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  padding: 5px 6px 6px;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-left: 2px solid #fff;
-  background: rgb(0 0 0 / 28%);
-}
-
-.published-mixer__group-head {
-  margin: 0;
-  padding: 0 1px 2px;
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  line-height: 1.2;
-}
-
-.published-mixer__group-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-}
-
-.published-mixer__group-knobs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 6px 10px;
+.published-mixer--bar .published-mixer__list {
+  gap: 3px 5px;
 }
 
 .published-mixer--bar .param-block--knob {
   flex: 0 0 auto;
+  width: 44px;
 }
 
-/* ~1.5× smaller; three toggles per row inside a group. */
 .published-mixer--bar .param-block--toggle {
   display: flex;
   align-items: center;
-  flex: 1 1 calc((100% - 12px) / 3);
-  max-width: calc((100% - 12px) / 3);
+  flex: 0 1 auto;
   box-sizing: border-box;
   min-width: 0;
-  min-height: 28px;
-  padding: 2px 6px;
+  min-height: 22px;
+  padding: 1px 5px;
   border: 1px solid var(--line);
   background: var(--panel-2);
   white-space: nowrap;
@@ -2120,22 +2067,31 @@ body.is-resizing {
 
 .published-mixer--bar .param-block--toggle .param {
   margin: 0;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   width: 100%;
 }
 
 .published-mixer--bar .param-block--toggle .param__label {
-  font-size: 9px;
+  font-size: 7px;
   letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .published-mixer--bar .param-block--toggle input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   flex: 0 0 auto;
+}
+
+.published-mixer--bar .kl {
+  font-size: 6px;
+}
+
+.published-mixer--bar .kv {
+  font-size: 7px;
+  min-width: 0;
 }
 
 .published-mixer__empty {
@@ -2212,11 +2168,12 @@ body.is-resizing {
 }
 
 .inspector__params--mixer {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
+  display: block;
   gap: 0;
-  align-items: stretch;
+}
+
+.inspector__params--mixer .published-mixer__list {
+  gap: 6px 8px;
 }
 
 .param-block {

@@ -1,5 +1,4 @@
 import type { ParamSpec } from "../engine/types";
-import type { ReactNode } from "react";
 import { getValueAtFrame, parseParamPath } from "../lib/keyframes";
 import { modulatedValue } from "../lib/modulators";
 import { NODE_DEFS } from "../nodes/registry";
@@ -26,13 +25,6 @@ type PublishedToggle = {
 
 type PublishedItem = PublishedRange | PublishedToggle;
 
-type PublishedGroup = {
-  nodeId: string;
-  nodeLabel: string;
-  toggles: PublishedToggle[];
-  ranges: PublishedRange[];
-};
-
 function publishedItems(nodes: PatchNode[], published: string[]): PublishedItem[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const items: PublishedItem[] = [];
@@ -53,33 +45,11 @@ function publishedItems(nodes: PatchNode[], published: string[]): PublishedItem[
   return items;
 }
 
-/** Keep publish order, but cluster by node — toggles then knobs inside each. */
-function groupPublished(items: PublishedItem[]): PublishedGroup[] {
-  const groups: PublishedGroup[] = [];
-  const indexById = new Map<string, number>();
-  for (const item of items) {
-    let index = indexById.get(item.node.id);
-    if (index === undefined) {
-      index = groups.length;
-      indexById.set(item.node.id, index);
-      groups.push({
-        nodeId: item.node.id,
-        nodeLabel: item.nodeLabel,
-        toggles: [],
-        ranges: [],
-      });
-    }
-    const group = groups[index]!;
-    if (item.kind === "toggle") group.toggles.push(item);
-    else group.ranges.push(item);
-  }
-  return groups;
-}
-
 /**
  * Live mixer for params the user published with ↑. Desktop: left column.
  * Phone: a strip under the toolbar. The graph is hidden while this is up.
  * Ranges become knobs; toggles become checkboxes (e.g. Datamosh4 Auto / Latch).
+ * Params render sequentially in one panel (publish order), not grouped by node.
  */
 export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar" }) {
   const nodes = useGraphStore((state) => state.nodes);
@@ -93,8 +63,9 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
   const modulators = useModulatorStore((state) => state.byPath);
 
   const items = publishedItems(nodes, published);
-  const groups = groupPublished(items);
   const frame = Math.round(currentFrame);
+  const compact = variant === "bar";
+  const knobSize = compact ? 32 : 44;
 
   const renderToggle = (item: PublishedToggle) => {
     const { path, node, nodeLabel, spec } = item;
@@ -145,6 +116,7 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
           step={spec.step}
           value={numeric}
           onChange={(next) => setParam(node.id, spec.key, next)}
+          size={knobSize}
           publish
         />
         <button
@@ -171,50 +143,24 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
     );
   };
 
+  const list =
+    items.length === 0 ? null : (
+      <div className="published-mixer__list">
+        {items.map((item) => (item.kind === "toggle" ? renderToggle(item) : renderKnob(item)))}
+      </div>
+    );
+
   if (variant === "bar") {
     return (
       <div className="published-mixer published-mixer--bar">
-        {groups.length === 0 ? (
+        {items.length === 0 ? (
           <p className="published-mixer__empty">
             No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox.
           </p>
         ) : (
-          groups.map((group) => (
-            <section key={group.nodeId} className="published-mixer__group" aria-label={group.nodeLabel}>
-              <header className="published-mixer__group-head">{group.nodeLabel}</header>
-              {group.toggles.length > 0 ? (
-                <div className="published-mixer__group-toggles">
-                  {group.toggles.map((item) => renderToggle(item))}
-                </div>
-              ) : null}
-              {group.ranges.length > 0 ? (
-                <div className="published-mixer__group-knobs">
-                  {group.ranges.map((item) => renderKnob(item))}
-                </div>
-              ) : null}
-            </section>
-          ))
+          list
         )}
       </div>
-    );
-  }
-
-  const grouped: ReactNode[] = [];
-  for (const group of groups) {
-    grouped.push(
-      <section key={group.nodeId} className="published-mixer__cluster">
-        <p className="published-mixer__node">{group.nodeLabel}</p>
-        {group.toggles.length > 0 ? (
-          <div className="published-mixer__cluster-toggles">
-            {group.toggles.map((item) => renderToggle(item))}
-          </div>
-        ) : null}
-        {group.ranges.length > 0 ? (
-          <div className="published-mixer__cluster-knobs">
-            {group.ranges.map((item) => renderKnob(item))}
-          </div>
-        ) : null}
-      </section>,
     );
   }
 
@@ -226,12 +172,12 @@ export function PublishedMixer({ variant = "panel" }: { variant?: "panel" | "bar
           <span className="inspector__category">Performance</span>
         </div>
       </header>
-      {groups.length === 0 ? (
+      {items.length === 0 ? (
         <p className="inspector__empty">
           No published controls. Turn ⚙ off, then press ↑ on a knob or checkbox to put it here.
         </p>
       ) : (
-        <div className="inspector__params inspector__params--mixer">{grouped}</div>
+        <div className="inspector__params inspector__params--mixer">{list}</div>
       )}
     </aside>
   );
