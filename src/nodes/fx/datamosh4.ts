@@ -227,7 +227,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
   label: "Datamosh4",
   category: "fx",
   description:
-    "P-frame bloom (datamosh4): warp history along motion vectors. Auto+Latch resets every Keyframe ms; Auto off moshes continuously (hold preview to see the clean source).",
+    "P-frame bloom (datamosh4): warp history along motion vectors. Auto+Latch resets every Keyframe ms; Auto off moshes continuously (hold preview to bypass).",
   inputs: [
     { id: "src", label: "texture", type: "texture" },
     { id: "mv", label: "vectors", type: "texture" },
