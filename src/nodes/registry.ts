@@ -155,14 +155,15 @@ export const CATEGORY_COLORS: Record<string, string> = {
   help: "#3d3a32",
 };
 
+/** Shared by input and output handles of the same PortType (early editor look). */
 export const PORT_COLORS: Record<string, string> = {
-  texture: "#ffffff",
-  frame: "#e0e0e0",
-  landmarks: "#c8c8c8",
-  points: "#b0b0b0",
-  boxes: "#989898",
-  circles: "#ffffff",
-  lines: "#808080",
-  number: "#666666",
-  audio: "#d0d0d0",
+  texture: "#6ea8fe",
+  frame: "#9aa4b2",
+  landmarks: "#7fe3c0",
+  points: "#ffd166",
+  boxes: "#ff5c7a",
+  circles: "#8fd6ff",
+  lines: "#c39bff",
+  number: "#b0b6c2",
+  audio: "#2fa4a0",
 };
