@@ -32,6 +32,7 @@ import {
   mixRenderAudio,
   type EncodedAudioTrack,
 } from "./renderAudio";
+import { metadataTagsForPatch } from "./visioPatchMeta";
 
 const MIME_CANDIDATES = [
   "video/webm;codecs=vp9",
@@ -173,6 +174,11 @@ export interface ExportTimelineOptions {
   format?: RenderFormat;
   /** LFO + audio modulators — applied after keyframes so Render matches playback. */
   modulators?: Modulators;
+  /**
+   * Compact Visio patch JSON embedded into MP4 `moov` metadata (`com.visio.patch`).
+   * Ignored for WebM / MediaRecorder fallbacks.
+   */
+  patchJson?: string;
   /** Called with the timeline frame shown in the UI playhead. */
   onFrame?: (timelineFrame: number) => void;
   onProgress?: (progress: number) => void;
@@ -428,16 +434,19 @@ async function exportWithWebCodecs(
 /**
  * MP4 via Mediabunny (WebCodecs H.264/AVC when the browser can encode it).
  * Same frame loop as the WebM path so Cancel / progress stay consistent.
+ * When `patchJson` is set, embeds it under `com.visio.patch` (mdta).
  */
 async function exportWithMediabunnyMp4(
   canvas: HTMLCanvasElement,
   pass: RenderPassContext,
   mixedAudio: AudioBuffer | null,
+  patchJson?: string,
 ): Promise<Blob> {
   const width = canvas.width;
   const height = canvas.height;
+  // mdta allows arbitrary-length custom keys (needed for com.visio.patch).
   const output = new Output({
-    format: new Mp4OutputFormat(),
+    format: new Mp4OutputFormat({ metadataFormat: "mdta" }),
     target: new BufferTarget(),
   });
 
@@ -474,6 +483,10 @@ async function exportWithMediabunnyMp4(
     } else {
       console.warn("No MP4 audio codec — render continues without audio");
     }
+  }
+
+  if (patchJson) {
+    output.setMetadataTags(metadataTagsForPatch(patchJson));
   }
 
   await output.start();
@@ -613,6 +626,7 @@ export async function exportTimelineVideo(
     outputFps: outputFpsOpt,
     bitrate: bitrateOpt,
     format: formatOpt,
+    patchJson,
     onFrame,
     onProgress,
     signal,
@@ -675,7 +689,12 @@ export async function exportTimelineVideo(
   try {
     if (format === "mp4") {
       try {
-        const blob = await exportWithMediabunnyMp4(engine.canvas, pass, mixedAudio);
+        const blob = await exportWithMediabunnyMp4(
+          engine.canvas,
+          pass,
+          mixedAudio,
+          patchJson,
+        );
         return { blob, outputFps, outputFrames, bitrate };
       } catch (err) {
         if (err instanceof RenderCancelledWithPartial) throw err;
