@@ -529,11 +529,10 @@ stays in the main window and nothing is rendered twice.
 - **Render video** — toolbar opens a popup (format / fps / in–out range), then
   offline frame-by-frame timeline export (not realtime). Default format is
   **MP4** (WebCodecs via Mediabunny); WebM remains available. On finish it
-  downloads the video **and** a matching patch JSON with the same basename
-  (`clip-render-….mp4` / `.webm` + `clip-render-….json`). For MP4, the same
-  patch is also embedded in file metadata (`com.visio.patch` via Mediabunny
-  mdta) so Import can restore the graph from the video alone; the sidecar
-  remains for WebM and for tools that strip moov tags.
+  downloads the video only (`clip-render-….mp4` / `.webm`). For MP4, the
+  current patch is embedded in file metadata (`com.visio.patch` via Mediabunny
+  mdta) so Presets → Import can restore the graph from the video alone. WebM
+  has no embedded patch (use Export for a standalone JSON if needed).
 - **Render image** — toolbar, next to video: PNG of the playhead frame at the
   patch resolution (preview quality does not apply). Basename `clip-still-….png`.
 Both video writers use the bitrate set in Settings (20 Mbps by default); fps is a
