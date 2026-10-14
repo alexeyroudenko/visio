@@ -220,6 +220,8 @@ interface Datamosh4State {
   lastKeyframe: number;
   gestureStart: number;
   autoT0: number;
+  /** Previous-frame Reset (`clear`) — falling edge starts a fresh mosh. */
+  wasClear: boolean;
 }
 
 export const datamosh4Node = defineNode<Datamosh4State>({
@@ -227,7 +229,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
   label: "Datamosh4",
   category: "fx",
   description:
-    "P-frame bloom (datamosh4): warp history along motion vectors. Auto+Latch resets every Keyframe ms; Auto off moshes continuously (hold preview to bypass).",
+    "P-frame bloom (datamosh4): warp history along motion vectors. Auto+Latch resets every Keyframe ms; Auto off moshes continuously (hold preview → Reset).",
   inputs: [
     { id: "src", label: "texture", type: "texture" },
     { id: "mv", label: "vectors", type: "texture" },
@@ -287,6 +289,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
       lastKeyframe: 0,
       gestureStart: -Infinity,
       autoT0: -1,
+      wasClear: false,
     };
   },
   evaluate({ ctx, nodeId, inputs, params, runtime, debug }) {
@@ -303,12 +306,23 @@ export const datamosh4Node = defineNode<Datamosh4State>({
       return { out: write };
     }
 
-    if (paramBool(params, "clear", false)) {
+    const clearing = paramBool(params, "clear", false);
+    if (clearing) {
+      // Hold / Reset: show clean source and scrub glitched history so release
+      // can start a new mosh from the live frame (not the pre-hold buffer).
       state.historyPrimed = false;
       state.pressed = false;
       state.lastRelease = -1;
       state.wasActive = false;
       state.autoT0 = -1;
+      state.gestureStart = -Infinity;
+      state.wasClear = true;
+    } else if (state.wasClear) {
+      // Reset just turned off — force an I-frame / gesture start this frame.
+      state.historyPrimed = false;
+      state.wasActive = false;
+      state.gestureStart = -Infinity;
+      state.wasClear = false;
     }
 
     const now = ctx.timeMs;
@@ -324,7 +338,7 @@ export const datamosh4Node = defineNode<Datamosh4State>({
     }
 
     // Mosh trigger: Auto hold phase, Latch, or continuous when Auto is off.
-    // Preview hold is handled by the engine (passthrough / clean source).
+    // Preview hold turns on Reset (`clear`) via bindHoldDatamoshReset.
     const pressed = autoOn || latch || !auto;
     if (pressed !== state.pressed) {
       state.pressed = pressed;
@@ -399,8 +413,11 @@ export const datamosh4Node = defineNode<Datamosh4State>({
     drawFullscreen(gl, program);
 
     // When clean / I-frame, keep the accumulator equal to the honest picture.
+    // While Reset is held, scrub both ping-pong slots so neither keeps a
+    // pre-hold glitch that would flash back on release.
     if (keyframe > 0 || (recover >= 1 && !showVectors)) {
       copyTexture(gl, source.texture, write);
+      if (clearing) copyTexture(gl, source.texture, read);
     }
 
     if (debug) {
