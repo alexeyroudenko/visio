@@ -742,7 +742,7 @@ if (typeof window !== "undefined") {
   window.__visioGraphStore = useGraphStore;
 }
 
-/** Snapshot of the open document — export, autosave, presets, render sidecar. */
+/** Snapshot of the open document — export, autosave, presets, MP4 embed. */
 export function serializeCurrentPatch() {
   const { nodes, edges, width, height, published } = useGraphStore.getState();
   return serializePatch(
