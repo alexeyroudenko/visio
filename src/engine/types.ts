@@ -191,8 +191,8 @@ export interface EngineContext {
   timelineForceSync: boolean;
   /**
    * Primary pointer / touch is held on the preview (or output window).
-   * Hold also forces Datamosh / Datamosh4 node bypass via the graph store
-   * (see `bindHoldDatamoshBypass`).
+   * Hold also forces Datamosh / Datamosh4 Reset (`clear`) via the graph
+   * store (see `bindHoldDatamoshReset`).
    */
   pointerHeld: boolean;
   /** Persistent render target owned by (nodeId, slot), resized on demand. */
