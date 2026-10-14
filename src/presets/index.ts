@@ -1206,7 +1206,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "datamosh4",
     label: "Datamosh4",
-    description: "Camera → Motion Vectors → Datamosh4 — hold preview for clean source",
+    description: "Camera → Motion Vectors → Datamosh4 — hold preview to bypass mosh",
     builtin: true,
     build: datamosh4,
   },

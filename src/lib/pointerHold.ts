@@ -1,8 +1,8 @@
 /**
  * Global pointer/touch hold against the patch output (preview canvas or
- * detached output window). The engine reads this each frame via
- * EngineContext.pointerHeld and, while held, bypasses fx/draw/tracking so
- * only the incoming source stream is presented.
+ * detached output window). Exposed each frame as EngineContext.pointerHeld
+ * and via subscribePointerHeld — `bindHoldDatamoshBypass` turns on Datamosh
+ * node bypass checkboxes while held.
  *
  * While held, a semi-transparent white frame (5% inset, 2px) overlays the
  * content surface as press feedback. Selection / callout on long-press is
