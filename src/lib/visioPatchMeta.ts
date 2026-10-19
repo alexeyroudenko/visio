@@ -2,9 +2,9 @@
  * Embed / extract Visio patch JSON in MP4 descriptive metadata.
  *
  * Written with Mediabunny `metadataFormat: 'mdta'` under a custom key so the
- * payload can be longer than a four-char QuickTime atom name. Companion
- * `.json` sidecars stay useful for editors that strip moov metadata and for
- * WebM exports (which do not go through this path).
+ * payload can be longer than a four-char QuickTime atom name. Render no longer
+ * downloads a companion `.json` — the patch rides in the MP4. WebM renders do
+ * not embed; use Presets → Export for a standalone JSON if needed.
  */
 
 import {

@@ -19,7 +19,6 @@ import {
 import { appLog } from "../store/consoleStore";
 import { serializeCurrentPatch, useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
-import { downloadPatch } from "../store/persistence";
 import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
 import { patchJsonForMetadata } from "../lib/visioPatchMeta";
 
@@ -102,10 +101,10 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       nodes: nodes.length,
     });
 
-    // Snapshot before the encode so the embedded + sidecar JSON match each other
-    // (and the graph state that produced the frames).
-    const patch = serializeCurrentPatch();
-    const patchJson = format === "mp4" ? patchJsonForMetadata(patch) : undefined;
+    // Snapshot before encode so MP4 moov metadata matches the graph that
+    // produced the frames. No companion .json download — patch lives in metadata.
+    const patchJson =
+      format === "mp4" ? patchJsonForMetadata(serializeCurrentPatch()) : undefined;
 
     try {
       const { blob, outputFps: writtenFps, outputFrames } = await exportTimelineVideo(engine, {
@@ -135,21 +134,13 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         },
       });
       const stem = downloadTimelineRender(blob);
-      // Same basename as the video so a finished render and its graph stay paired.
-      // A short delay keeps Chromium from collapsing the second save into one click.
-      // Sidecar stays for WebM / tools that strip moov metadata; MP4 also embeds.
-      window.setTimeout(() => {
-        downloadPatch(patch, `${stem}.json`);
-      }, 250);
       const videoExt = blob.type.includes("mp4") ? "mp4" : "webm";
       const embedded =
-        videoExt === "mp4" && patchJson
-          ? " · patch in MP4 metadata"
-          : "";
+        videoExt === "mp4" && patchJson ? " · patch in metadata" : "";
       appLog(
         "ok",
         "render",
-        `saved · ${stem}.${videoExt} + ${stem}.json${embedded} · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
+        `saved · ${stem}.${videoExt}${embedded} · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
       );
       track("render_finished", {
         frames: outputFrames,

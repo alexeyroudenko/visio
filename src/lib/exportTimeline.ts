@@ -760,9 +760,9 @@ export function timelineImageStem(now = new Date()): string {
 }
 
 /**
- * Save the finished timeline export. Returns the basename (no extension) so a
- * matching patch JSON can reuse it — browsers treat each `a[download]` click
- * separately, so the caller fires the second download a tick later.
+ * Save the finished timeline export. Returns the basename (no extension) for
+ * logging / analytics. Patch JSON is embedded in MP4 metadata when requested
+ * at encode time — no companion file download.
  */
 export function downloadTimelineRender(blob: Blob, stem = timelineRenderStem()): string {
   const ext = blob.type.includes("mp4") ? "mp4" : "webm";
