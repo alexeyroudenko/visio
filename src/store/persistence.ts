@@ -9,6 +9,7 @@ import {
 import { fileStem } from "../lib/fileStem";
 import { parseModulators, type Modulators } from "../lib/modulators";
 import { cutsFromUnknown } from "../lib/reelMarkers";
+import { saveBlob } from "../lib/saveBlob";
 import { NODE_DEFS, defaultParams } from "../nodes/registry";
 import { fileParam, resolveBundledFile } from "../nodes/shared/fileParam";
 import { LEGACY_SOURCE_TYPES } from "../nodes/source/media";
@@ -440,17 +441,17 @@ export function clearStorage(): void {
 
 export function downloadPatch(patch: SerializedPatch, filename?: string): void {
   const blob = new Blob([JSON.stringify(patch, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
+  let downloadName: string;
   if (filename) {
-    link.download = filename.endsWith(".json") ? filename : `${filename}.json`;
+    downloadName = filename.endsWith(".json") ? filename : `${filename}.json`;
   } else {
     const stamp = new Date().toISOString().slice(0, 10);
     // Native media name first, then the stamp — same shape as render downloads.
     const stem = patch.source ? fileStem(patch.source) : null;
-    link.download = stem ? `${stem}-visio-patch-${stamp}.json` : `visio-patch-${stamp}.json`;
+    downloadName = stem ? `${stem}-visio-patch-${stamp}.json` : `visio-patch-${stamp}.json`;
   }
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  // Fire-and-forget: callers treat download as best-effort; share Abort is quiet.
+  void saveBlob(blob, downloadName).catch(() => {
+    /* user cancel / unsupported in-app browser — video Record surfaces the error */
+  });
 }
