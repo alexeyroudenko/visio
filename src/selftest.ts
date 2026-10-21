@@ -3671,6 +3671,34 @@ async function run(): Promise<void> {
     `mime=${mime === null ? "null" : JSON.stringify(mime)}`,
   );
 
+  const { isRestrictedInAppBrowser } = await import("./lib/saveBlob");
+  check(
+    "Instagram / Facebook / TikTok UAs are restricted in-app browsers",
+    isRestrictedInAppBrowser(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 302.0.0.0.0",
+    ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 Instagram 300.0.0.0.0",
+      ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/450.0.0.0.0]",
+      ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 13; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 TikTok 32.0.0",
+      ),
+    "restricted UA detect",
+  );
+  check(
+    "desktop Chrome / Safari are not restricted in-app browsers",
+    !isRestrictedInAppBrowser(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ) &&
+      !isRestrictedInAppBrowser(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      ),
+    "normal UA detect",
+  );
+
   const {
     clampPreviewQuality,
     DEFAULT_PREVIEW_QUALITY,

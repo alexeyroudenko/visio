@@ -32,6 +32,7 @@ import {
   mixRenderAudio,
   type EncodedAudioTrack,
 } from "./renderAudio";
+import { saveBlob } from "./saveBlob";
 import { metadataTagsForPatch } from "./visioPatchMeta";
 
 const MIME_CANDIDATES = [
@@ -91,15 +92,6 @@ function waitAnimationFrame(): Promise<void> {
 
 function engineNodeType(defType: string): string {
   return LEGACY_SOURCE_TYPES[defType] ? "source.media" : defType;
-}
-
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -764,14 +756,20 @@ export function timelineImageStem(now = new Date()): string {
  * logging / analytics. Patch JSON is embedded in MP4 metadata when requested
  * at encode time — no companion file download.
  */
-export function downloadTimelineRender(blob: Blob, stem = timelineRenderStem()): string {
+export async function downloadTimelineRender(
+  blob: Blob,
+  stem = timelineRenderStem(),
+): Promise<string> {
   const ext = blob.type.includes("mp4") ? "mp4" : "webm";
-  downloadBlob(blob, `${stem}.${ext}`);
+  await saveBlob(blob, `${stem}.${ext}`);
   return stem;
 }
 
-export function downloadTimelineImage(blob: Blob, stem = timelineImageStem()): string {
-  downloadBlob(blob, `${stem}.png`);
+export async function downloadTimelineImage(
+  blob: Blob,
+  stem = timelineImageStem(),
+): Promise<string> {
+  await saveBlob(blob, `${stem}.png`);
   return stem;
 }
 

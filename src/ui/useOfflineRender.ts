@@ -133,7 +133,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
           setProgress(value);
         },
       });
-      const stem = downloadTimelineRender(blob);
+      const stem = await downloadTimelineRender(blob);
       const videoExt = blob.type.includes("mp4") ? "mp4" : "webm";
       const embedded =
         videoExt === "mp4" && patchJson ? " · patch in metadata" : "";
@@ -154,20 +154,31 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       const message = error instanceof Error ? error.message : String(error);
       const waitSec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
       if (error instanceof RenderCancelledWithPartial) {
-        const stem = downloadTimelineRender(error.blob, timelinePartialRenderStem());
-        const videoExt = error.blob.type.includes("mp4") ? "mp4" : "webm";
-        appLog(
-          "warn",
-          "render",
-          `cancelled · saved partial ${stem}.${videoExt} · ${error.framesEncoded} frames · ${(error.blob.size / (1024 * 1024)).toFixed(1)} MB`,
-        );
+        try {
+          const stem = await downloadTimelineRender(error.blob, timelinePartialRenderStem());
+          const videoExt = error.blob.type.includes("mp4") ? "mp4" : "webm";
+          appLog(
+            "warn",
+            "render",
+            `cancelled · saved partial ${stem}.${videoExt} · ${error.framesEncoded} frames · ${(error.blob.size / (1024 * 1024)).toFixed(1)} MB`,
+          );
+        } catch (saveError) {
+          if (!(saveError instanceof Error && saveError.name === "AbortError")) {
+            const saveMsg = saveError instanceof Error ? saveError.message : String(saveError);
+            appLog("error", "render", saveMsg);
+          }
+        }
         track("render_cancelled", {
           wait_sec: waitSec,
           progress: Number(latestProgress.toFixed(2)),
           partial: true,
           frames: error.framesEncoded,
         });
-      } else if (controller.signal.aborted || /cancel/i.test(message)) {
+      } else if (
+        (error instanceof Error && error.name === "AbortError") ||
+        controller.signal.aborted ||
+        /cancel/i.test(message)
+      ) {
         appLog("warn", "render", "cancelled");
         // Cancelling at 80% means something different from cancelling at 5%.
         track("render_cancelled", { wait_sec: waitSec, progress: Number(latestProgress.toFixed(2)) });
@@ -216,7 +227,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         paramKeyframes: timeline.paramKeyframes,
         modulators,
       });
-      const stem = downloadTimelineImage(blob);
+      const stem = await downloadTimelineImage(blob);
       appLog(
         "ok",
         "render",
