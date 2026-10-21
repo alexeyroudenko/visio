@@ -3,4 +3,3 @@ dist
 .vite
 *.local
 .env
-.env.sentry-build-plugin
