@@ -1,6 +1,6 @@
 /**
  * Browser exception strings that are not actionable app signal.
- * Shared by PostHog Error Tracking and Sentry so both stay quiet on the same noise.
+ * Used by PostHog Error Tracking `before_send` so noise stays out of the inbox.
  */
 export const NOISE_EXCEPTIONS = [
   "ResizeObserver loop completed with undelivered notifications.",
