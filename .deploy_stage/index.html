@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>visio — tracking visuals + granular audio</title>
+    <meta
+      name="description"
+      content="Node environment in the browser: image, video, camera, or audio → tracking → WebGL graphics → granular audio from Features Grid rects."
+    />
+
+    <link rel="icon" href="./favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
+
+    <!-- `.json`, not `.webmanifest`: nginx has no MIME type for the latter and
+         a manifest served as octet-stream is ignored by strict parsers. -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- iOS ignores the manifest for home-screen installs and reads these instead. -->
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="visio" />
+    <!-- The UI is black edge-to-edge, so let it run under the status bar. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Site-wide AA traffic (GA4). Product events stay in PostHog — they do
+         not share a global and do not double-count each other. Same ID as every
+         *.dev.arthew0.online subdomain: G-CX8EBX3V58. -->
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CX8EBX3V58"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-CX8EBX3V58');
+    </script>
+    <script type="module" crossorigin src="./assets/index-DPmEXP7L.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B44ufXgE.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
