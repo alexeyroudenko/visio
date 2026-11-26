@@ -90,6 +90,12 @@ export function datamosh4(): SerializedPatch {
       durationInFrames: 300,
       keyframes: {},
     },
-    published: ["datamosh4-1:auto", "datamosh4-1:gain", "datamosh4-1:fade", "datamosh4-1:latch"],
+    published: [
+      "datamosh4-1:auto",
+      "datamosh4-1:gain",
+      "datamosh4-1:fade",
+      "datamosh4-1:latch",
+      "datamosh4-1:clear",
+    ],
   } as SerializedPatch;
 }

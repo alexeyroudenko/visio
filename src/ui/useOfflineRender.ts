@@ -19,8 +19,8 @@ import {
 import { appLog } from "../store/consoleStore";
 import { serializeCurrentPatch, useGraphStore } from "../store/graphStore";
 import { useModulatorStore } from "../store/modulatorStore";
-import { downloadPatch } from "../store/persistence";
 import { resolveRenderRange, useTimelineStore } from "../store/timelineStore";
+import { patchJsonForMetadata } from "../lib/visioPatchMeta";
 
 export interface OfflineRenderOptions {
   format?: RenderFormat;
@@ -101,6 +101,11 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       nodes: nodes.length,
     });
 
+    // Snapshot before encode so MP4 moov metadata matches the graph that
+    // produced the frames. No companion .json download — patch lives in metadata.
+    const patchJson =
+      format === "mp4" ? patchJsonForMetadata(serializeCurrentPatch()) : undefined;
+
     try {
       const { blob, outputFps: writtenFps, outputFrames } = await exportTimelineVideo(engine, {
         nodes,
@@ -116,6 +121,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         outputFps,
         bitrate,
         format,
+        patchJson,
         signal: controller.signal,
         onFrame: (frame) => {
           useTimelineStore.getState().seek(frame);
@@ -127,18 +133,14 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
           setProgress(value);
         },
       });
-      const stem = downloadTimelineRender(blob);
-      // Same basename as the video so a finished render and its graph stay paired.
-      // A short delay keeps Chromium from collapsing the second save into one click.
-      const patch = serializeCurrentPatch();
-      window.setTimeout(() => {
-        downloadPatch(patch, `${stem}.json`);
-      }, 250);
+      const stem = await downloadTimelineRender(blob);
       const videoExt = blob.type.includes("mp4") ? "mp4" : "webm";
+      const embedded =
+        videoExt === "mp4" && patchJson ? " · patch in metadata" : "";
       appLog(
         "ok",
         "render",
-        `saved · ${stem}.${videoExt} + ${stem}.json · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
+        `saved · ${stem}.${videoExt}${embedded} · ${outputFrames} frames @ ${writtenFps} fps · ${(blob.size / (1024 * 1024)).toFixed(1)} MB`,
       );
       track("render_finished", {
         frames: outputFrames,
@@ -152,20 +154,31 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
       const message = error instanceof Error ? error.message : String(error);
       const waitSec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
       if (error instanceof RenderCancelledWithPartial) {
-        const stem = downloadTimelineRender(error.blob, timelinePartialRenderStem());
-        const videoExt = error.blob.type.includes("mp4") ? "mp4" : "webm";
-        appLog(
-          "warn",
-          "render",
-          `cancelled · saved partial ${stem}.${videoExt} · ${error.framesEncoded} frames · ${(error.blob.size / (1024 * 1024)).toFixed(1)} MB`,
-        );
+        try {
+          const stem = await downloadTimelineRender(error.blob, timelinePartialRenderStem());
+          const videoExt = error.blob.type.includes("mp4") ? "mp4" : "webm";
+          appLog(
+            "warn",
+            "render",
+            `cancelled · saved partial ${stem}.${videoExt} · ${error.framesEncoded} frames · ${(error.blob.size / (1024 * 1024)).toFixed(1)} MB`,
+          );
+        } catch (saveError) {
+          if (!(saveError instanceof Error && saveError.name === "AbortError")) {
+            const saveMsg = saveError instanceof Error ? saveError.message : String(saveError);
+            appLog("error", "render", saveMsg);
+          }
+        }
         track("render_cancelled", {
           wait_sec: waitSec,
           progress: Number(latestProgress.toFixed(2)),
           partial: true,
           frames: error.framesEncoded,
         });
-      } else if (controller.signal.aborted || /cancel/i.test(message)) {
+      } else if (
+        (error instanceof Error && error.name === "AbortError") ||
+        controller.signal.aborted ||
+        /cancel/i.test(message)
+      ) {
         appLog("warn", "render", "cancelled");
         // Cancelling at 80% means something different from cancelling at 5%.
         track("render_cancelled", { wait_sec: waitSec, progress: Number(latestProgress.toFixed(2)) });
@@ -214,7 +227,7 @@ export function useOfflineRender(engineRef: RefObject<Engine | null>) {
         paramKeyframes: timeline.paramKeyframes,
         modulators,
       });
-      const stem = downloadTimelineImage(blob);
+      const stem = await downloadTimelineImage(blob);
       appLog(
         "ok",
         "render",

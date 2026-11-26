@@ -106,7 +106,7 @@ export function Toolbar({
     if (performance) setMenuOpen(false);
   }, [performance]);
 
-  // Any close path (toolbar, backdrop, preview double-click) clears blink + drop gate.
+  // Any close path (toolbar, backdrop) clears blink + drop gate.
   useEffect(() => {
     if (presetsWasOpen.current && !presetsPopupOpen) {
       setPresetsBlinking(false);

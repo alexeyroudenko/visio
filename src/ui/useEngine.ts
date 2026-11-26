@@ -3,6 +3,7 @@ import { Engine } from "../engine/runtime";
 import { applyAnalyzerBindings, graphHasAnalyzerBindings } from "../lib/analyzerBindings";
 import { audioModulatorDriveSamples, audioModulatorSamples } from "../lib/audioModSamples";
 import { bindPresetPreviewCapture } from "../lib/capturePresetPreviews";
+import { bindHoldDatamoshReset } from "../lib/holdDatamoshReset";
 import { bindPointerHoldTarget } from "../lib/pointerHold";
 import { applyKeyframesToNodes } from "../lib/keyframes";
 import {
@@ -62,7 +63,7 @@ export function useEngine(
     engine.onStatus((statuses) => useGraphStore.getState().setStatuses(statuses));
     engineRef.current = engine;
     bindPresetPreviewCapture(canvas);
-    // Hold on the output → engine passthrough (skip fx/draw/tracking).
+    // Hold on the output → Datamosh Reset (`clear`) checkbox on.
     canvas.style.touchAction = "none";
     canvas.style.cursor = "crosshair";
 
@@ -94,6 +95,7 @@ export function useEngine(
     }
 
     const unbindHold = bindPointerHoldTarget(canvas);
+    const unbindHoldReset = bindHoldDatamoshReset();
 
     const pushGraph = () => {
       const { width, height, nodes, edges } = useGraphStore.getState();
@@ -296,6 +298,7 @@ export function useEngine(
       window.visualViewport?.removeEventListener("resize", syncDisplaySize);
       clearDisplaySize();
       unbindHold();
+      unbindHoldReset();
       bindPresetPreviewCapture(null);
       engine.dispose();
       engineRef.current = null;

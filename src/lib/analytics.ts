@@ -195,6 +195,40 @@ function deviceProps(): Props {
   };
 }
 
+/** Browser noise that is not app signal — drop before Error Tracking. */
+const NOISE_EXCEPTIONS = [
+  "ResizeObserver loop completed with undelivered notifications.",
+  "ResizeObserver loop limit exceeded",
+  "Script error.",
+];
+
+function isNoiseException(message: string | undefined | null): boolean {
+  if (!message) return false;
+  const trimmed = message.trim();
+  return NOISE_EXCEPTIONS.some((noise) => trimmed === noise || trimmed.startsWith(noise));
+}
+
+/** Pull exception message strings out of a PostHog capture payload. */
+function exceptionMessages(props: Props | undefined): string[] {
+  if (!props) return [];
+  const out: string[] = [];
+  const values = props.$exception_values;
+  if (Array.isArray(values)) {
+    for (const v of values) if (typeof v === "string") out.push(v);
+  }
+  const list = props.$exception_list;
+  if (Array.isArray(list)) {
+    for (const item of list) {
+      if (item && typeof item === "object" && typeof (item as { value?: unknown }).value === "string") {
+        out.push((item as { value: string }).value);
+      }
+    }
+  }
+  const single = props.$exception_message;
+  if (typeof single === "string") out.push(single);
+  return out;
+}
+
 export function initAnalytics(): void {
   if (started || !enabled()) return;
   started = true;
@@ -211,6 +245,16 @@ export function initAnalytics(): void {
           capture_pageview: true,
           capture_pageleave: true,
           capture_exceptions: true,
+          // Chrome ResizeObserver chatter and cross-origin "Script error." are
+          // not actionable; keep Error Tracking for real app failures.
+          before_send: (event) => {
+            if (!event) return null;
+            if (event.event === "$exception") {
+              const messages = exceptionMessages(event.properties as Props | undefined);
+              if (messages.some(isNoiseException)) return null;
+            }
+            return event;
+          },
           respect_dnt: true,
           // Node bodies show file names and shader source; only chrome is safe
           // to autocapture, and everything real is a hand-written event anyway.
@@ -356,5 +400,7 @@ export function scrub(message: string): string {
       new RegExp(`(?:[\\w\\-.()\\[\\]]+ ){0,2}[\\w\\-.()\\[\\]]+\\.(?:${MEDIA_EXT})\\b`, "gi"),
       "file:…",
     )
+    // Older GL errors appended GLSL after the first line — never ship source.
+    .replace(/#version\b[\s\S]*/i, "glsl:…")
     .slice(0, 180);
 }

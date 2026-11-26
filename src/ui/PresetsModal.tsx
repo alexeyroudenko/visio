@@ -223,14 +223,14 @@ export function PresetsModal({ open, onClose }: { open: boolean; onClose: () => 
               type="button"
               className="button"
               onClick={() => fileRef.current?.click()}
-              title="Load patch from file"
+              title="Load patch from JSON, or from an MP4 with embedded Visio metadata"
             >
               Import
             </button>
             <input
               ref={fileRef}
               type="file"
-              accept="application/json"
+              accept="application/json,.json,video/mp4,.mp4,.m4v,.mov"
               hidden
               onChange={async (event) => {
                 const file = event.target.files?.[0];

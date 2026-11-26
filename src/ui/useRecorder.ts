@@ -10,6 +10,7 @@ import { useCallback, useRef, useState } from "react";
 import { scrub, track as trackEvent } from "../lib/analytics";
 import { withSourcePrefix } from "../lib/mediaName";
 import { formatBitrate, loadRenderBitrate } from "../lib/renderBitrate";
+import { saveBlob } from "../lib/saveBlob";
 import { appLog } from "../store/consoleStore";
 
 const MIME_CANDIDATES = [
@@ -119,26 +120,38 @@ export function useRecorder(getCanvas: () => HTMLCanvasElement | null) {
       const type = recorder.mimeType || mimeType || "video/webm";
       const blob = new Blob(chunksRef.current, { type });
       const sec = Number(((performance.now() - startedAt) / 1000).toFixed(1));
+      const finish = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        recorderRef.current = null;
+        setRecording(false);
+      };
       if (blob.size === 0) {
         fail("empty recording — nothing saved");
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-        link.download = `${withSourcePrefix(stamp)}.${extensionForMime(type)}`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 10_000);
-        appLog("ok", "record", `saved ${link.download}`);
-        trackEvent("record_saved", {
-          sec,
-          format: extensionForMime(type),
-          size_mb: Number((blob.size / (1024 * 1024)).toFixed(1)),
-        });
+        finish();
+        return;
       }
-      stream.getTracks().forEach((track) => track.stop());
-      recorderRef.current = null;
-      setRecording(false);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `${withSourcePrefix(stamp)}.${extensionForMime(type)}`;
+      // Instagram / similar in-app browsers turn <a download href="blob:…"> into
+      // a shared `blob:` string — saveBlob prefers Web Share with the File bytes.
+      void saveBlob(blob, filename)
+        .then((how) => {
+          appLog("ok", "record", how === "shared" ? `shared ${filename}` : `saved ${filename}`);
+          trackEvent("record_saved", {
+            sec,
+            format: extensionForMime(type),
+            size_mb: Number((blob.size / (1024 * 1024)).toFixed(1)),
+            how,
+          });
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.name === "AbortError") {
+            appLog("warn", "record", "save cancelled");
+            return;
+          }
+          fail(error instanceof Error ? error.message : "failed to save recording");
+        })
+        .finally(finish);
     };
 
     try {

@@ -7,6 +7,10 @@ interface ImportMetaEnv {
   readonly VITE_POSTHOG_HOST?: string;
   /** "1" to also send from `npm run dev`. Off by default so dev noise stays out. */
   readonly VITE_POSTHOG_DEV?: string;
+  /** Sentry browser DSN. Unset disables Sentry entirely. */
+  readonly VITE_SENTRY_DSN?: string;
+  /** "1" to also send Sentry events from `npm run dev`. Off by default. */
+  readonly VITE_SENTRY_DEV?: string;
 }
 
 interface ImportMeta {

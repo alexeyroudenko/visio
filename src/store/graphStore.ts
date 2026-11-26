@@ -579,11 +579,24 @@ function createGraphStore() {
     },
     async importPatch(file) {
       try {
-        const parsed = parsePatch(JSON.parse(await file.text()));
-        if (!parsed) {
-          appLog("error", "patch", "import failed — not a visio patch");
-          track("patch_import_failed", { reason: "not a visio patch" });
-          return "file does not look like a visio patch";
+        const { looksLikeMp4Container, readEmbeddedPatch } = await import(
+          "../lib/visioPatchMeta"
+        );
+        let parsed;
+        if (looksLikeMp4Container(file)) {
+          parsed = await readEmbeddedPatch(file);
+          if (!parsed) {
+            appLog("error", "patch", "import failed — no embedded Visio patch in video");
+            track("patch_import_failed", { reason: "no embedded patch" });
+            return "video has no embedded Visio patch";
+          }
+        } else {
+          parsed = parsePatch(JSON.parse(await file.text()));
+          if (!parsed) {
+            appLog("error", "patch", "import failed — not a visio patch");
+            track("patch_import_failed", { reason: "not a visio patch" });
+            return "file does not look like a visio patch";
+          }
         }
         get().loadPatch(parsed, `imported ${file.name}`);
         writeActivePresetId(null);
@@ -729,7 +742,7 @@ if (typeof window !== "undefined") {
   window.__visioGraphStore = useGraphStore;
 }
 
-/** Snapshot of the open document — export, autosave, presets, render sidecar. */
+/** Snapshot of the open document — export, autosave, presets, MP4 embed. */
 export function serializeCurrentPatch() {
   const { nodes, edges, width, height, published } = useGraphStore.getState();
   return serializePatch(

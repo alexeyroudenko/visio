@@ -529,8 +529,10 @@ stays in the main window and nothing is rendered twice.
 - **Render video** — toolbar opens a popup (format / fps / in–out range), then
   offline frame-by-frame timeline export (not realtime). Default format is
   **MP4** (WebCodecs via Mediabunny); WebM remains available. On finish it
-  downloads the video **and** a matching patch JSON with the same basename
-  (`clip-render-….mp4` / `.webm` + `clip-render-….json`).
+  downloads the video only (`clip-render-….mp4` / `.webm`). For MP4, the
+  current patch is embedded in file metadata (`com.visio.patch` via Mediabunny
+  mdta) so Presets → Import can restore the graph from the video alone. WebM
+  has no embedded patch (use Export for a standalone JSON if needed).
 - **Render image** — toolbar, next to video: PNG of the playhead frame at the
   patch resolution (preview quality does not apply). Basename `clip-still-….png`.
 Both video writers use the bitrate set in Settings (20 Mbps by default); fps is a
@@ -604,8 +606,16 @@ Product analytics via **PostHog Cloud (EU)**, wired in [`src/lib/analytics.ts`](
 It answers three questions: where do people give up, which node chains do they
 actually build, and which knobs do they turn.
 
+**Error monitoring** via **Sentry** ([`src/lib/sentry.ts`](src/lib/sentry.ts))
+runs alongside PostHog: uncaught exceptions + breadcrumbs, with the same
+privacy `scrub()` and the same browser-noise filter (`ResizeObserver` /
+`Script error.` in [`src/lib/errorNoise.ts`](src/lib/errorNoise.ts)). Sentry
+Session Replay is intentionally **off** — PostHog already samples replays.
+
 Off unless `VITE_POSTHOG_KEY` is set — no key, no network, no chunk. Also off
 under Do Not Track, and off in `npm run dev` unless `VITE_POSTHOG_DEV=1`.
+Sentry is independent: off unless `VITE_SENTRY_DSN` is set; same DNT /
+`?analytics=off` gate; `VITE_SENTRY_DEV=1` to send from local.
 
 **Excluding yourself:** open `…/?analytics=off` once per browser and that device
 never sends again (`?analytics=on` undoes it); it logs which state it is in.
@@ -613,9 +623,15 @@ Device-scoped on purpose — an IP filter breaks the moment you switch networks
 or pick up the phone, and PostHog's own internal-user filter only hides events
 in the UI after they have already been ingested and billed.
 Copy `.env.example` → `.env.local` to run it locally; CI reads the repo
-variables `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` (Settings → Secrets and
-variables → Actions → **Variables**). The key is public by design — it ships in
-the bundle, so it is a variable, not a secret.
+variables `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` / `VITE_SENTRY_DSN`
+(Settings → Secrets and variables → Actions → **Variables**). Keys/DSN are
+public by design — they ship in the bundle, so they are variables, not secrets.
+
+**Sentry source maps (optional):** set Actions **secret** `SENTRY_AUTH_TOKEN`
+plus variables `SENTRY_ORG` / `SENTRY_PROJECT`. When all three are present the
+Vite plugin uploads hidden maps during Deploy and deletes them from `dist/`.
+Without them, production builds skip source maps entirely (no public `.map`
+files on the static host).
 
 `posthog-js` is a dynamic import fired on `requestIdleCallback`, so it never
 competes with MediaPipe or the first GL frame: a separate 82 kB gzip chunk that
@@ -640,7 +656,8 @@ loads after the app is interactive. Events fired before it lands are queued.
 | `pwa_installable`, `pwa_install_choice`, `pwa_installed` | install prompt | whether anyone actually installs it. `app_loaded` also carries `standalone`, i.e. this session runs from the home screen |
 
 Autocapture is limited to `button`/`a`, so clicks on chrome are free but node
-bodies are not captured. Uncaught exceptions go to PostHog Error Tracking.
+bodies are not captured. Uncaught exceptions go to PostHog Error Tracking and,
+when `VITE_SENTRY_DSN` is set, to Sentry (React Error Boundary + global handlers).
 
 ### What is never sent
 

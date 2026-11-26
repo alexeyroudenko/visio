@@ -7,6 +7,7 @@ import {
   libraryImage,
   type FileParam,
 } from "../nodes/shared/fileParam";
+import { saveBlob } from "../lib/saveBlob";
 import type { SerializedPatch } from "../store/persistence";
 import { trackNoiseGlitch } from "./trackNoiseGlitch";
 import { particlesFeedback } from "./particlesFeedback";
@@ -1206,7 +1207,7 @@ export const BUILTIN_PRESETS: PatchPreset[] = [
   {
     id: "datamosh4",
     label: "Datamosh4",
-    description: "Camera → Motion Vectors → Datamosh4 — hold preview for clean source",
+    description: "Camera → Motion Vectors → Datamosh4 — hold preview for Reset",
     builtin: true,
     build: datamosh4,
   },
@@ -1852,12 +1853,10 @@ export function exportUserPresets(): {
 export function downloadUserPresets(): number {
   const bundle = exportUserPresets();
   const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  link.href = url;
-  link.download = `visio-user-presets-${stamp}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  const filename = `visio-user-presets-${stamp}.json`;
+  void saveBlob(blob, filename).catch(() => {
+    /* best-effort export */
+  });
   return bundle.presets.length;
 }

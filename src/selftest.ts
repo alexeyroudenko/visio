@@ -3671,6 +3671,34 @@ async function run(): Promise<void> {
     `mime=${mime === null ? "null" : JSON.stringify(mime)}`,
   );
 
+  const { isRestrictedInAppBrowser } = await import("./lib/saveBlob");
+  check(
+    "Instagram / Facebook / TikTok UAs are restricted in-app browsers",
+    isRestrictedInAppBrowser(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 302.0.0.0.0",
+    ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 Instagram 300.0.0.0.0",
+      ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/450.0.0.0.0]",
+      ) &&
+      isRestrictedInAppBrowser(
+        "Mozilla/5.0 (Linux; Android 13; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 TikTok 32.0.0",
+      ),
+    "restricted UA detect",
+  );
+  check(
+    "desktop Chrome / Safari are not restricted in-app browsers",
+    !isRestrictedInAppBrowser(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ) &&
+      !isRestrictedInAppBrowser(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      ),
+    "normal UA detect",
+  );
+
   const {
     clampPreviewQuality,
     DEFAULT_PREVIEW_QUALITY,
@@ -3869,6 +3897,118 @@ async function run(): Promise<void> {
     mvhdOnly.capturedAt === "2020-01-01T00:00:00.000Z" && !mvhdOnly.capturedAtHasZone,
     `captured=${mvhdOnly.capturedAt}`,
   );
+
+  // --- Visio patch embedded in MP4 metadata (mdta com.visio.patch) ----------
+  {
+    const {
+      VISIO_PATCH_META_KEY,
+      looksLikeMp4Container,
+      metadataTagsForPatch,
+      patchJsonForMetadata,
+      patchJsonFromMetadataTags,
+      readEmbeddedPatch,
+    } = await import("./lib/visioPatchMeta");
+    const tinyPatch = {
+      format: 1 as const,
+      width: 64,
+      height: 64,
+      nodes: [
+        {
+          id: "out",
+          type: "output.screen",
+          position: { x: 0, y: 0 },
+          params: {},
+        },
+      ],
+      edges: [],
+    };
+    const json = patchJsonForMetadata(tinyPatch);
+    const tags = metadataTagsForPatch(json);
+    const round = patchJsonFromMetadataTags(tags);
+    check(
+      "visio patch metadata tags round-trip the JSON string",
+      round === json &&
+        tags.raw?.[VISIO_PATCH_META_KEY] === json &&
+        typeof tags.comment === "string" &&
+        tags.comment.includes("Visio"),
+      `key=${VISIO_PATCH_META_KEY} len=${json.length}`,
+    );
+    check(
+      "looksLikeMp4Container matches common extensions and MIME",
+      looksLikeMp4Container({ name: "a.mp4", type: "" }) &&
+        looksLikeMp4Container({ name: "b.MOV", type: "" }) &&
+        looksLikeMp4Container({ name: "x.bin", type: "video/mp4" }) &&
+        !looksLikeMp4Container({ name: "p.json", type: "application/json" }),
+      "mp4/mov/mime",
+    );
+
+    // Full encode → read when WebCodecs H.264 is available (same stack as Render).
+    const canEncode =
+      typeof VideoEncoder !== "undefined" &&
+      typeof VideoFrame !== "undefined" &&
+      (await VideoEncoder.isConfigSupported({
+        codec: "avc1.42001f",
+        width: 16,
+        height: 16,
+        bitrate: 100_000,
+        framerate: 1,
+      }).then((r) => r.supported).catch(() => false));
+    if (canEncode) {
+      const {
+        BufferTarget,
+        CanvasSource,
+        Mp4OutputFormat,
+        Output,
+        Quality,
+        getFirstEncodableVideoCodec,
+      } = await import("mediabunny");
+      const canvas = document.createElement("canvas");
+      canvas.width = 16;
+      canvas.height = 16;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#224466";
+        ctx.fillRect(0, 0, 16, 16);
+      }
+      const output = new Output({
+        format: new Mp4OutputFormat({ metadataFormat: "mdta" }),
+        target: new BufferTarget(),
+      });
+      const codec = await getFirstEncodableVideoCodec(
+        output.format.getSupportedVideoCodecs(),
+        { width: 16, height: 16 },
+      );
+      if (codec) {
+        const source = new CanvasSource(canvas, {
+          codec,
+          quality: new Quality({ bitrate: 100_000 }),
+        });
+        output.addVideoTrack(source, { frameRate: 1 });
+        output.setMetadataTags(metadataTagsForPatch(json));
+        await output.start();
+        await source.add(0, 1);
+        source.close();
+        await output.finalize();
+        const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
+        const blob = new Blob([buffer!], { type: "video/mp4" });
+        const embedded = await readEmbeddedPatch(blob);
+        check(
+          "MP4 mdta embed survives Mediabunny write→read and parsePatch",
+          !!embedded &&
+            embedded.width === 64 &&
+            embedded.height === 64 &&
+            embedded.nodes.some((n) => n.data.defType === "output.screen"),
+          embedded
+            ? `nodes=${embedded.nodes.length} ${embedded.width}×${embedded.height}`
+            : "no embedded patch",
+        );
+      } else {
+        check("MP4 mdta embed round-trip (skipped — no encodable codec)", true, "skip");
+      }
+    } else {
+      check("MP4 mdta embed round-trip (skipped — no VideoEncoder)", true, "skip");
+    }
+  }
 
   const { findTopLevelBox } = await import("./lib/mp4Boxes");
   const tailFile = new Blob(
