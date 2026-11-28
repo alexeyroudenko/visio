@@ -15,6 +15,7 @@
  */
 import type { ParamSpec } from "../engine/types";
 import { isStandalone } from "./displayMode";
+import { isNoiseException } from "./errorNoise";
 
 // `||`, not `??`: an unset GitHub Actions variable arrives as an empty string,
 // and an empty api_host makes posthog-js post to the current origin instead of
@@ -193,19 +194,6 @@ function deviceProps(): Props {
     nodes: launchContext?.nodes ?? null,
     edges: launchContext?.edges ?? null,
   };
-}
-
-/** Browser noise that is not app signal — drop before Error Tracking. */
-const NOISE_EXCEPTIONS = [
-  "ResizeObserver loop completed with undelivered notifications.",
-  "ResizeObserver loop limit exceeded",
-  "Script error.",
-];
-
-function isNoiseException(message: string | undefined | null): boolean {
-  if (!message) return false;
-  const trimmed = message.trim();
-  return NOISE_EXCEPTIONS.some((noise) => trimmed === noise || trimmed.startsWith(noise));
 }
 
 /** Pull exception message strings out of a PostHog capture payload. */

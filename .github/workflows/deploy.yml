@@ -45,15 +45,6 @@ jobs:
           # ships to every visitor, and an empty value simply disables analytics.
           VITE_POSTHOG_KEY: ${{ vars.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
-          # Public Sentry DSN — same rule as PostHog: variable, not secret.
-          # Empty = Sentry off; PostHog Error Tracking still works if keyed.
-          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
-          # Source-map upload (optional). Auth token is a *secret*. When
-          # SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT are all set, the
-          # Vite plugin uploads hidden maps then deletes them from dist/.
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: npm run build
 
       - name: Setup SSH
